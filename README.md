@@ -10,6 +10,7 @@ AI-Powered Aviation Training & Simulation Platform built with NuxtJS, TailwindCS
 
 ```bash
 # Install dependencies
+cd frontend
 pnpm install
 
 # Start development server
@@ -28,19 +29,21 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 
 ```
 horus-mvp/
-├── app/
-│   ├── components/
-│   │   ├── ui/                    # Design system components (H prefix)
-│   │   ├── shared/                # Shared layout components
-│   │   ├── scenario-architect/    # Route & Scenario configuration
-│   │   └── mission-hub/           # Live mission components
-│   ├── composables/               # State management
-│   ├── layouts/                   # Page layouts
-│   ├── pages/                     # Route pages
-│   └── assets/css/                # Global styles
-├── nuxt.config.ts
-├── tailwind.config.ts
-└── package.json
+├── frontend/                       # Nuxt.js application
+│   ├── app/
+│   │   ├── components/
+│   │   │   ├── ui/                    # Design system components (H prefix)
+│   │   │   ├── shared/                # Shared layout components
+│   │   │   ├── scenario-architect/    # Route & Scenario configuration
+│   │   │   └── mission-hub/           # Live mission components
+│   │   ├── composables/               # State management
+│   │   ├── layouts/                   # Page layouts
+│   │   ├── pages/                     # Route pages
+│   │   └── assets/css/                # Global styles
+│   ├── nuxt.config.ts
+│   ├── tailwind.config.ts
+│   └── package.json
+└── backend/                       # Python FastAPI backend
 ```
 
 ## 🎨 Design System
@@ -83,7 +86,7 @@ horus-mvp/
 Follows micro-frontend principles:
 
 1. **Feature-based modules** - Components grouped by domain
-2. **Shared composables** - Cross-cutting state management  
+2. **Shared composables** - Cross-cutting state management
 3. **Design system** - Consistent UI components
 4. **Independent modules** - Each module can render independently
 

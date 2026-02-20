@@ -133,5 +133,8 @@ function togglePanel() {
         @click="isSidebarOpen = false; isPanelOpen = false"
       />
     </Transition>
+
+    <!-- Voice Communication Bubble -->
+    <VoiceCommBubble />
   </div>
 </template>

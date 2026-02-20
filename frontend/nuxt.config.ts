@@ -4,11 +4,17 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
 
   modules: [
-    '@nuxtjs/tailwindcss',
     '@nuxt/icon',
   ],
 
   css: ['~/assets/css/main.css'],
+
+  postcss: {
+    plugins: {
+      tailwindcss: {},
+      autoprefixer: {},
+    },
+  },
 
   components: [
     { path: '~/components/ui', pathPrefix: false },
@@ -30,9 +36,5 @@ export default defineNuxtConfig({
         { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap' }
       ]
     }
-  },
-
-  tailwindcss: {
-    configPath: 'tailwind.config.ts',
   },
 })

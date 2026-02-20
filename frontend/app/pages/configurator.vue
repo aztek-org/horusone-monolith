@@ -16,7 +16,7 @@ function handleExecuteSimulation() {
 <template>
   <NuxtLayout>
     <template #header>
-      <AppHeader title="Route & Scenario Architect" subtitle="TRAINING SYSTEM V4.0">
+      <AppHeader title="Route & Scenario Architect" subtitle="TRAINING SYSTEM - HORUS V.0.2-TOKYO">
         <template #action>
           <HButton
             variant="primary"
@@ -29,21 +29,21 @@ function handleExecuteSimulation() {
         </template>
       </AppHeader>
     </template>
-    
+
     <template #sidebar>
       <RouteChecklist />
     </template>
-    
+
     <template #default>
       <div class="p-4 lg:p-6 space-y-4">
         <!-- Chart Layers -->
         <ChartLayers />
-        
+
         <!-- Map Visualization -->
         <MapVisualization />
       </div>
     </template>
-    
+
     <template #panel>
       <AICopilotParams />
     </template>
