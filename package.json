@@ -1,0 +1,17 @@
+{
+  "name": "horus-mvp",
+  "private": true,
+  "description": "AI-Powered Aviation Training & Simulation Platform",
+  "scripts": {
+    "dev:frontend": "cd frontend && pnpm dev",
+    "dev:backend": "cd backend && source .venv/bin/activate && uvicorn app.main:app --reload --port 8000",
+    "build:frontend": "cd frontend && pnpm build",
+    "lint:frontend": "cd frontend && pnpm lint",
+    "lint:backend": "cd backend && source .venv/bin/activate && ruff check app/ && mypy app/",
+    "format:frontend": "cd frontend && pnpm format",
+    "format:backend": "cd backend && source .venv/bin/activate && ruff format app/",
+    "test:frontend": "cd frontend && pnpm test",
+    "test:backend": "cd backend && source .venv/bin/activate && pytest tests/ -v",
+    "test:backend:cov": "cd backend && source .venv/bin/activate && pytest tests/ --cov=app --cov-report=term-missing"
+  }
+}

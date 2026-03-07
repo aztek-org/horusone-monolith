@@ -1,0 +1,19 @@
+# CODEOWNERS
+# Each line is a file pattern followed by one or more owners.
+# Owners are automatically requested for review when someone opens a PR that modifies code that matches a pattern.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global fallback — owner of the entire repo
+*                           @denim
+
+# Backend Python code
+/backend/                   @denim
+
+# Frontend code
+/frontend/                  @denim
+
+# GitHub configuration and Copilot skills
+/.github/                   @denim
+
+# Documentation
+/docs/                      @denim

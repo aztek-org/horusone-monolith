@@ -5,9 +5,13 @@ export default defineNuxtConfig({
 
   modules: [
     '@nuxt/icon',
+    '@nuxt/eslint',
   ],
 
-  css: ['~/assets/css/main.css'],
+  css: [
+    '~/assets/css/main.css',
+    'leaflet/dist/leaflet.css'
+  ],
 
   postcss: {
     plugins: {

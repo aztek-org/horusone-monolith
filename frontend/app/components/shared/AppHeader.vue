@@ -156,8 +156,8 @@ onMounted(() => {
             >
               <!-- User Info -->
               <div class="px-4 py-3 border-b border-horus-border-subtle">
-                <p class="text-sm font-medium text-horus-text-primary">Pilot User</p>
-                <p class="text-xs text-horus-text-muted">pilot@horus.aviation</p>
+                <p class="text-sm font-medium text-horus-text-primary">Martin Sg</p>
+                <p class="text-xs text-horus-text-muted">hi@horus.aviation</p>
               </div>
 
               <!-- Menu Items -->
