@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import health, voice
+from app.api.v1 import scenarios, sessions
 from app.config import get_settings
 
 # Configure logging
@@ -41,6 +42,11 @@ app.add_middleware(
 app.include_router(health.router, tags=["Health"])
 app.include_router(voice.router, tags=["Voice"])
 
+# API v1 routes
+api_v1_prefix = "/api/v1"
+app.include_router(scenarios.router, prefix=api_v1_prefix)
+app.include_router(sessions.router, prefix=api_v1_prefix)
+
 
 @app.on_event("startup")
 async def startup_event() -> None:
@@ -75,6 +81,10 @@ async def root() -> dict:
             "health": "/health",
             "voice_websocket": "/ws/voice",
             "docs": "/docs",
+            "api_v1": {
+                "scenarios": "/api/v1/scenarios",
+                "sessions": "/api/v1/sessions",
+            },
         },
     }
 

@@ -1,4 +1,11 @@
-# Skill: Add a New Database Model + Migration
+---
+name: Add Database Model
+description: >
+  Guide to create a new SQLAlchemy ORM model with Alembic migration, repository,
+  and Pydantic schemas for the Horus backend database.
+---
+
+# Add a New Database Model + Migration
 
 Use this skill when adding a new entity to the Horus backend database.
 
@@ -7,7 +14,6 @@ Use this skill when adding a new entity to the Horus backend database.
 ### 1. Create the SQLAlchemy Model (`app/models/<entity>.py`)
 
 ```python
-"""SQLAlchemy model for <Entity>."""
 from datetime import datetime
 
 from sqlalchemy import String, Text, ForeignKey, DateTime, func
@@ -17,14 +23,6 @@ from app.db.base import Base
 
 
 class <Entity>(Base):
-    """<Entity> model.
-
-    Attributes:
-        id: Primary key.
-        name: Human-readable name.
-        created_at: Record creation timestamp.
-    """
-
     __tablename__ = "<entities>"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -34,23 +32,19 @@ class <Entity>(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    # Relationships (if needed)
-    # items: Mapped[list["RelatedModel"]] = relationship(back_populates="<entity>")
-
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} id={self.id} name={self.name!r}>"
 ```
 
-### 2. Import the model in `app/db/base.py`
+### 2. Register the model in `app/db/registry.py`
 
 ```python
-# Make sure models are imported before Alembic autogenerate runs
 from app.models.<entity> import <Entity>  # noqa: F401
 ```
 
 ### 3. Create the Pydantic Schemas (`app/schemas/<entity>.py`)
 
-See `add-api-endpoint.md` for schema template.
+See the `add-api-endpoint` skill for the schema template.
 
 ### 4. Create the Repository (`app/db/repositories/<entity>_repo.py`)
 
@@ -68,17 +62,10 @@ class <Entity>Repository(BaseRepository[<Entity>, <Entity>Create]):
 
 ```bash
 cd backend
-source .venv/bin/activate
-
-# Auto-generate migration from model changes
 alembic revision --autogenerate -m "add_<entity>_table"
-
-# Review the generated migration file in alembic/versions/
-# Then apply it:
+# Review the generated migration, then apply:
 alembic upgrade head
 ```
-
-> ⚠️ Always review auto-generated migrations before applying. Alembic may miss some changes or generate incorrect SQL for complex types.
 
 ### 6. Column Type Reference
 
@@ -91,36 +78,19 @@ alembic upgrade head
 | `datetime` | `DateTime(timezone=True)` | Always use timezone=True |
 | `uuid.UUID` | `Uuid` | For public-facing IDs |
 | `dict` | `JSON` | For flexible metadata |
-| enum | `Enum(MyEnum)` | Use Python enum class |
 
 ### 7. Foreign Key Pattern
 
 ```python
-# In the child model:
+# Child model:
 parent_id: Mapped[int] = mapped_column(ForeignKey("parents.id"), nullable=False)
 parent: Mapped["ParentModel"] = relationship(back_populates="children")
 
-# In the parent model:
+# Parent model:
 children: Mapped[list["ChildModel"]] = relationship(back_populates="parent")
 ```
 
-### 8. Write Model Tests (`tests/unit/models/test_<entity>.py`)
-
-```python
-import pytest
-from app.models.<entity> import <Entity>
-
-
-def test_<entity>_repr() -> None:
-    entity = <Entity>(id=1, name="Test")
-    assert "Test" in repr(entity)
-
-
-def test_<entity>_tablename() -> None:
-    assert <Entity>.__tablename__ == "<entities>"
-```
-
-## After Adding a Model
+### 8. Run checks
 
 ```bash
 cd backend

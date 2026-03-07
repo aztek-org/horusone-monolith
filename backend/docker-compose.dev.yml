@@ -1,0 +1,18 @@
+# Docker Compose dev overrides
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+services:
+  backend:
+    build:
+      target: builder  # Use builder stage for faster rebuilds in dev
+    volumes:
+      - ../app:/app/app:ro      # Mount source for hot reload
+      - ../alembic:/app/alembic:ro
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-dir /app/app

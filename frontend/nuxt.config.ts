@@ -3,6 +3,19 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
 
+  // Cloudflare Pages deployment
+  nitro: {
+    preset: process.env.CF_PAGES ? 'cloudflare-pages' : undefined,
+  },
+
+  // Runtime config — values injected from env at build time
+  runtimeConfig: {
+    public: {
+      apiUrl: process.env.NUXT_PUBLIC_API_URL ?? 'http://localhost:8000',
+      wsUrl: process.env.NUXT_PUBLIC_WS_URL ?? 'ws://localhost:8000/ws/voice',
+    },
+  },
+
   modules: [
     '@nuxt/icon',
     '@nuxt/eslint',

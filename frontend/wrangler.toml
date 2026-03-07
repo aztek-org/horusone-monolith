@@ -1,0 +1,16 @@
+name = "horus-frontend"
+pages_build_output_dir = ".output/public"
+compatibility_date = "2025-07-15"
+
+[build]
+command = "pnpm build"
+
+[build.environment]
+# Set CF_PAGES=1 to activate the cloudflare-pages Nitro preset
+CF_PAGES = "1"
+NODE_VERSION = "20"
+
+# Environment variables exposed to the app at build time.
+# Set the actual values in the Cloudflare Pages dashboard → Settings → Environment variables.
+# NUXT_PUBLIC_API_URL = "https://api.yourdomain.com"
+# NUXT_PUBLIC_WS_URL  = "wss://api.yourdomain.com/ws/voice"

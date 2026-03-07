@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
+    # Database
+    database_url: str = "postgresql+asyncpg://horus:horus@localhost:5432/horus_db"
+
     # Logging
     log_level: str = "INFO"
 

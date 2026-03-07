@@ -29,8 +29,9 @@ export const useVoiceComm = () => {
   let audioContext: AudioContext | null = null
   let audioChunks: Blob[] = []
 
-  // WebSocket URL (configurable via env)
-  const wsUrl = 'ws://localhost:8000/ws/voice'
+  // WebSocket URL from runtime config (set via NUXT_PUBLIC_WS_URL env var)
+  const config = useRuntimeConfig()
+  const wsUrl = config.public.wsUrl as string
 
   /**
    * Connect to the WebSocket server

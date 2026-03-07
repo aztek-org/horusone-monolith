@@ -1,4 +1,11 @@
-# Skill: Add a New FastAPI API Endpoint
+---
+name: Add API Endpoint
+description: >
+  Step-by-step guide to add a new FastAPI REST endpoint to the Horus backend,
+  including Pydantic schemas, repository, route registration, and tests.
+---
+
+# Add a New FastAPI API Endpoint
 
 Use this skill when adding a new REST endpoint to the Horus backend.
 
@@ -12,13 +19,11 @@ from datetime import datetime
 
 
 class <Resource>Base(BaseModel):
-    # Fields common to Create and Response
     name: str
     description: str | None = None
 
 
 class <Resource>Create(<Resource>Base):
-    # Fields only needed on creation
     pass
 
 
@@ -48,7 +53,7 @@ class <Resource>Repository(BaseRepository[<Resource>, <Resource>Create]):
         return result.scalar_one_or_none()
 ```
 
-### 3. Add the route (`app/api/routes/<domain>.py`)
+### 3. Add the route (`app/api/v1/<domain>.py`)
 
 ```python
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -66,7 +71,6 @@ repo = <Resource>Repository()
 async def list_<resources>(
     session: AsyncSession = Depends(get_db_session),
 ) -> list[<Resource>Response]:
-    """List all <resources>."""
     return await repo.get_all(session)
 
 
@@ -75,7 +79,6 @@ async def create_<resource>(
     data: <Resource>Create,
     session: AsyncSession = Depends(get_db_session),
 ) -> <Resource>Response:
-    """Create a new <resource>."""
     return await repo.create(session, data)
 
 
@@ -84,7 +87,6 @@ async def get_<resource>(
     id: int,
     session: AsyncSession = Depends(get_db_session),
 ) -> <Resource>Response:
-    """Get a specific <resource> by ID."""
     item = await repo.get_by_id(session, id)
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="<Resource> not found")
@@ -94,9 +96,7 @@ async def get_<resource>(
 ### 4. Register the router in `app/main.py`
 
 ```python
-from app.api.routes import <domain>
-
-# Inside the file, after other router includes:
+from app.api.v1 import <domain>
 app.include_router(<domain>.router, prefix="/api/v1", tags=["<Resources>"])
 ```
 

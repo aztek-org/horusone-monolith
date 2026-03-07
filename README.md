@@ -1,10 +1,22 @@
-# Horus MVP - Aviation Training Platform
+# Horus — Aviation Training Platform
 
-AI-Powered Aviation Training & Simulation Platform built with NuxtJS, TailwindCSS, and TypeScript.
+AI-Powered Aviation Training & Simulation Platform with real-time ATC voice communication.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Nuxt](https://img.shields.io/badge/Nuxt-4.x-00DC82.svg)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.x-38B2AC.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB.svg)
+
+## Architecture
+
+| Layer | Tech | Deployment |
+|-------|------|-----------|
+| Frontend | Nuxt 4 + Vue 3 + TailwindCSS | Cloudflare Pages |
+| Backend | FastAPI + Python 3.11 | Private VPS (Docker Compose) |
+| Database | PostgreSQL 16 via SQLAlchemy 2 async | VPS (Docker) |
+| LLM | Ollama (llama3) + LangChain | VPS (Docker) |
+| STT | OpenAI Whisper | VPS |
+| TTS | Coqui TTS / gTTS | VPS |
 
 ## 🚀 Quick Start
 
@@ -24,6 +36,8 @@ pnpm preview
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the application.
+
+> **Full setup guide**: see [`docs/development.md`](docs/development.md)
 
 ## 📁 Project Structure
 

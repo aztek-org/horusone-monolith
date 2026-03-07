@@ -2,6 +2,7 @@
 
 import io
 import logging
+from dataclasses import dataclass
 
 import numpy as np
 import soundfile as sf
@@ -12,6 +13,23 @@ from app.services.stt.whisper_service import WhisperSTTService
 from app.services.tts.tts_service import TTSService
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PipelineResult:
+    """Result of a full audio pipeline processing run.
+
+    Attributes:
+        audio: Processed ATC response audio (WAV bytes). Empty bytes if pipeline failed.
+        pilot_transcript: What the pilot said (from STT).
+        atc_response: What the ATC responded with (from LLM).
+        language: Detected language code (e.g. "en", "es").
+    """
+
+    audio: bytes
+    pilot_transcript: str
+    atc_response: str
+    language: str
 
 
 class AudioPipeline:
@@ -32,7 +50,7 @@ class AudioPipeline:
         self,
         audio_data: bytes,
         context: dict | None = None,
-    ) -> bytes:
+    ) -> PipelineResult:
         """Process audio through the complete pipeline.
 
         Flow: Audio -> STT -> ATC Agent -> TTS -> Radio Effects -> Audio
@@ -42,8 +60,9 @@ class AudioPipeline:
             context: Optional flight context
 
         Returns:
-            Processed audio response (WAV bytes)
+            PipelineResult with processed audio and transcripts.
         """
+        empty_result = PipelineResult(audio=b"", pilot_transcript="", atc_response="", language="en")
         try:
             # Step 1: Speech to Text (with language detection)
             logger.info("Step 1: Transcribing pilot audio...")
@@ -53,7 +72,7 @@ class AudioPipeline:
 
             if not pilot_text:
                 logger.warning("No transcription received, returning silence")
-                return b""
+                return empty_result
 
             logger.info(f"Pilot said ({detected_language}): {pilot_text}")
 
@@ -72,18 +91,25 @@ class AudioPipeline:
 
             if not atc_audio_bytes:
                 logger.warning("No audio synthesized, returning silence")
-                return b""
+                return PipelineResult(
+                    audio=b"", pilot_transcript=pilot_text, atc_response=atc_text, language=detected_language
+                )
 
             # Step 4: Apply Radio Effects
             logger.info("Step 4: Applying radio effects...")
             atc_audio_bytes = await self._apply_effects_to_bytes(atc_audio_bytes)
 
             logger.info("Pipeline processing complete")
-            return atc_audio_bytes
+            return PipelineResult(
+                audio=atc_audio_bytes,
+                pilot_transcript=pilot_text,
+                atc_response=atc_text,
+                language=detected_language,
+            )
 
         except Exception as e:
             logger.error(f"Error in audio pipeline: {e}", exc_info=True)
-            return b""
+            return empty_result
 
     async def _apply_effects_to_bytes(self, audio_bytes: bytes) -> bytes:
         """Apply radio effects to audio bytes.
