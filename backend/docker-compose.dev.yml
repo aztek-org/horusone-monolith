@@ -16,3 +16,7 @@ services:
       --port 8000
       --reload
       --reload-dir /app/app
+
+  keycloak:
+    environment:
+      KC_LOG_LEVEL: DEBUG

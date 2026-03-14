@@ -13,6 +13,9 @@ export default defineNuxtConfig({
     public: {
       apiUrl: process.env.NUXT_PUBLIC_API_URL ?? 'http://localhost:8000',
       wsUrl: process.env.NUXT_PUBLIC_WS_URL ?? 'ws://localhost:8000/ws/voice',
+      keycloakUrl: process.env.NUXT_PUBLIC_KEYCLOAK_URL ?? 'http://localhost:8080',
+      keycloakRealm: process.env.NUXT_PUBLIC_KEYCLOAK_REALM ?? 'horus',
+      keycloakClientId: process.env.NUXT_PUBLIC_KEYCLOAK_CLIENT_ID ?? 'horus-web',
     },
   },
 

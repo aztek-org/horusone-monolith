@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.repositories.session_repo import TrainingSessionRepository
 from app.db.session import get_db_session
+from app.middleware.auth import CurrentUser
 from app.schemas.training_session import TrainingSessionCreate, TrainingSessionResponse
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,7 @@ repo = TrainingSessionRepository()
 
 @router.get("/", response_model=list[TrainingSessionResponse])
 async def list_sessions(
+    _user: CurrentUser,
     limit: int = 100,
     offset: int = 0,
     session: AsyncSession = Depends(get_db_session),
@@ -26,6 +28,7 @@ async def list_sessions(
 @router.post("/", response_model=TrainingSessionResponse, status_code=status.HTTP_201_CREATED)
 async def create_session(
     data: TrainingSessionCreate,
+    _user: CurrentUser,
     session: AsyncSession = Depends(get_db_session),
 ) -> TrainingSessionResponse:
     """Create a new training session."""
@@ -37,6 +40,7 @@ async def create_session(
 @router.get("/{session_id}", response_model=TrainingSessionResponse)
 async def get_session(
     session_id: int,
+    _user: CurrentUser,
     session: AsyncSession = Depends(get_db_session),
 ) -> TrainingSessionResponse:
     """Get a specific training session by ID."""

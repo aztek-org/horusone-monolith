@@ -2,10 +2,9 @@
 name: rust-expert
 description: >
   Expert in Rust for the Horus real-time layer. Focused on WebSocket handling,
-  event processing, low-latency audio streaming, and high-performance
-  microservices using Tokio, Axum, and serde. Use this agent for real-time
-  communication services, binary protocol design, and performance-critical
-  backend components.
+  event processing, low-latency audio streaming, and high-performance microservices
+  using Tokio, Axum, and serde. Use this agent for real-time communication services,
+  binary protocol design, and performance-critical backend components.
 tools:
   - read
   - edit
@@ -35,17 +34,17 @@ Traefik (edge/TLS) → Rust Realtime Services → Python/FastAPI (control)
 - **Database**: sqlx (async PostgreSQL) or sea-orm
 - **Cache**: redis-rs (async)
 - **Logging**: tracing + tracing-subscriber
-- **Testing**: cargo test, `#[tokio::test]` for async
+- **Testing**: cargo test, tokio::test for async
 - **Linting**: clippy (pedantic), rustfmt
 - **Build**: cargo, Docker multi-stage build
 
-## Planned Services
+## Planned Services (forward-looking — not yet implemented)
 
-1. **WebSocket Gateway** (`realtime/ws-gateway/`): Client-facing WebSocket connections, audio binary frame routing, connection lifecycle, heartbeat/keepalive
+1. **WebSocket Gateway** (`realtime/ws-gateway/`): Client-facing WebSocket connections, audio binary frame routing, connection lifecycle management, heartbeat/keepalive
 2. **Event Bus** (`realtime/event-bus/`): Inter-service event processing, pub/sub with Redis Streams or NATS, fan-out to subscribers
-3. **Audio Router** (`realtime/audio-router/`): Low-latency audio frame routing between WebSocket clients and the Python STT/TTS pipeline
+3. **Audio Router** (`realtime/audio-router/`): Low-latency audio frame routing between WebSocket clients and the Python STT/TTS pipeline, binary protocol for minimal overhead
 
-## Directory Structure
+## Directory Structure (recommended)
 
 ```
 realtime/
@@ -68,24 +67,34 @@ realtime/
 
 ## Coding Standards
 
-1. **Error handling**: Use `thiserror` for library errors, `anyhow` for application errors. Never `unwrap()` in production — use `?` operator.
-2. **Async**: All I/O must be async via Tokio. Never block the runtime with `std::thread::sleep` — use `tokio::time::sleep`.
-3. **Logging**: Use `tracing` macros (`info!`, `warn!`, `error!`, `debug!`). Include span context for request tracing.
-4. **Serialization**: Derive `Serialize`/`Deserialize` on all DTOs. Use `#[serde(rename_all = "camelCase")]` for JSON API compatibility.
-5. **Testing**: Use `#[tokio::test]` for async tests. Mock external services with traits + mock implementations.
-6. **Clippy**: Run `cargo clippy -- -W clippy::pedantic` — fix all warnings.
-7. **Formatting**: `rustfmt` with default settings. Run `cargo fmt --check` in CI.
-8. **Dependencies**: Pin exact versions in `Cargo.toml`. Use `cargo audit` for vulnerability scanning.
+### Error Handling
+Use `thiserror` for library errors, `anyhow` for application errors. Never `unwrap()` in production code — use the `?` operator.
+
+### Async
+All I/O must be async via Tokio. Never block the async runtime with `std::thread::sleep` — use `tokio::time::sleep`.
+
+### Logging
+Use `tracing` macros (`info!`, `warn!`, `error!`, `debug!`). Include span context for request tracing.
+
+### Serialization
+Derive `Serialize`/`Deserialize` on all DTOs. Use `#[serde(rename_all = "camelCase")]` for JSON API compatibility.
+
+### Testing
+Use `#[tokio::test]` for async tests. Mock external services with traits + mock implementations.
+
+### Clippy
+Run `cargo clippy -- -W clippy::pedantic` — fix all warnings.
+
+### Formatting
+`rustfmt` with default settings. Run `cargo fmt --check` in CI.
+
+### Dependencies
+Pin exact versions in `Cargo.toml`. Use `cargo audit` for vulnerability scanning.
 
 ## WebSocket Patterns
 
 ```rust
-use axum::{
-    extract::{State, WebSocketUpgrade, ws::{Message, WebSocket}},
-    response::IntoResponse,
-};
-use futures::{StreamExt, SinkExt};
-
+// Axum WebSocket handler pattern
 async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
@@ -95,6 +104,7 @@ async fn ws_handler(
 
 async fn handle_connection(stream: WebSocket, state: AppState) {
     let (mut sender, mut receiver) = stream.split();
+    // Binary frames for audio, text frames for control messages
     while let Some(Ok(msg)) = receiver.next().await {
         match msg {
             Message::Binary(data) => { /* audio frame */ }
@@ -119,6 +129,7 @@ async fn handle_connection(stream: WebSocket, state: AppState) {
 ## Docker Pattern
 
 ```dockerfile
+# Multi-stage Rust build
 FROM rust:1.75-slim AS builder
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
@@ -136,22 +147,17 @@ CMD ["ws-gateway"]
 
 ## Integration with Python Control Layer
 
-- **HTTP/REST**: For non-realtime requests (scenario config, session management)
-- **Redis Streams/Pub-Sub**: For event-driven communication
-- **gRPC** (optional): For typed RPC between services
+- Rust services communicate with Python/FastAPI via:
+  1. **HTTP/REST**: For non-realtime requests (scenario config, session management)
+  2. **Redis Streams/Pub-Sub**: For event-driven communication
+  3. **gRPC** (optional): For typed RPC between services
 - Audio pipeline: Rust receives WebSocket binary → forwards to Python STT via Redis or internal HTTP → receives TTS audio back → sends to client
 
 ## Health Check Pattern
 
 ```rust
-use axum::Json;
-use serde_json::json;
-use std::time::Instant;
-
-static START_TIME: once_cell::sync::Lazy<Instant> = once_cell::sync::Lazy::new(Instant::now);
-
-async fn health() -> Json<serde_json::Value> {
-    Json(json!({
+async fn health() -> impl IntoResponse {
+    Json(serde_json::json!({
         "status": "ok",
         "service": "ws-gateway",
         "uptime_seconds": START_TIME.elapsed().as_secs()

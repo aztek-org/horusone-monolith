@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.repositories.scenario_repo import ScenarioRepository
 from app.db.session import get_db_session
+from app.middleware.auth import CurrentUser
 from app.schemas.scenario import ScenarioCreate, ScenarioResponse
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,7 @@ repo = ScenarioRepository()
 
 @router.get("/", response_model=list[ScenarioResponse])
 async def list_scenarios(
+    _user: CurrentUser,
     limit: int = 100,
     offset: int = 0,
     session: AsyncSession = Depends(get_db_session),
@@ -26,6 +28,7 @@ async def list_scenarios(
 @router.post("/", response_model=ScenarioResponse, status_code=status.HTTP_201_CREATED)
 async def create_scenario(
     data: ScenarioCreate,
+    _user: CurrentUser,
     session: AsyncSession = Depends(get_db_session),
 ) -> ScenarioResponse:
     """Create a new training scenario."""
@@ -37,6 +40,7 @@ async def create_scenario(
 @router.get("/{scenario_id}", response_model=ScenarioResponse)
 async def get_scenario(
     scenario_id: int,
+    _user: CurrentUser,
     session: AsyncSession = Depends(get_db_session),
 ) -> ScenarioResponse:
     """Get a specific training scenario by ID."""

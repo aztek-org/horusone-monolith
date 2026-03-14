@@ -48,6 +48,16 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://horus:horus@localhost:5432/horus_db"
 
+    # Redis
+    redis_url: str = "redis://localhost:6379/0"
+
+    # Keycloak / Authentication
+    keycloak_issuer_url: str = "http://localhost:8080/realms/horus"
+    keycloak_jwks_url: str = ""
+    keycloak_client_id: str = "horus-api"
+    keycloak_admin_url: str = "http://localhost:8080/admin/realms/horus"
+    auth_enabled: bool = True
+
     # Logging
     log_level: str = "INFO"
 
@@ -55,6 +65,13 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> List[str]:
         """Parse CORS origins into a list."""
         return [origin.strip() for origin in self.cors_origins.split(",")]
+
+    @property
+    def resolved_jwks_url(self) -> str:
+        """Get JWKS URL, deriving from issuer if not explicitly set."""
+        if self.keycloak_jwks_url:
+            return self.keycloak_jwks_url
+        return f"{self.keycloak_issuer_url}/protocol/openid-connect/certs"
 
 
 @lru_cache()
