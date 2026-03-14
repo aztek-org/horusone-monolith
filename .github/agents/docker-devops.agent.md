@@ -120,18 +120,128 @@ You are a **senior DevOps / infrastructure engineer** specializing in Docker, co
 4. Update `docs/development.md` with new setup steps
 5. If the service needs TLS, add nginx/Caddy config
 
-## Reverse Proxy Template (Caddy — recommended)
+## Reverse Proxy — Traefik (preferred)
 
-```caddy
-api.yourdomain.com {
-    reverse_proxy backend:8000
+```yaml
+# docker-compose.yml — Traefik service
+traefik:
+  image: traefik:v3.1
+  container_name: horus-traefik
+  restart: unless-stopped
+  command:
+    - "--api.dashboard=false"
+    - "--providers.docker=true"
+    - "--providers.docker.exposedbydefault=false"
+    - "--entrypoints.web.address=:80"
+    - "--entrypoints.websecure.address=:443"
+    - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+    - "--certificatesresolvers.letsencrypt.acme.email=admin@horusone.app"
+    - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+  ports:
+    - "80:80"
+    - "443:443"
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - letsencrypt:/letsencrypt
+  networks:
+    - horus-net
 
-    @websockets {
-        header Connection *Upgrade*
-        header Upgrade websocket
-    }
-    reverse_proxy @websockets backend:8000
-}
+# Backend labels for Traefik routing
+backend:
+  labels:
+    - "traefik.enable=true"
+    - "traefik.http.routers.api.rule=Host(`api.horusone.app`)"
+    - "traefik.http.routers.api.tls=true"
+    - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+    - "traefik.http.services.api.loadbalancer.server.port=8000"
+```
+
+## Keycloak Service
+
+```yaml
+keycloak:
+  image: keycloak/keycloak:24-alpine
+  container_name: horus-keycloak
+  command: start-dev
+  environment:
+    KC_DB: postgres
+    KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+    KC_DB_USERNAME: keycloak
+    KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    KC_HOSTNAME: auth.horusone.app
+    KC_PROXY_HEADERS: xforwarded
+    KEYCLOAK_ADMIN: admin
+    KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+  depends_on:
+    postgres:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready || exit 1"]
+    interval: 15s
+    timeout: 5s
+    retries: 10
+  labels:
+    - "traefik.enable=true"
+    - "traefik.http.routers.keycloak.rule=Host(`auth.horusone.app`)"
+    - "traefik.http.routers.keycloak.tls=true"
+    - "traefik.http.routers.keycloak.tls.certresolver=letsencrypt"
+    - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+```
+
+## Redis Service
+
+```yaml
+redis:
+  image: redis:7-alpine
+  container_name: horus-redis
+  restart: unless-stopped
+  command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+  volumes:
+    - redis_data:/data
+  healthcheck:
+    test: ["CMD", "redis-cli", "ping"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+```
+
+## Rust/Go Service Dockerfile Patterns
+
+### Rust Service
+```dockerfile
+FROM rust:1.75-slim AS builder
+WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
+COPY src/ src/
+RUN cargo build --release
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /app/target/release/service /usr/local/bin/
+USER 1000:1000
+EXPOSE 8080
+HEALTHCHECK CMD curl -f http://localhost:8080/health || exit 1
+CMD ["service"]
+```
+
+### Go Service
+```dockerfile
+FROM golang:1.22-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /server ./cmd/server
+
+FROM alpine:3.19
+RUN apk --no-cache add ca-certificates
+COPY --from=builder /server /usr/local/bin/server
+USER 1000:1000
+EXPOSE 8081
+HEALTHCHECK CMD wget -qO- http://localhost:8081/health || exit 1
+CMD ["server"]
 ```
 
 ## Monitoring and Logging
@@ -140,4 +250,6 @@ api.yourdomain.com {
 - Backend health endpoint: `GET /health/ready` (checks Ollama, Whisper, TTS, DB)
 - PostgreSQL health: `pg_isready -U horus -d horus_db`
 - Ollama health: `curl http://ollama:11434/api/tags`
+- Keycloak health: `curl http://keycloak:8080/health/ready`
+- Redis health: `redis-cli ping`
 - Consider adding Prometheus metrics endpoint to FastAPI with `prometheus-fastapi-instrumentator`

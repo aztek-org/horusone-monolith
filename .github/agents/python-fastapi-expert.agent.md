@@ -279,3 +279,110 @@ async def add_timing_header(request: Request, call_next):
 6. Write integration test in `tests/integration/`
 7. Generate Alembic migration if model changed
 8. Run `ruff check app/ && mypy app/ && pytest tests/ -v`
+
+---
+
+## LangGraph Integration
+
+### Replacing LangChain Chains with LangGraph
+Use LangGraph for stateful, multi-step ATC agent orchestration:
+
+```python
+from langgraph.graph import StateGraph, END
+
+# Build the ATC agent as a state machine graph
+graph = StateGraph(ATCState)
+graph.add_node("parse_input", parse_pilot_input)
+graph.add_node("retrieve_context", retrieve_scenario_context)
+graph.add_node("generate_response", generate_atc_response)
+graph.set_entry_point("parse_input")
+# ... conditional edges for readback evaluation
+app = graph.compile()
+```
+
+Key files:
+- `app/services/llm/atc_graph.py` — LangGraph state machine
+- `app/services/llm/nodes/` — Individual graph node functions
+- `app/services/llm/state.py` — TypedDict state definitions
+
+## Keycloak Auth Middleware
+
+### JWT Validation Pattern
+```python
+# app/middleware/auth.py
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import jwt
+
+security = HTTPBearer()
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict:
+    """Validate Keycloak JWT and extract user claims."""
+    settings = get_settings()
+    try:
+        return jwt.decode(
+            credentials.credentials,
+            settings.keycloak_public_key,
+            algorithms=["RS256"],
+            audience=settings.keycloak_client_id,
+            issuer=f"{settings.keycloak_url}/realms/horus",
+        )
+    except jwt.InvalidTokenError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+
+def require_role(role: str):
+    """Dependency that enforces a Keycloak realm role."""
+    async def checker(user: dict = Depends(get_current_user)) -> dict:
+        roles = user.get("realm_access", {}).get("roles", [])
+        if role not in roles:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+        return user
+    return checker
+
+def get_org_id(user: dict = Depends(get_current_user)) -> str:
+    """Extract organization_id from JWT for org-scoped queries."""
+    org_id = user.get("organization_id")
+    if not org_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    return org_id
+```
+
+### Config additions for Keycloak
+```python
+# app/config.py — add these fields
+class Settings(BaseSettings):
+    keycloak_url: str = "http://keycloak:8080"
+    keycloak_realm: str = "horus"
+    keycloak_client_id: str = "horus-api"
+    keycloak_public_key: str = ""  # RSA public key for JWT verification
+```
+
+## Organization-Scoped Queries
+
+Every data-access query must be filtered by `organization_id`:
+
+```python
+# app/db/repositories/scenario_repo.py
+async def get_by_org(
+    self, session: AsyncSession, org_id: str,
+) -> Sequence[Scenario]:
+    result = await session.execute(
+        select(Scenario)
+        .where(Scenario.organization_id == org_id)
+        .order_by(Scenario.created_at.desc())
+    )
+    return result.scalars().all()
+
+# In route handlers — always inject org_id
+@router.get("/scenarios")
+async def list_scenarios(
+    org_id: str = Depends(get_org_id),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[ScenarioResponse]:
+    return await scenario_repo.get_by_org(session, org_id)
+```

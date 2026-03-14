@@ -7,7 +7,42 @@
 - **Domain**: Aviation / Flight Training / ATC Simulation
 - **Frontend** → Deployed to **Cloudflare Pages** (Nuxt 4 + Vue 3)
 - **Backend** → Deployed to **Private VPS** via Docker Compose (FastAPI + Python)
-- These two are **independently deployed** — never mix their environments or configs.
+- **Realtime** → Rust + Go microservices for WebSocket and event processing
+- **Auth** → Keycloak (OIDC) for authentication and multi-tenant authorization
+- These layers are **independently deployed** — never mix their environments or configs.
+
+---
+
+## Architecture Layers
+
+```
+Edge Layer       → Traefik (reverse proxy, TLS, rate limiting)
+                 → Keycloak (OIDC authentication, RBAC, multi-tenancy)
+
+Realtime Layer   → Rust (WebSocket gateway, audio routing)
+                 → Go (event processing, telemetry collection, gRPC)
+
+Control Layer    → Python/FastAPI (business logic, LangGraph, scenario engine)
+                 → LangGraph (stateful ATC agent orchestration)
+                 → Whisper STT, Coqui TTS, Ollama LLM
+
+Data Layer       → PostgreSQL (primary relational store)
+                 → Redis (caching, session state, pub/sub)
+                 → Qdrant (vector search for RAG)
+
+Frontend         → Nuxt 4 / Vue 3 / TailwindCSS / Cloudflare Pages
+```
+
+---
+
+## Business Model
+
+- **Admin**: Platform-wide management
+- **Organization**: Flight school / airline — has administrators, instructors, students (seats)
+- **User (seat)**: Pilot trainee, can exist standalone or within an organization
+- Users can register independently and later be invited to an organization
+- **Each organization sees only its own data** — this is the #1 security boundary
+- Sessions generate tracking data for feedback & analytics
 
 ---
 
@@ -22,16 +57,19 @@ horus-mvp/
 │   │   ├── api/routes/         # Route handlers
 │   │   ├── core/               # Audio pipeline + WebSocket manager
 │   │   ├── db/                 # SQLAlchemy async session + repositories
+│   │   ├── middleware/         # Auth (Keycloak JWT), CORS, timing
 │   │   ├── models/             # SQLAlchemy ORM models
 │   │   ├── schemas/            # Pydantic request/response schemas
-│   │   └── services/           # STT (Whisper), TTS, LLM (Ollama), audio effects
-│   ├── tests/                  # pytest test suite
-│   │   ├── conftest.py
-│   │   ├── unit/
-│   │   └── integration/
+│   │   └── services/           # STT, TTS, LLM (LangGraph), audio effects
+│   ├── tests/
 │   ├── alembic/                # Database migrations
 │   ├── docker/                 # Dockerfile + docker-compose.yml
 │   └── pyproject.toml          # uv package manager config
+│
+├── realtime/                   # Rust + Go real-time microservices
+│   ├── ws-gateway/             # Rust WebSocket gateway (Axum/Tokio)
+│   ├── event-processor/        # Go event processing service
+│   └── telemetry/              # Go telemetry collector
 │
 ├── frontend/                   # Nuxt 4 frontend (Cloudflare Pages)
 │   ├── app/
@@ -41,7 +79,7 @@ horus-mvp/
 │   │   │   ├── shared/         # Layout components
 │   │   │   ├── scenario-architect/
 │   │   │   └── mission-hub/
-│   │   ├── composables/        # Vue Composition API state
+│   │   ├── composables/        # Vue Composition API state + useAuth
 │   │   └── layouts/
 │   ├── nuxt.config.ts
 │   ├── tailwind.config.ts
@@ -54,7 +92,28 @@ horus-mvp/
 └── .github/
     ├── copilot-instructions.md # This file
     ├── CODEOWNERS
-    └── copilot/skills/         # Skill files for common tasks
+    ├── agents/                 # Copilot Fleet agent definitions
+    │   ├── database-expert.agent.md
+    │   ├── docker-devops.agent.md
+    │   ├── document-agent.agent.md
+    │   ├── golang-expert.agent.md
+    │   ├── keycloak-expert.agent.md
+    │   ├── llm-expert.agent.md
+    │   ├── nuxt-expert.agent.md
+    │   ├── python-fastapi-expert.agent.md
+    │   ├── rust-expert.agent.md
+    │   └── security-expert.agent.md
+    └── skills/                 # Skill files for common tasks
+        ├── add-api-endpoint/
+        ├── add-db-model/
+        ├── add-go-service/
+        ├── add-rust-service/
+        ├── add-vue-component/
+        ├── aviation-domain/
+        ├── debug-audio-pipeline/
+        ├── keycloak-integration/
+        ├── security-review/
+        └── write-adr/
 ```
 
 ---
@@ -172,7 +231,7 @@ Client captures audio (WebM/Opus)
 Backend receives binary audio
   ↓ Whisper STT
 Text transcript of pilot speech
-  ↓ LangChain + Ollama LLM
+  ↓ LangGraph + Ollama LLM
 ATC response text (ICAO phraseology)
   ↓ Coqui TTS (or gTTS fallback)
 Audio WAV bytes
@@ -215,3 +274,63 @@ pnpm dev   # http://localhost:3000
 cd backend && pytest tests/ -v
 cd frontend && pnpm test
 ```
+
+---
+
+## Realtime Layer (Rust / Go)
+
+### Rust Services
+- **WebSocket Gateway** (`realtime/ws-gateway/`): Client-facing WebSocket connections, binary audio routing
+- Stack: Tokio, Axum 0.7+, serde, tokio-tungstenite
+- Linting: `cargo clippy -- -W clippy::pedantic`, `cargo fmt --check`
+- Testing: `cargo test`, `#[tokio::test]` for async
+
+### Go Services
+- **Event Processor** (`realtime/event-processor/`): Training event processing from Redis Streams
+- **Telemetry** (`realtime/telemetry/`): High-frequency flight data collection
+- Stack: Go 1.22+, chi, pgx, go-redis, slog
+- Linting: `golangci-lint run ./...`
+- Testing: `go test -v -race ./...`
+
+### Inter-Service Communication
+- Rust ↔ Python: Redis Streams / Pub-Sub for audio pipeline
+- Go ↔ Python: gRPC for typed RPC
+- All services expose `/health` endpoint
+
+---
+
+## Authentication & Authorization (Keycloak)
+
+### Stack
+- **Keycloak 24.x+** (Quarkus) behind Traefik at `auth.horusone.app`
+- **OIDC + PKCE** for frontend SPA (no client secret)
+- **JWT RS256** tokens validated by backend middleware
+
+### Roles
+- `platform-admin` — Full platform access
+- `org-admin` — Organization administrator
+- `instructor` — Create scenarios, view student progress
+- `student` — Seat holder, access assigned training
+
+### Multi-Tenancy
+- JWT includes `organization_id` custom claim
+- Backend middleware extracts `org_id` → all queries filter by it
+- PostgreSQL RLS as defense-in-depth
+- Frontend uses `useAuth()` composable for OIDC flow
+
+---
+
+## Copilot Fleet — Agent Reference
+
+| Agent | Focus |
+|-------|-------|
+| `database-expert` | PostgreSQL, Redis, Qdrant, schema design, migrations |
+| `docker-devops` | Docker, Traefik, CI/CD, deployment, infrastructure |
+| `document-agent` | ADRs, documentation, README, code comments |
+| `golang-expert` | Go real-time services, event processing, gRPC |
+| `keycloak-expert` | OIDC, auth/authz, multi-tenancy, realm config |
+| `llm-expert` | LangGraph, Ollama, prompt engineering, RAG, Qdrant |
+| `nuxt-expert` | Nuxt 4, Vue 3, TailwindCSS, frontend components |
+| `python-fastapi-expert` | FastAPI, async Python, SQLAlchemy, backend API |
+| `rust-expert` | Rust real-time services, WebSocket, Tokio/Axum |
+| `security-expert` | OWASP, data isolation, RBAC, dependency scanning |
