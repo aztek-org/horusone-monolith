@@ -14,23 +14,45 @@ const props = withDefaults(defineProps<Props>(), {
 const route = useRoute()
 const { state: simulation } = useSimulationState()
 const { params: aiParams } = useAICopilot()
+const { user, isAuthenticated, hasAnyRole, logout } = useAuth()
 
-const navItems = [
-  { path: '/configurator', label: 'Configurator', icon: 'heroicons:cog-6-tooth' },
-  { path: '/library', label: 'Library', icon: 'heroicons:book-open' },
-  { path: '/performance', label: 'Performance', icon: 'heroicons:chart-bar' }
-]
+const navItems = computed(() => {
+  const items = [
+    { path: '/configurator', label: 'Configurator', icon: 'heroicons:cog-6-tooth' },
+    { path: '/library', label: 'Library', icon: 'heroicons:book-open' },
+    { path: '/performance', label: 'Performance', icon: 'heroicons:chart-bar' },
+  ]
+
+  // Add Dashboard link for org-admin/instructor roles
+  if (isAuthenticated.value && hasAnyRole('org-admin', 'instructor')) {
+    items.unshift({ path: '/dashboard', label: 'Dashboard', icon: 'heroicons:squares-2x2' })
+  }
+
+  return items
+})
 
 const isMobileMenuOpen = ref(false)
 const isUserMenuOpen = ref(false)
 const showAboutModal = ref(false)
 
 const currentNav = computed(() =>
-  navItems.find(item => route.path.startsWith(item.path))
+  navItems.value.find(item => route.path.startsWith(item.path))
 )
 
 const aiStatusLabel = computed(() =>
   aiParams.value.isOnline ? 'AI CO-PROCESSOR READY' : 'AI OFFLINE'
+)
+
+const userDisplayName = computed(() =>
+  user.value?.displayName ?? 'Pilot'
+)
+
+const userEmail = computed(() =>
+  user.value?.email ?? ''
+)
+
+const userAvatarSeed = computed(() =>
+  user.value?.keycloakId ?? 'pilot'
 )
 
 function toggleMobileMenu() {
@@ -47,9 +69,8 @@ function openAbout() {
 }
 
 function handleLogout() {
-  // Mock logout - no actual functionality yet
-  console.log('Logout clicked (mock)')
   isUserMenuOpen.value = false
+  logout()
 }
 
 // Close user menu when clicking outside
@@ -89,7 +110,7 @@ onMounted(() => {
       </div>
 
       <!-- Desktop Navigation -->
-      <nav class="hidden lg:flex items-center gap-1">
+      <nav v-if="isAuthenticated" class="hidden lg:flex items-center gap-1">
         <NuxtLink
           v-for="item in navItems"
           :key="item.path"
@@ -127,16 +148,16 @@ onMounted(() => {
           </HButton>
         </slot>
 
-        <!-- User Avatar with Dropdown Menu -->
-        <div class="relative user-menu-container">
+        <!-- User Avatar with Dropdown Menu (Authenticated) -->
+        <div v-if="isAuthenticated" class="relative user-menu-container">
           <button
             @click="toggleUserMenu"
             class="w-8 h-8 rounded-full bg-horus-bg-tertiary border border-horus-border-subtle overflow-hidden hover:border-horus-accent-cyan transition-colors"
             :class="{ 'ring-2 ring-horus-accent-cyan': isUserMenuOpen }"
           >
             <img
-              src="https://api.dicebear.com/7.x/avataaars/svg?seed=pilot"
-              alt="User"
+              :src="`https://api.dicebear.com/7.x/avataaars/svg?seed=${userAvatarSeed}`"
+              :alt="userDisplayName"
               class="w-full h-full object-cover"
             />
           </button>
@@ -156,12 +177,23 @@ onMounted(() => {
             >
               <!-- User Info -->
               <div class="px-4 py-3 border-b border-horus-border-subtle">
-                <p class="text-sm font-medium text-horus-text-primary">Martin Sg</p>
-                <p class="text-xs text-horus-text-muted">hi@horus.aviation</p>
+                <p class="text-sm font-medium text-horus-text-primary">{{ userDisplayName }}</p>
+                <p class="text-xs text-horus-text-muted">{{ userEmail }}</p>
               </div>
 
               <!-- Menu Items -->
               <div class="py-1">
+                <!-- Dashboard (org-admin/instructor only) -->
+                <NuxtLink
+                  v-if="hasAnyRole('org-admin', 'instructor')"
+                  to="/dashboard"
+                  @click="isUserMenuOpen = false"
+                  class="flex items-center gap-3 px-4 py-2.5 text-sm text-horus-text-primary hover:bg-horus-bg-tertiary transition-colors"
+                >
+                  <Icon name="heroicons:squares-2x2" class="w-5 h-5 text-horus-text-secondary" />
+                  <span>Dashboard</span>
+                </NuxtLink>
+
                 <NuxtLink
                   to="/settings"
                   @click="isUserMenuOpen = false"
@@ -193,6 +225,17 @@ onMounted(() => {
             </div>
           </Transition>
         </div>
+
+        <!-- Login Button (Unauthenticated) -->
+        <HButton
+          v-else
+          variant="primary"
+          size="sm"
+          icon="heroicons:arrow-right-on-rectangle"
+          @click="() => { const { login } = useAuth(); login(route.fullPath) }"
+        >
+          Login
+        </HButton>
       </div>
     </div>
 
@@ -206,7 +249,7 @@ onMounted(() => {
       leave-to-class="opacity-0 -translate-y-2"
     >
       <div v-if="isMobileMenuOpen" class="lg:hidden border-t border-horus-border-subtle bg-horus-bg-secondary/95 backdrop-blur-md">
-        <nav class="p-2 space-y-1">
+        <nav v-if="isAuthenticated" class="p-2 space-y-1">
           <NuxtLink
             v-for="item in navItems"
             :key="item.path"

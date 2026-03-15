@@ -1,16 +1,74 @@
 <script setup lang="ts">
 definePageMeta({
-  layout: 'default'
+  layout: 'default',
+  middleware: 'auth',
 })
+
+interface Scenario {
+  id: number
+  name: string
+  description: string | null
+  difficulty: number
+  airport_icao: string
+  runway: string
+  weather_preset: string
+  phase: string
+  created_at: string
+}
 
 const { startSimulation } = useSimulationState()
 const router = useRouter()
+const api = useApi()
 
-function handleExecuteSimulation() {
-  const missionId = `X-RAY-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}-ALPHA`
-  startSimulation(missionId, 'LAX-TYO-992')
-  router.push(`/mission/${missionId}`)
+const scenarios = ref<Scenario[]>([])
+const isLoading = ref(true)
+const errorMessage = ref<string | null>(null)
+const isCreating = ref(false)
+
+async function fetchScenarios() {
+  isLoading.value = true
+  errorMessage.value = null
+  try {
+    scenarios.value = await api.get<Scenario[]>('/api/v1/scenarios')
+  }
+  catch (err) {
+    const apiErr = err as { detail?: string }
+    errorMessage.value = apiErr.detail ?? 'Failed to load scenarios'
+  }
+  finally {
+    isLoading.value = false
+  }
 }
+
+async function handleExecuteSimulation() {
+  if (scenarios.value.length === 0) return
+
+  isCreating.value = true
+  errorMessage.value = null
+  try {
+    // Create a new training session for the first scenario
+    const scenario = scenarios.value[0]
+    const session = await api.post<{ id: number }>('/api/v1/sessions', {
+      scenario_id: scenario.id,
+      language: 'en',
+    })
+
+    const missionId = String(session.id)
+    startSimulation(missionId, `${scenario.airport_icao}-${scenario.runway}`)
+    router.push(`/mission/${missionId}`)
+  }
+  catch (err) {
+    const apiErr = err as { detail?: string }
+    errorMessage.value = apiErr.detail ?? 'Failed to create simulation session'
+  }
+  finally {
+    isCreating.value = false
+  }
+}
+
+onMounted(() => {
+  fetchScenarios()
+})
 </script>
 
 <template>
@@ -22,6 +80,8 @@ function handleExecuteSimulation() {
             variant="primary"
             size="sm"
             icon="heroicons:play-solid"
+            :loading="isCreating"
+            :disabled="isLoading || scenarios.length === 0"
             @click="handleExecuteSimulation"
           >
             EXECUTE SIMULATION
@@ -36,11 +96,36 @@ function handleExecuteSimulation() {
 
     <template #default>
       <div class="p-4 lg:p-6 space-y-4">
-        <!-- Chart Layers -->
-        <ChartLayers />
+        <!-- Error Banner -->
+        <div
+          v-if="errorMessage"
+          class="flex items-center gap-3 p-3 rounded-lg bg-horus-status-danger/10 border border-horus-status-danger/30"
+        >
+          <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 text-horus-status-danger flex-shrink-0" />
+          <span class="text-sm text-horus-status-danger">{{ errorMessage }}</span>
+          <button
+            class="ml-auto text-horus-status-danger hover:text-horus-text-primary"
+            @click="errorMessage = null"
+          >
+            <Icon name="heroicons:x-mark" class="w-4 h-4" />
+          </button>
+        </div>
 
-        <!-- Map Visualization -->
-        <MapVisualization />
+        <!-- Loading State -->
+        <div v-if="isLoading" class="flex items-center justify-center py-16">
+          <div class="text-center space-y-3">
+            <Icon name="svg-spinners:ring-resize" class="w-8 h-8 text-horus-accent-cyan mx-auto" />
+            <p class="text-sm text-horus-text-muted">Loading scenarios...</p>
+          </div>
+        </div>
+
+        <template v-else>
+          <!-- Chart Layers -->
+          <ChartLayers />
+
+          <!-- Map Visualization -->
+          <MapVisualization />
+        </template>
       </div>
     </template>
 
