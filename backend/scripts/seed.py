@@ -9,6 +9,7 @@ Usage:
     python -m scripts.seed            # seed (skip existing)
     python -m scripts.seed --reset    # truncate all tables, then seed
 """
+
 from __future__ import annotations
 
 import argparse
@@ -86,6 +87,11 @@ ORG_SLUG = "skybridge"
 ORG_ID = uuid.uuid5(uuid.NAMESPACE_DNS, "skybridge.aero")
 
 USERS_DATA: list[dict[str, str]] = [
+    {
+        "email": "admin@horus.dev",
+        "display_name": "Horus Admin",
+        "role": "platform-admin",
+    },
     {
         "email": "sarah.mitchell@skybridge.aero",
         "display_name": "Captain Sarah Mitchell",
@@ -264,8 +270,7 @@ VOICE_LOGS_SESSION_3: list[dict[str, str | int]] = [
     {
         "role": "pilot",
         "transcript": (
-            "Heathrow Tower, SkyBridge one-five-three, ready for departure "
-            "runway two-seven right."
+            "Heathrow Tower, SkyBridge one-five-three, ready for departure runway two-seven right."
         ),
         "audio_duration_ms": 3800,
     },
@@ -279,9 +284,7 @@ VOICE_LOGS_SESSION_3: list[dict[str, str | int]] = [
     },
     {
         "role": "pilot",
-        "transcript": (
-            "Cleared for take-off runway two-seven right, SkyBridge one-five-three."
-        ),
+        "transcript": ("Cleared for take-off runway two-seven right, SkyBridge one-five-three."),
         "audio_duration_ms": 3200,
     },
     {
@@ -316,6 +319,7 @@ VOICE_LOGS_SESSION_3: list[dict[str, str | int]] = [
 # ══════════════════════════════════════════════════════════════════════════
 
 ORDERED_TABLES = [
+    "user_preferences",
     "voice_logs",
     "training_sessions",
     "scenarios",
@@ -338,11 +342,10 @@ async def _reset_tables(session: AsyncSession) -> None:
 #  Seed functions
 # ══════════════════════════════════════════════════════════════════════════
 
+
 async def _seed_organization(session: AsyncSession) -> Organization:
     """Seed the demo organization, returning the (possibly existing) row."""
-    result = await session.execute(
-        select(Organization).where(Organization.slug == ORG_SLUG)
-    )
+    result = await session.execute(select(Organization).where(Organization.slug == ORG_SLUG))
     existing = result.scalar_one_or_none()
     if existing:
         _skip(f"Organization '{existing.name}' already exists (slug={ORG_SLUG})")
@@ -366,7 +369,16 @@ async def _seed_users(
     session: AsyncSession,
     org: Organization,
 ) -> dict[str, User]:
-    """Seed demo users and their seats. Returns a mapping of email → User."""
+    """Seed demo users and their seats. Returns a mapping of email → User.
+
+    The platform-admin user is created without an organization seat.
+    All other users get a seat in the provided organization.
+
+    Keycloak IDs use the format ``kc-{deterministic_uuid}`` so they can be
+    updated later when the real Keycloak ``sub`` claim is known (after first
+    login).  For local development the backend ``auth_enabled=False`` mode
+    returns a dev user and these IDs are never checked.
+    """
     users: dict[str, User] = {}
 
     for u_data in USERS_DATA:
@@ -382,7 +394,7 @@ async def _seed_users(
 
         user = User(
             id=uid,
-            keycloak_id=f"dev-{uid}",
+            keycloak_id=f"kc-{uid}",
             email=email,
             display_name=u_data["display_name"],
             avatar_url=None,
@@ -391,23 +403,30 @@ async def _seed_users(
         session.add(user)
         await session.flush()
 
-        seat = Seat(
-            id=uuid.uuid5(uuid.NAMESPACE_DNS, f"seat-{email}"),
-            user_id=user.id,
-            organization_id=org.id,
-            role=u_data["role"],
-            is_active=True,
-        )
-        session.add(seat)
-        await session.flush()
+        role = u_data["role"]
+
+        # Platform-admin is not tied to any organization
+        if role != "platform-admin":
+            seat_role = role  # admin | instructor | student
+            seat = Seat(
+                id=uuid.uuid5(uuid.NAMESPACE_DNS, f"seat-{email}"),
+                user_id=user.id,
+                organization_id=org.id,
+                role=seat_role,
+                is_active=True,
+            )
+            session.add(seat)
+            await session.flush()
 
         role_badge = {
+            "platform-admin": f"{MAGENTA}platform-admin{RESET}",
             "admin": f"{RED}admin{RESET}",
             "instructor": f"{YELLOW}instructor{RESET}",
             "student": f"{GREEN}student{RESET}",
-        }.get(u_data["role"], u_data["role"])
+        }.get(role, role)
 
-        _ok(f"User: {BOLD}{user.display_name}{RESET}  [{role_badge}]  ({email})")
+        org_info = "" if role == "platform-admin" else f"  org={ORG_SLUG}"
+        _ok(f"User: {BOLD}{user.display_name}{RESET}  [{role_badge}]  ({email}){org_info}")
         users[email] = user
 
     return users
@@ -449,9 +468,7 @@ async def _seed_scenarios(
         session.add(scenario)
         await session.flush()
 
-        diff_colour = {1: GREEN, 2: YELLOW, 3: MAGENTA, 4: RED}.get(
-            scenario.difficulty, RESET
-        )
+        diff_colour = {1: GREEN, 2: YELLOW, 3: MAGENTA, 4: RED}.get(scenario.difficulty, RESET)
         _ok(
             f"Scenario: {BOLD}{scenario.name}{RESET}  "
             f"[{scenario.airport_icao} / {scenario.runway}]  "
@@ -533,10 +550,7 @@ async def _seed_sessions_and_logs(
         )
         existing = result.scalar_one_or_none()
         if existing:
-            _skip(
-                f"Session for {user.display_name} on {scenario.name} "
-                f"({status}) already exists"
-            )
+            _skip(f"Session for {user.display_name} on {scenario.name} ({status}) already exists")
             continue
 
         ts = TrainingSession(
@@ -552,13 +566,9 @@ async def _seed_sessions_and_logs(
         session_count += 1
 
         status_badge = (
-            f"{GREEN}{status}{RESET}" if status == "completed"
-            else f"{YELLOW}{status}{RESET}"
+            f"{GREEN}{status}{RESET}" if status == "completed" else f"{YELLOW}{status}{RESET}"
         )
-        _ok(
-            f"Session: {BOLD}{user.display_name}{RESET} → "
-            f"{scenario.name}  [{status_badge}]"
-        )
+        _ok(f"Session: {BOLD}{user.display_name}{RESET} → {scenario.name}  [{status_badge}]")
 
         # Seed voice logs for this session
         for vl_data in logs_data:
@@ -592,6 +602,7 @@ async def _seed_sessions_and_logs(
 #  Summary
 # ══════════════════════════════════════════════════════════════════════════
 
+
 def _print_summary(counts: dict[str, int]) -> None:
     _header("Seed Summary")
     max_label = max(len(k) for k in counts)
@@ -604,6 +615,7 @@ def _print_summary(counts: dict[str, int]) -> None:
 # ══════════════════════════════════════════════════════════════════════════
 #  Main
 # ══════════════════════════════════════════════════════════════════════════
+
 
 async def main() -> None:
     parser = argparse.ArgumentParser(
@@ -630,9 +642,7 @@ async def main() -> None:
                 await session.execute(text("SELECT 1 FROM users LIMIT 0"))
             except (OperationalError, ProgrammingError) as exc:
                 _fail("Cannot query the 'users' table.")
-                _fail(
-                    "It looks like database migrations have not been applied yet."
-                )
+                _fail("It looks like database migrations have not been applied yet.")
                 print()
                 print(f"  {BOLD}Run migrations first:{RESET}")
                 print("    cd backend && alembic upgrade head")
@@ -659,17 +669,21 @@ async def main() -> None:
 
             print(f"\n{BOLD}  Seeding training sessions & voice logs …{RESET}")
             ts_count, vl_count = await _seed_sessions_and_logs(
-                session, scenarios, users, org,
+                session,
+                scenarios,
+                users,
+                org,
             )
 
             await session.commit()
 
             # ── Summary ───────────────────────────────────────────────
+            org_users = sum(1 for u in USERS_DATA if u["role"] != "platform-admin")
             _print_summary(
                 {
                     "Organizations": 1,
                     "Users": len(USERS_DATA),
-                    "Seats": len(USERS_DATA),
+                    "Seats": org_users,
                     "Scenarios": len(SCENARIOS_DATA),
                     "Training Sessions": ts_count,
                     "Voice Logs": vl_count,

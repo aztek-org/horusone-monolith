@@ -41,6 +41,103 @@
       }
     ]
   },
+  "users": [
+    {
+      "username": "admin@horus.dev",
+      "email": "admin@horus.dev",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Horus",
+      "lastName": "Admin",
+      "realmRoles": ["platform-admin", "org-admin"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "organization_id": []
+      }
+    },
+    {
+      "username": "sarah.mitchell@skybridge.aero",
+      "email": "sarah.mitchell@skybridge.aero",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Sarah",
+      "lastName": "Mitchell",
+      "realmRoles": ["org-admin"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "pilot123",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "organization_id": ["skybridge"]
+      }
+    },
+    {
+      "username": "james.chen@skybridge.aero",
+      "email": "james.chen@skybridge.aero",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "James",
+      "lastName": "Chen",
+      "realmRoles": ["instructor"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "pilot123",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "organization_id": ["skybridge"]
+      }
+    },
+    {
+      "username": "maria.santos@skybridge.aero",
+      "email": "maria.santos@skybridge.aero",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Maria",
+      "lastName": "Santos",
+      "realmRoles": ["student"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "pilot123",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "organization_id": ["skybridge"]
+      }
+    },
+    {
+      "username": "alex.turner@skybridge.aero",
+      "email": "alex.turner@skybridge.aero",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Alex",
+      "lastName": "Turner",
+      "realmRoles": ["student"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "pilot123",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "organization_id": ["skybridge"]
+      }
+    }
+  ],
   "defaultDefaultClientScopes": [
     "web-origins",
     "acr",
