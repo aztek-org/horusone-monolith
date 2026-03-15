@@ -19,8 +19,7 @@ COMPOSE_DEV := docker compose -f docker-compose.yml -f docker-compose.dev.yml
 COMPOSE_PROD := docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
-VENV := $(BACKEND_DIR)/.venv/bin
-PYTHON := $(VENV)/python
+UV_RUN := cd $(BACKEND_DIR) && uv run
 OLLAMA_MODEL := llama3.2:3b
 
 # ── Colors ────────────────────────────────────────────────────────────────────
@@ -103,10 +102,10 @@ setup: ## First-time project setup (installs everything)
 	@echo ""
 	@echo "$(BOLD)Running migrations...$(RESET)"
 	@cd $(BACKEND_DIR) && $(COMPOSE_DEV) up -d postgres && sleep 5
-	@cd $(BACKEND_DIR) && $(VENV)/alembic upgrade head
+	@$(UV_RUN) alembic upgrade head
 	@echo ""
 	@echo "$(BOLD)Seeding database...$(RESET)"
-	@cd $(BACKEND_DIR) && $(PYTHON) -m scripts.seed
+	@$(UV_RUN) python -m scripts.seed
 	@echo ""
 	@echo "$(GREEN)$(BOLD)✓ Setup complete!$(RESET) Run $(CYAN)make up$(RESET) to start developing."
 
@@ -116,7 +115,7 @@ install: install-backend install-frontend ## Install all dependencies
 .PHONY: install-backend
 install-backend: ## Install backend Python dependencies
 	@echo "$(CYAN)Installing backend dependencies...$(RESET)"
-	@cd $(BACKEND_DIR) && uv venv && $(VENV)/pip install -e ".[dev]" --quiet
+	@cd $(BACKEND_DIR) && uv sync --quiet
 	@echo "$(GREEN)✓$(RESET) Backend deps installed"
 
 .PHONY: install-frontend
@@ -141,10 +140,10 @@ up: ## Start dev environment (infra + backend + frontend)
 	@echo "$(GREEN)✓$(RESET) PostgreSQL ready"
 	@echo ""
 	@echo "$(CYAN)▸ Running migrations...$(RESET)"
-	@cd $(BACKEND_DIR) && $(VENV)/alembic upgrade head 2>&1 | tail -2
+	@$(UV_RUN) alembic upgrade head 2>&1 | tail -2
 	@echo ""
 	@echo "$(CYAN)▸ Starting backend (port 8000)...$(RESET)"
-	@cd $(BACKEND_DIR) && $(VENV)/uvicorn app.main:app --reload --port 8000 &>/dev/null &
+	@$(UV_RUN) uvicorn app.main:app --reload --port 8000 &>/dev/null &
 	@sleep 2
 	@echo "$(GREEN)✓$(RESET) Backend started (PID: $$(lsof -ti :8000 2>/dev/null || echo '?'))"
 	@echo ""
@@ -188,7 +187,7 @@ restart: down up ## Restart everything
 .PHONY: backend
 backend: ## Start backend only (assumes infra is running)
 	@echo "$(CYAN)Starting backend on port 8000...$(RESET)"
-	@cd $(BACKEND_DIR) && source .venv/bin/activate && uvicorn app.main:app --reload --port 8000
+	@$(UV_RUN) uvicorn app.main:app --reload --port 8000
 
 .PHONY: frontend
 frontend: ## Start frontend only
@@ -210,32 +209,32 @@ logs-backend: ## Show backend container logs
 .PHONY: migrate
 migrate: ## Run database migrations
 	@echo "$(CYAN)Running migrations...$(RESET)"
-	@cd $(BACKEND_DIR) && $(VENV)/alembic upgrade head
+	@$(UV_RUN) alembic upgrade head
 	@echo "$(GREEN)✓$(RESET) Migrations applied"
 
 .PHONY: migrate-create
 migrate-create: ## Create new migration (usage: make migrate-create MSG="add_field")
 	@if [ -z "$(MSG)" ]; then echo "$(RED)✘$(RESET) Usage: make migrate-create MSG=\"description\""; exit 1; fi
-	@cd $(BACKEND_DIR) && $(VENV)/alembic revision --autogenerate -m "$(MSG)"
+	@$(UV_RUN) alembic revision --autogenerate -m "$(MSG)"
 	@echo "$(GREEN)✓$(RESET) Migration created"
 
 .PHONY: migrate-down
 migrate-down: ## Rollback last migration
 	@echo "$(YELLOW)⚠ Rolling back last migration...$(RESET)"
-	@cd $(BACKEND_DIR) && $(VENV)/alembic downgrade -1
+	@$(UV_RUN) alembic downgrade -1
 	@echo "$(GREEN)✓$(RESET) Rolled back"
 
 .PHONY: migrate-status
 migrate-status: ## Show current migration status
-	@cd $(BACKEND_DIR) && $(VENV)/alembic current
+	@$(UV_RUN) alembic current
 
 .PHONY: seed
 seed: ## Seed database with demo data (idempotent)
-	@cd $(BACKEND_DIR) && $(PYTHON) -m scripts.seed
+	@$(UV_RUN) python -m scripts.seed
 
 .PHONY: seed-reset
 seed-reset: ## Reset and re-seed database
-	@cd $(BACKEND_DIR) && $(PYTHON) -m scripts.seed --reset
+	@$(UV_RUN) python -m scripts.seed --reset
 
 .PHONY: db-shell
 db-shell: ## Open PostgreSQL shell
@@ -251,8 +250,8 @@ db-reset: ## ⚠ Destroy DB volume, re-migrate, re-seed
 	@echo "$(CYAN)Waiting for PostgreSQL...$(RESET)"
 	@sleep 5
 	@cd $(BACKEND_DIR) && until $(COMPOSE_DEV) exec -T postgres pg_isready -U horus -q 2>/dev/null; do sleep 1; done
-	@cd $(BACKEND_DIR) && $(VENV)/alembic upgrade head
-	@cd $(BACKEND_DIR) && $(PYTHON) -m scripts.seed
+	@$(UV_RUN) alembic upgrade head
+	@$(UV_RUN) python -m scripts.seed
 	@echo "$(GREEN)✓$(RESET) Database reset complete"
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -265,7 +264,7 @@ test: test-backend test-frontend ## Run all tests
 .PHONY: test-backend
 test-backend: ## Run backend tests
 	@echo "$(BOLD)═══ Backend Tests ═══$(RESET)"
-	@cd $(BACKEND_DIR) && $(VENV)/pytest tests/ -v
+	@$(UV_RUN) pytest tests/ -v
 
 .PHONY: test-frontend
 test-frontend: ## Run frontend tests
@@ -274,7 +273,7 @@ test-frontend: ## Run frontend tests
 
 .PHONY: test-cov
 test-cov: ## Run backend tests with coverage
-	@cd $(BACKEND_DIR) && $(VENV)/pytest tests/ --cov=app --cov-report=term-missing
+	@$(UV_RUN) pytest tests/ --cov=app --cov-report=term-missing
 
 .PHONY: lint
 lint: lint-backend lint-frontend ## Lint everything
@@ -282,7 +281,7 @@ lint: lint-backend lint-frontend ## Lint everything
 .PHONY: lint-backend
 lint-backend: ## Lint backend (ruff)
 	@echo "$(BOLD)═══ Backend Lint ═══$(RESET)"
-	@cd $(BACKEND_DIR) && $(VENV)/ruff check app/
+	@$(UV_RUN) ruff check app/
 
 .PHONY: lint-frontend
 lint-frontend: ## Lint frontend (ESLint)
@@ -294,7 +293,7 @@ format: format-backend format-frontend ## Format everything
 
 .PHONY: format-backend
 format-backend: ## Format backend (ruff)
-	@cd $(BACKEND_DIR) && $(VENV)/ruff format app/
+	@$(UV_RUN) ruff format app/
 	@echo "$(GREEN)✓$(RESET) Backend formatted"
 
 .PHONY: format-frontend
@@ -307,7 +306,7 @@ check: lint test ## Run lint + tests (CI-like check)
 
 .PHONY: typecheck
 typecheck: ## Run mypy type checking on backend
-	@cd $(BACKEND_DIR) && $(VENV)/mypy app/
+	@$(UV_RUN) mypy app/
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PRODUCTION
