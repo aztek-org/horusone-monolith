@@ -88,7 +88,7 @@ ORG_ID = uuid.uuid5(uuid.NAMESPACE_DNS, "skybridge.aero")
 
 USERS_DATA: list[dict[str, str]] = [
     {
-        "email": "admin@horus.dev",
+        "email": "admin@horusone.app",
         "display_name": "Horus Admin",
         "role": "platform-admin",
     },

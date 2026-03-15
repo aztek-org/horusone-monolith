@@ -30,8 +30,8 @@ PostgreSQL by the seed script (`backend/scripts/seed.py`).
 
 | Field          | Value                          |
 |----------------|--------------------------------|
-| **Email**      | `admin@horus.dev`              |
-| **Password**   | `admin123`                     |
+| **Email**      | `admin@horusone.app`              |
+| **Password**   | `@dmin2026`                     |
 | **Role**       | `platform-admin` + `org-admin` |
 | **Org**        | _(none — platform-level)_      |
 | **Access**     | Full platform, all orgs        |
@@ -41,7 +41,7 @@ PostgreSQL by the seed script (`backend/scripts/seed.py`).
 | Field          | Value                                |
 |----------------|--------------------------------------|
 | **Email**      | `sarah.mitchell@skybridge.aero`      |
-| **Password**   | `pilot123`                           |
+| **Password**   | `stud3nt2026`                           |
 | **Role**       | `org-admin` (Keycloak) / `admin` (Seat) |
 | **Org**        | SkyBridge Flight Academy             |
 | **Access**     | Manage org users, scenarios, settings|
@@ -51,7 +51,7 @@ PostgreSQL by the seed script (`backend/scripts/seed.py`).
 | Field          | Value                                |
 |----------------|--------------------------------------|
 | **Email**      | `james.chen@skybridge.aero`          |
-| **Password**   | `pilot123`                           |
+| **Password**   | `stud3nt2026`                           |
 | **Role**       | `instructor`                         |
 | **Org**        | SkyBridge Flight Academy             |
 | **Access**     | Create scenarios, review sessions    |
@@ -61,14 +61,14 @@ PostgreSQL by the seed script (`backend/scripts/seed.py`).
 | Field          | Value                                |
 |----------------|--------------------------------------|
 | **Email**      | `maria.santos@skybridge.aero`        |
-| **Password**   | `pilot123`                           |
+| **Password**   | `stud3nt2026`                           |
 | **Role**       | `student`                            |
 | **Org**        | SkyBridge Flight Academy             |
 
 | Field          | Value                                |
 |----------------|--------------------------------------|
 | **Email**      | `alex.turner@skybridge.aero`         |
-| **Password**   | `pilot123`                           |
+| **Password**   | `stud3nt2026`                           |
 | **Role**       | `student`                            |
 | **Org**        | SkyBridge Flight Academy             |
 
