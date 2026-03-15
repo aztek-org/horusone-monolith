@@ -30,6 +30,12 @@ env/
 .env
 .env.local
 .env.*.local
+.env.prod
+.env.docker
+
+# Database backups (contain real data)
+backups/*.sql*
+!backups/.gitkeep
 
 # IDE
 .vscode/
