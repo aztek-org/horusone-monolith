@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import health, voice
-from app.api.v1 import scenarios, sessions
+from app.api.v1 import auth, preferences, scenarios, sessions
 from app.config import get_settings
 
 # Configure logging
@@ -44,6 +44,8 @@ app.include_router(voice.router, tags=["Voice"])
 
 # API v1 routes
 api_v1_prefix = "/api/v1"
+app.include_router(auth.router, prefix=api_v1_prefix)
+app.include_router(preferences.router, prefix=api_v1_prefix)
 app.include_router(scenarios.router, prefix=api_v1_prefix)
 app.include_router(sessions.router, prefix=api_v1_prefix)
 
@@ -63,7 +65,10 @@ async def startup_event() -> None:
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
     """Cleanup on shutdown."""
+    from app.core.redis import close_redis
+
     logger.info("Shutting down Horus ATC API...")
+    await close_redis()
 
 
 @app.get("/")
@@ -91,7 +96,7 @@ async def root() -> dict:
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "app.main:app",
         host=settings.host,

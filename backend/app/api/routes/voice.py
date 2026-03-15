@@ -3,7 +3,6 @@
 import json
 import logging
 import uuid
-from typing import Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -20,7 +19,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Global audio pipeline instance (lazy-initialized)
-audio_pipeline: Optional[AudioPipeline] = None
+audio_pipeline: AudioPipeline | None = None
 _session_repo = TrainingSessionRepository()
 _voice_log_repo = VoiceLogRepository()
 
@@ -83,7 +82,7 @@ async def voice_communication(websocket: WebSocket) -> None:
     logger.info(f"Voice communication started for client {client_id}")
 
     # Create a TrainingSession in the DB (best-effort — voice still works if DB is down)
-    db_session_id: Optional[int] = None
+    db_session_id: int | None = None
     try:
         session_factory = get_session_factory()
         async with session_factory() as db:

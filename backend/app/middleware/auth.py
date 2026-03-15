@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from typing import Annotated
-from uuid import UUID
 
 import httpx
 from fastapi import Depends, HTTPException, Request, WebSocket, status

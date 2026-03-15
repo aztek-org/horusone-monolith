@@ -1,7 +1,6 @@
 """WebSocket connection manager for handling multiple client connections."""
 
 import logging
-from typing import Dict, Set
 
 from fastapi import WebSocket
 
@@ -13,8 +12,8 @@ class ConnectionManager:
 
     def __init__(self) -> None:
         """Initialize the connection manager."""
-        self.active_connections: Dict[str, WebSocket] = {}
-        self.client_ids: Set[str] = set()
+        self.active_connections: dict[str, WebSocket] = {}
+        self.client_ids: set[str] = set()
 
     async def connect(self, websocket: WebSocket, client_id: str) -> None:
         """Accept and store a new WebSocket connection.

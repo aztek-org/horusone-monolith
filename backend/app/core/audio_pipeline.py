@@ -4,7 +4,6 @@ import io
 import logging
 from dataclasses import dataclass
 
-import numpy as np
 import soundfile as sf
 
 from app.services.audio_effects.filters import RadioEffectsProcessor

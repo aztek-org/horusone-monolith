@@ -19,10 +19,7 @@ export default defineNuxtConfig({
     },
   },
 
-  modules: [
-    '@nuxt/icon',
-    '@nuxt/eslint',
-  ],
+  modules: ['@nuxt/icon', '@nuxt/eslint', '@nuxt/image'],
 
   css: [
     '~/assets/css/main.css',

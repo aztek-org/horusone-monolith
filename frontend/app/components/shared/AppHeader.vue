@@ -68,9 +68,9 @@ function openAbout() {
   isUserMenuOpen.value = false
 }
 
-function handleLogout() {
+async function handleLogout() {
   isUserMenuOpen.value = false
-  logout()
+  await logout()
 }
 
 // Close user menu when clicking outside

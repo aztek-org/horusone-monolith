@@ -1,7 +1,6 @@
 """Configuration management for Horus ATC API."""
 
 from functools import lru_cache
-from typing import List
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -62,7 +61,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     @property
-    def cors_origins_list(self) -> List[str]:
+    def cors_origins_list(self) -> list[str]:
         """Parse CORS origins into a list."""
         return [origin.strip() for origin in self.cors_origins.split(",")]
 
@@ -74,7 +73,7 @@ class Settings(BaseSettings):
         return f"{self.keycloak_issuer_url}/protocol/openid-connect/certs"
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()

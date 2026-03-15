@@ -15,6 +15,16 @@
             <p class="text-xxs text-horus-text-muted tracking-wider">CONFIGURE YOUR EXPERIENCE</p>
           </div>
         </div>
+        <div class="flex items-center gap-2">
+          <span v-if="prefSynced" class="text-xs text-horus-status-success flex items-center gap-1">
+            <Icon name="heroicons:check-circle" class="w-4 h-4" />
+            Synced
+          </span>
+          <span v-else-if="prefError" class="text-xs text-horus-status-warning flex items-center gap-1">
+            <Icon name="heroicons:exclamation-triangle" class="w-4 h-4" />
+            Local only
+          </span>
+        </div>
       </div>
     </header>
 
@@ -24,80 +34,62 @@
         <!-- Keyboard Shortcuts Section -->
         <HCard>
           <template #header>
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg bg-horus-accent-cyan/20 flex items-center justify-center">
-                <Icon name="heroicons:command-line" class="w-6 h-6 text-horus-accent-cyan" />
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-horus-accent-cyan/20 flex items-center justify-center">
+                  <Icon name="heroicons:command-line" class="w-6 h-6 text-horus-accent-cyan" />
+                </div>
+                <div>
+                  <h2 class="text-lg font-semibold text-horus-text-primary">Keyboard Shortcuts</h2>
+                  <p class="text-sm text-horus-text-secondary">Customize hotkeys for quick actions</p>
+                </div>
               </div>
-              <div>
-                <h2 class="text-lg font-semibold text-horus-text-primary">Keyboard Shortcuts</h2>
-                <p class="text-sm text-horus-text-secondary">Customize hotkeys for quick actions</p>
-              </div>
+              <button
+                class="text-xs text-horus-text-muted hover:text-horus-accent-cyan transition-colors flex items-center gap-1"
+                @click="showShortcutsHelp = true"
+              >
+                <Icon name="heroicons:question-mark-circle" class="w-4 h-4" />
+                View All (Ctrl+/)
+              </button>
             </div>
           </template>
 
-          <div class="space-y-4">
-            <!-- Push to Talk -->
-            <div class="flex items-center justify-between p-4 rounded-lg bg-horus-bg-secondary border border-horus-border-subtle hover:border-horus-border-accent transition-colors">
+          <div class="space-y-3">
+            <div
+              v-for="(shortcut, id) in shortcutsByCategory"
+              :key="id"
+              class="flex items-center justify-between p-4 rounded-lg bg-horus-bg-secondary border border-horus-border-subtle hover:border-horus-border-accent transition-colors"
+            >
               <div class="flex-1">
                 <div class="flex items-center gap-2">
-                  <h3 class="text-sm font-medium text-horus-text-primary">Push to Talk</h3>
-                  <HBadge variant="cyan" size="sm">Voice</HBadge>
+                  <h3 class="text-sm font-medium text-horus-text-primary">{{ shortcut.label }}</h3>
+                  <HBadge
+                    :variant="shortcut.category === 'voice' ? 'cyan' : 'default'"
+                    size="sm"
+                  >
+                    {{ shortcut.category }}
+                  </HBadge>
                 </div>
-                <p class="text-xs text-horus-text-secondary mt-1">Press and hold to communicate with ATC</p>
+                <p class="text-xs text-horus-text-secondary mt-1">{{ shortcut.description }}</p>
               </div>
               <div class="flex items-center gap-3">
                 <button
-                  class="px-4 py-2 bg-horus-bg-tertiary border border-horus-border-subtle rounded-lg hover:border-horus-accent-cyan transition-colors group"
-                  @click="editingShortcut = 'pushToTalk'"
+                  class="px-4 py-2 bg-horus-bg-tertiary border rounded-lg transition-colors group"
+                  :class="isRecording && recordingId === id
+                    ? 'border-horus-accent-cyan animate-pulse'
+                    : 'border-horus-border-subtle hover:border-horus-accent-cyan'"
+                  @click="handleStartRecording(id)"
                 >
                   <div class="flex items-center gap-2">
                     <kbd class="px-2 py-1 bg-horus-bg-primary border border-horus-border-subtle rounded text-horus-text-primary font-mono text-sm group-hover:border-horus-accent-cyan group-hover:text-horus-accent-cyan transition-colors">
-                      {{ shortcuts.pushToTalk }}
+                      {{ getDisplayCombo(id) }}
                     </kbd>
-                    <Icon name="heroicons:pencil" class="w-4 h-4 text-horus-text-muted group-hover:text-horus-accent-cyan transition-colors" />
+                    <Icon
+                      :name="isRecording && recordingId === id ? 'heroicons:signal' : 'heroicons:pencil'"
+                      class="w-4 h-4 text-horus-text-muted group-hover:text-horus-accent-cyan transition-colors"
+                    />
                   </div>
                 </button>
-                <button
-                  v-if="shortcuts.pushToTalk !== 'B'"
-                  @click="resetShortcut('pushToTalk')"
-                  class="text-sm text-horus-text-muted hover:text-horus-accent-cyan transition-colors"
-                  title="Reset to default"
-                >
-                  <Icon name="heroicons:arrow-path" class="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            <!-- Future shortcuts -->
-            <div class="flex items-center justify-between p-4 rounded-lg bg-horus-bg-secondary/50 border border-horus-border-subtle opacity-50">
-              <div class="flex-1">
-                <div class="flex items-center gap-2">
-                  <h3 class="text-sm font-medium text-horus-text-primary">Toggle Map View</h3>
-                  <HBadge variant="default" size="sm">Navigation</HBadge>
-                </div>
-                <p class="text-xs text-horus-text-secondary mt-1">Switch between map and list view</p>
-              </div>
-              <div class="flex items-center gap-3">
-                <kbd class="px-2 py-1 bg-horus-bg-tertiary border border-horus-border-subtle rounded text-horus-text-muted font-mono text-sm">
-                  M
-                </kbd>
-                <span class="text-xs text-horus-text-muted">Coming Soon</span>
-              </div>
-            </div>
-
-            <div class="flex items-center justify-between p-4 rounded-lg bg-horus-bg-secondary/50 border border-horus-border-subtle opacity-50">
-              <div class="flex-1">
-                <div class="flex items-center gap-2">
-                  <h3 class="text-sm font-medium text-horus-text-primary">Quick Save Scenario</h3>
-                  <HBadge variant="default" size="sm">Scenario</HBadge>
-                </div>
-                <p class="text-xs text-horus-text-secondary mt-1">Save current scenario quickly</p>
-              </div>
-              <div class="flex items-center gap-3">
-                <kbd class="px-2 py-1 bg-horus-bg-tertiary border border-horus-border-subtle rounded text-horus-text-muted font-mono text-sm">
-                  Ctrl+S
-                </kbd>
-                <span class="text-xs text-horus-text-muted">Coming Soon</span>
               </div>
             </div>
           </div>
@@ -118,19 +110,17 @@
           </template>
 
           <div class="space-y-4">
-            <!-- Radio Effects -->
             <div class="flex items-center justify-between p-4 rounded-lg bg-horus-bg-secondary border border-horus-border-subtle">
               <div class="flex-1">
                 <h3 class="text-sm font-medium text-horus-text-primary">Radio Effects</h3>
                 <p class="text-xs text-horus-text-secondary mt-1">Apply authentic radio static and filters</p>
               </div>
               <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" v-model="voiceSettings.radioEffects" class="sr-only peer">
+                <input type="checkbox" v-model="preferences.voice.radio_effects" class="sr-only peer" @change="markDirty">
                 <div class="w-11 h-6 bg-horus-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-horus-accent-cyan rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-horus-accent-cyan"></div>
               </label>
             </div>
 
-            <!-- Language Preference -->
             <div class="flex items-center justify-between p-4 rounded-lg bg-horus-bg-secondary border border-horus-border-subtle">
               <div class="flex-1">
                 <h3 class="text-sm font-medium text-horus-text-primary">Preferred Language</h3>
@@ -138,23 +128,27 @@
               </div>
               <div class="w-48">
                 <HDropdown
-                  v-model="voiceSettings.language"
+                  v-model="preferences.voice.language"
                   :options="languageOptions"
                   placeholder="Select language"
+                  @update:model-value="markDirty"
                 />
               </div>
             </div>
 
-            <!-- Push to Talk Behavior -->
             <div class="flex items-center justify-between p-4 rounded-lg bg-horus-bg-secondary border border-horus-border-subtle">
               <div class="flex-1">
                 <h3 class="text-sm font-medium text-horus-text-primary">Push-to-Talk Mode</h3>
-                <p class="text-xs text-horus-text-secondary mt-1">Hold button/key to record, release to send</p>
+                <p class="text-xs text-horus-text-secondary mt-1">Choose between hold-to-talk or toggle mode</p>
               </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" v-model="voiceSettings.pushToTalkMode" checked disabled class="sr-only peer">
-                <div class="w-11 h-6 bg-horus-accent-cyan peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-horus-accent-cyan rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all opacity-50 cursor-not-allowed"></div>
-              </label>
+              <select
+                v-model="preferences.voice.ptt_mode"
+                class="bg-horus-bg-tertiary border border-horus-border-subtle rounded-lg px-3 py-2 text-sm text-horus-text-primary focus:border-horus-accent-cyan focus:outline-none"
+                @change="markDirty"
+              >
+                <option value="hold">Hold to Talk</option>
+                <option value="toggle">Toggle (Press to Start/Stop)</option>
+              </select>
             </div>
           </div>
         </HCard>
@@ -174,26 +168,40 @@
           </template>
 
           <div class="space-y-4">
-            <!-- Theme mode (coming soon) -->
-            <div class="flex items-center justify-between p-4 rounded-lg bg-horus-bg-secondary/50 border border-horus-border-subtle opacity-50">
+            <div class="flex items-center justify-between p-4 rounded-lg bg-horus-bg-secondary border border-horus-border-subtle">
               <div class="flex-1">
                 <h3 class="text-sm font-medium text-horus-text-primary">Theme Mode</h3>
                 <p class="text-xs text-horus-text-secondary mt-1">Switch between dark and light themes</p>
               </div>
-              <div class="flex items-center gap-2">
-                <span class="text-sm text-horus-text-muted">Dark Mode</span>
-                <span class="text-xs text-horus-text-muted">Coming Soon</span>
-              </div>
+              <select
+                v-model="preferences.display.theme"
+                class="bg-horus-bg-tertiary border border-horus-border-subtle rounded-lg px-3 py-2 text-sm text-horus-text-primary focus:border-horus-accent-cyan focus:outline-none"
+                @change="markDirty"
+              >
+                <option value="dark">Dark Mode</option>
+                <option value="light">Light Mode</option>
+                <option value="system">System Default</option>
+              </select>
             </div>
 
-            <!-- Animations -->
             <div class="flex items-center justify-between p-4 rounded-lg bg-horus-bg-secondary border border-horus-border-subtle">
               <div class="flex-1">
                 <h3 class="text-sm font-medium text-horus-text-primary">Animations</h3>
                 <p class="text-xs text-horus-text-secondary mt-1">Enable or disable UI animations</p>
               </div>
               <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" v-model="displaySettings.animations" class="sr-only peer">
+                <input type="checkbox" v-model="preferences.display.animations" class="sr-only peer" @change="markDirty">
+                <div class="w-11 h-6 bg-horus-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-horus-accent-cyan rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-horus-accent-cyan"></div>
+              </label>
+            </div>
+
+            <div class="flex items-center justify-between p-4 rounded-lg bg-horus-bg-secondary border border-horus-border-subtle">
+              <div class="flex-1">
+                <h3 class="text-sm font-medium text-horus-text-primary">Compact Mode</h3>
+                <p class="text-xs text-horus-text-secondary mt-1">Reduce spacing for more content on screen</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" v-model="preferences.display.compact_mode" class="sr-only peer" @change="markDirty">
                 <div class="w-11 h-6 bg-horus-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-horus-accent-cyan rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-horus-accent-cyan"></div>
               </label>
             </div>
@@ -204,7 +212,7 @@
         <div class="flex items-center justify-between gap-4 pt-4">
           <HButton
             variant="secondary"
-            @click="resetAllSettings"
+            @click="handleResetAll"
           >
             <Icon name="heroicons:arrow-path" class="w-4 h-4" />
             Reset All to Defaults
@@ -217,167 +225,117 @@
             </NuxtLink>
             <HButton
               variant="primary"
-              @click="saveSettings"
+              :disabled="!isDirty || prefLoading"
+              @click="handleSave"
             >
-              <Icon name="heroicons:check" class="w-4 h-4" />
-              Save Changes
+              <Icon v-if="prefLoading" name="heroicons:arrow-path" class="w-4 h-4 animate-spin" />
+              <Icon v-else name="heroicons:check" class="w-4 h-4" />
+              {{ prefLoading ? 'Saving...' : 'Save Changes' }}
             </HButton>
           </div>
         </div>
+
+        <!-- Save feedback -->
+        <Transition
+          enter-active-class="transition-all duration-300 ease-out"
+          enter-from-class="opacity-0 translate-y-2"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition-all duration-200 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 translate-y-2"
+        >
+          <div v-if="saveMessage" class="text-center py-2">
+            <span :class="saveSuccess ? 'text-horus-status-success' : 'text-horus-status-danger'" class="text-sm">
+              {{ saveMessage }}
+            </span>
+          </div>
+        </Transition>
       </div>
     </div>
 
-    <!-- Shortcut Edit Modal -->
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition-all duration-200 ease-out"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition-all duration-150 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <div
-          v-if="editingShortcut"
-          class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          @click.self="cancelEditShortcut"
-        >
-          <div class="bg-horus-bg-elevated border border-horus-border-accent rounded-xl shadow-2xl max-w-md w-full p-6">
-            <h3 class="text-lg font-semibold text-horus-text-primary mb-2">Press a Key</h3>
-            <p class="text-sm text-horus-text-secondary mb-6">Press any key to set as the new shortcut for Push to Talk</p>
-            
-            <div class="flex items-center justify-center p-8 bg-horus-bg-secondary border-2 border-dashed border-horus-border-accent rounded-lg mb-6">
-              <div class="text-center">
-                <Icon name="heroicons:command-line" class="w-12 h-12 text-horus-accent-cyan mx-auto mb-2 animate-pulse" />
-                <p class="text-sm text-horus-text-muted">Waiting for key press...</p>
-              </div>
-            </div>
-
-            <div class="flex gap-3">
-              <HButton
-                variant="secondary"
-                class="flex-1"
-                @click="cancelEditShortcut"
-              >
-                Cancel
-              </HButton>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <!-- Shortcuts Help Modal -->
+    <HShortcutsModal v-model="showShortcutsHelp" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+const {
+  shortcuts: allShortcuts,
+  isRecording,
+  recordingId,
+  startRecording,
+  stopRecording,
+  getDisplayCombo,
+  resetToDefaults: resetShortcutDefaults,
+} = useKeyboardShortcuts()
 
-// Settings state
-const shortcuts = ref({
-  pushToTalk: 'B',
-})
+const {
+  preferences,
+  isLoading: prefLoading,
+  isSynced: prefSynced,
+  error: prefError,
+  initialize: initPrefs,
+  saveToBackend,
+  resetToDefaults: resetPrefDefaults,
+} = usePreferences()
 
-const voiceSettings = ref({
-  radioEffects: true,
-  language: 'auto',
-  pushToTalkMode: true,
-})
+const isDirty = ref(false)
+const showShortcutsHelp = ref(false)
+const saveMessage = ref<string | null>(null)
+const saveSuccess = ref(false)
 
-const displaySettings = ref({
-  animations: true,
-})
-
-const editingShortcut = ref<string | null>(null)
-
-// Language options for dropdown
 const languageOptions = [
-  { value: 'auto', label: 'Auto-detect' },
   { value: 'en', label: 'English' },
   { value: 'es', label: 'Spanish (Español)' },
+  { value: 'fr', label: 'French (Français)' },
+  { value: 'de', label: 'German (Deutsch)' },
 ]
 
-const languageLabel = computed(() => {
-  switch (voiceSettings.value.language) {
-    case 'auto': return 'Auto-detect'
-    case 'en': return 'English'
-    case 'es': return 'Spanish (Español)'
-    default: return 'Auto-detect'
-  }
-})
-
-// Load settings from localStorage
-onMounted(() => {
-  const saved = localStorage.getItem('horus-settings')
-  if (saved) {
-    const parsed = JSON.parse(saved)
-    if (parsed.shortcuts) shortcuts.value = { ...shortcuts.value, ...parsed.shortcuts }
-    if (parsed.voiceSettings) voiceSettings.value = { ...voiceSettings.value, ...parsed.voiceSettings }
-    if (parsed.displaySettings) displaySettings.value = { ...displaySettings.value, ...parsed.displaySettings }
-  }
-
-  // Add keyboard listener for shortcut editing
-  window.addEventListener('keydown', handleShortcutKeyPress)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleShortcutKeyPress)
-})
-
-function handleShortcutKeyPress(e: KeyboardEvent) {
-  if (editingShortcut.value) {
-    e.preventDefault()
-    
-    // Get the key name
-    let keyName = e.key.toUpperCase()
-    
-    // Handle special keys
-    if (e.ctrlKey) keyName = `Ctrl+${keyName}`
-    if (e.altKey) keyName = `Alt+${keyName}`
-    if (e.shiftKey && keyName.length > 1) keyName = `Shift+${keyName}`
-    
-    // Update the shortcut
-    if (editingShortcut.value === 'pushToTalk') {
-      shortcuts.value.pushToTalk = keyName
+// Filter shortcuts to show editable ones
+const shortcutsByCategory = computed(() => {
+  const editable: Record<string, { label: string; description: string; category: string }> = {}
+  for (const [id, binding] of Object.entries(allShortcuts.value)) {
+    if (id !== 'escape') {
+      editable[id] = binding
     }
-    
-    editingShortcut.value = null
+  }
+  return editable
+})
+
+function markDirty(): void {
+  isDirty.value = true
+}
+
+function handleStartRecording(id: string): void {
+  if (isRecording.value && recordingId.value === id) {
+    stopRecording()
+  } else {
+    startRecording(id)
+    markDirty()
   }
 }
 
-function resetShortcut(shortcut: string) {
-  if (shortcut === 'pushToTalk') {
-    shortcuts.value.pushToTalk = 'B'
-  }
+async function handleSave(): Promise<void> {
+  const success = await saveToBackend()
+  isDirty.value = false
+  saveSuccess.value = success
+  saveMessage.value = success
+    ? 'Settings saved and synced to your account!'
+    : 'Settings saved locally (backend sync failed)'
+
+  setTimeout(() => { saveMessage.value = null }, 3000)
 }
 
-function cancelEditShortcut() {
-  editingShortcut.value = null
+async function handleResetAll(): Promise<void> {
+  resetShortcutDefaults()
+  await resetPrefDefaults()
+  isDirty.value = false
+  saveMessage.value = 'All settings reset to defaults'
+  saveSuccess.value = true
+  setTimeout(() => { saveMessage.value = null }, 3000)
 }
 
-function saveSettings() {
-  const settings = {
-    shortcuts: shortcuts.value,
-    voiceSettings: voiceSettings.value,
-    displaySettings: displaySettings.value,
-  }
-  localStorage.setItem('horus-settings', JSON.stringify(settings))
-  
-  // Show success feedback (you could add a toast notification here)
-  console.log('Settings saved successfully')
-  
-  // Navigate back
-  navigateTo('/')
-}
-
-function resetAllSettings() {
-  shortcuts.value = { pushToTalk: 'B' }
-  voiceSettings.value = {
-    radioEffects: true,
-    language: 'auto',
-    pushToTalkMode: true,
-  }
-  displaySettings.value = {
-    animations: true,
-  }
-}
+onMounted(async () => {
+  await initPrefs()
+})
 </script>

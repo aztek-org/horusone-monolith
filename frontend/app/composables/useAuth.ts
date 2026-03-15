@@ -21,7 +21,7 @@ interface AuthState {
 
 interface AuthActions {
   login: (redirectPath?: string) => void
-  logout: () => void
+  logout: () => Promise<void>
   handleCallback: () => Promise<void>
   refreshToken: () => Promise<boolean>
   getAccessToken: () => Promise<string | null>
@@ -169,6 +169,22 @@ export function useAuth(): AuthState & AuthActions {
 
       const data = await response.json()
       _setTokens(data.access_token, data.refresh_token, data.expires_in)
+
+      // Cache session in backend Redis (best-effort)
+      try {
+        const apiUrl = config.public.apiUrl as string
+        await fetch(`${apiUrl}/api/v1/auth/session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${data.access_token}`,
+          },
+          body: JSON.stringify({ user_agent: navigator.userAgent }),
+        })
+      }
+      catch {
+        // Best-effort — session cache is not critical
+      }
     }
     catch (e) {
       error.value = e instanceof Error ? e.message : 'Authentication failed'
@@ -266,20 +282,38 @@ export function useAuth(): AuthState & AuthActions {
   }
 
   /**
-   * Logout — redirect to Keycloak end session endpoint.
+   * Logout — revoke token via backend, clear local state, redirect to login.
+   * No Keycloak redirect, no confirmation prompt.
    */
-  function logout(): void {
-    const idToken = accessToken.value
+  async function logout(): Promise<void> {
+    const currentRefreshToken = refreshTokenValue.value
+
+    // Clear local state immediately
     _clearAuth()
 
     if (import.meta.server) return
 
-    const params = new URLSearchParams({
-      client_id: clientId,
-      post_logout_redirect_uri: window.location.origin,
-    })
+    // Best-effort: call backend to revoke token and clear Redis session
+    if (currentRefreshToken) {
+      try {
+        const apiUrl = useRuntimeConfig().public.apiUrl as string
+        await fetch(`${apiUrl}/api/v1/auth/logout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: currentRefreshToken }),
+        })
+      }
+      catch {
+        // Best-effort — logout succeeds locally regardless
+      }
+    }
 
-    window.location.href = `${baseUrl}/logout?${params.toString()}`
+    // Clear any stored preferences/settings cache
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('horus-preferences-cache')
+    }
+
+    navigateTo('/login')
   }
 
   /**
@@ -309,8 +343,9 @@ export function useAuth(): AuthState & AuthActions {
     return roles.some(role => hasRole(role))
   }
 
-  // On first load, try to initialize from existing state
-  if (import.meta.client && !user.value && !isLoading.value) {
+  // On first client load, resolve auth state quickly so the app can render
+  if (import.meta.client && isLoading.value) {
+    // No tokens stored → not authenticated, stop loading immediately
     isLoading.value = false
   }
 

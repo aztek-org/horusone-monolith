@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.repositories.seat_repo import SeatRepository
 from app.db.session import get_db_session
-from app.middleware.auth import CurrentUser, TokenUser
+from app.middleware.auth import CurrentUser
 from app.models.user import User
 from app.services.user_sync import sync_user_from_token
 
