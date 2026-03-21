@@ -27,10 +27,10 @@ OLLAMA_MODEL := llama3.2:latest
 #   make up-infra OLLAMA_HOST=1
 OLLAMA_HOST ?= 0
 ifeq ($(OLLAMA_HOST),1)
-  INFRA_SERVICES := postgres redis
+  INFRA_SERVICES := postgres redis keycloak
   OLLAMA_URL := http://host.docker.internal:11434
 else
-  INFRA_SERVICES := postgres redis ollama
+  INFRA_SERVICES := postgres redis ollama keycloak
   OLLAMA_URL := http://ollama:11434
 endif
 
