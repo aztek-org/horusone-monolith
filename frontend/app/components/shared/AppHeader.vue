@@ -114,23 +114,25 @@ onMounted(() => {
         </NuxtLink>
       </div>
 
-      <!-- Desktop Navigation -->
-      <nav v-if="isAuthenticated" class="hidden lg:flex items-center gap-1">
-        <NuxtLink
-          v-for="item in navItems"
-          :key="item.path"
-          :to="item.path"
-          :class="[
-            'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors',
-            route.path.startsWith(item.path)
-              ? 'bg-horus-bg-tertiary text-horus-text-primary'
-              : 'text-horus-text-secondary hover:text-horus-text-primary hover:bg-horus-bg-secondary'
-          ]"
-        >
-          <Icon :name="item.icon" class="w-4 h-4" />
-          {{ item.label }}
-        </NuxtLink>
-      </nav>
+      <!-- Desktop Navigation (client-only to prevent SSR hydration mismatch) -->
+      <ClientOnly>
+        <nav v-if="isAuthenticated" class="hidden lg:flex items-center gap-1">
+          <NuxtLink
+            v-for="item in navItems"
+            :key="item.path"
+            :to="item.path"
+            :class="[
+              'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors',
+              route.path.startsWith(item.path)
+                ? 'bg-horus-bg-tertiary text-horus-text-primary'
+                : 'text-horus-text-secondary hover:text-horus-text-primary hover:bg-horus-bg-secondary'
+            ]"
+          >
+            <Icon :name="item.icon" class="w-4 h-4" />
+            {{ item.label }}
+          </NuxtLink>
+        </nav>
+      </ClientOnly>
 
       <!-- Right Section -->
       <div class="flex items-center gap-3">
@@ -153,105 +155,107 @@ onMounted(() => {
           </HButton>
         </slot>
 
-        <!-- User Avatar with Dropdown Menu (Authenticated) -->
-        <div v-if="isAuthenticated" class="relative user-menu-container">
-          <button
-            @click="toggleUserMenu"
-            class="w-8 h-8 rounded-full bg-horus-bg-tertiary border border-horus-border-subtle overflow-hidden hover:border-horus-accent-cyan transition-colors"
-            :class="{ 'ring-2 ring-horus-accent-cyan': isUserMenuOpen }"
-          >
-            <img
-              :src="`https://api.dicebear.com/7.x/avataaars/svg?seed=${userAvatarSeed}`"
-              :alt="userDisplayName"
-              class="w-full h-full object-cover"
-            />
-          </button>
-
-          <!-- Dropdown Menu -->
-          <Transition
-            enter-active-class="transition-all duration-200 ease-out"
-            enter-from-class="opacity-0 scale-95 -translate-y-2"
-            enter-to-class="opacity-100 scale-100 translate-y-0"
-            leave-active-class="transition-all duration-150 ease-in"
-            leave-from-class="opacity-100 scale-100 translate-y-0"
-            leave-to-class="opacity-0 scale-95 -translate-y-2"
-          >
-            <div
-              v-if="isUserMenuOpen"
-              class="absolute right-0 top-full mt-2 w-56 bg-horus-bg-elevated border border-horus-border-accent rounded-lg shadow-2xl overflow-hidden z-50"
+        <!-- User Avatar / Login (client-only to prevent SSR hydration mismatch) -->
+        <ClientOnly>
+          <div v-if="isAuthenticated" class="relative user-menu-container">
+            <button
+              @click="toggleUserMenu"
+              class="w-8 h-8 rounded-full bg-horus-bg-tertiary border border-horus-border-subtle overflow-hidden hover:border-horus-accent-cyan transition-colors"
+              :class="{ 'ring-2 ring-horus-accent-cyan': isUserMenuOpen }"
             >
-              <!-- User Info -->
-              <div class="px-4 py-3 border-b border-horus-border-subtle">
-                <p class="text-sm font-medium text-horus-text-primary">{{ userDisplayName }}</p>
-                <p class="text-xs text-horus-text-muted">{{ userEmail }}</p>
+              <img
+                :src="`https://api.dicebear.com/7.x/avataaars/svg?seed=${userAvatarSeed}`"
+                :alt="userDisplayName"
+                class="w-full h-full object-cover"
+              />
+            </button>
+
+            <!-- Dropdown Menu -->
+            <Transition
+              enter-active-class="transition-all duration-200 ease-out"
+              enter-from-class="opacity-0 scale-95 -translate-y-2"
+              enter-to-class="opacity-100 scale-100 translate-y-0"
+              leave-active-class="transition-all duration-150 ease-in"
+              leave-from-class="opacity-100 scale-100 translate-y-0"
+              leave-to-class="opacity-0 scale-95 -translate-y-2"
+            >
+              <div
+                v-if="isUserMenuOpen"
+                class="absolute right-0 top-full mt-2 w-56 bg-horus-bg-elevated border border-horus-border-accent rounded-lg shadow-2xl overflow-hidden z-50"
+              >
+                <!-- User Info -->
+                <div class="px-4 py-3 border-b border-horus-border-subtle">
+                  <p class="text-sm font-medium text-horus-text-primary">{{ userDisplayName }}</p>
+                  <p class="text-xs text-horus-text-muted">{{ userEmail }}</p>
+                </div>
+
+                <!-- Menu Items -->
+                <div class="py-1">
+                  <!-- Dashboard (org-admin/instructor only) -->
+                  <NuxtLink
+                    v-if="hasAnyRole('org-admin', 'instructor')"
+                    to="/dashboard"
+                    @click="isUserMenuOpen = false"
+                    class="flex items-center gap-3 px-4 py-2.5 text-sm text-horus-text-primary hover:bg-horus-bg-tertiary transition-colors"
+                  >
+                    <Icon name="heroicons:squares-2x2" class="w-5 h-5 text-horus-text-secondary" />
+                    <span>Dashboard</span>
+                  </NuxtLink>
+
+                  <!-- Admin Panel (platform-admin/org-admin only) -->
+                  <NuxtLink
+                    v-if="hasAnyRole('platform-admin', 'org-admin')"
+                    to="/admin"
+                    @click="isUserMenuOpen = false"
+                    class="flex items-center gap-3 px-4 py-2.5 text-sm text-horus-text-primary hover:bg-horus-bg-tertiary transition-colors"
+                  >
+                    <Icon name="heroicons:shield-check" class="w-5 h-5 text-horus-text-secondary" />
+                    <span>Admin Panel</span>
+                  </NuxtLink>
+
+                  <NuxtLink
+                    to="/settings"
+                    @click="isUserMenuOpen = false"
+                    class="flex items-center gap-3 px-4 py-2.5 text-sm text-horus-text-primary hover:bg-horus-bg-tertiary transition-colors"
+                  >
+                    <Icon name="heroicons:cog-6-tooth" class="w-5 h-5 text-horus-text-secondary" />
+                    <span>Settings</span>
+                  </NuxtLink>
+
+                  <button
+                    @click="openAbout"
+                    class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-horus-text-primary hover:bg-horus-bg-tertiary transition-colors"
+                  >
+                    <Icon name="heroicons:information-circle" class="w-5 h-5 text-horus-text-secondary" />
+                    <span>About Us</span>
+                  </button>
+                </div>
+
+                <!-- Logout -->
+                <div class="border-t border-horus-border-subtle py-1">
+                  <button
+                    @click="handleLogout"
+                    class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-horus-status-danger hover:bg-horus-status-danger/10 transition-colors"
+                  >
+                    <Icon name="heroicons:arrow-right-on-rectangle" class="w-5 h-5" />
+                    <span>Logout</span>
+                  </button>
+                </div>
               </div>
+            </Transition>
+          </div>
 
-              <!-- Menu Items -->
-              <div class="py-1">
-                <!-- Dashboard (org-admin/instructor only) -->
-                <NuxtLink
-                  v-if="hasAnyRole('org-admin', 'instructor')"
-                  to="/dashboard"
-                  @click="isUserMenuOpen = false"
-                  class="flex items-center gap-3 px-4 py-2.5 text-sm text-horus-text-primary hover:bg-horus-bg-tertiary transition-colors"
-                >
-                  <Icon name="heroicons:squares-2x2" class="w-5 h-5 text-horus-text-secondary" />
-                  <span>Dashboard</span>
-                </NuxtLink>
-
-                <!-- Admin Panel (platform-admin/org-admin only) -->
-                <NuxtLink
-                  v-if="hasAnyRole('platform-admin', 'org-admin')"
-                  to="/admin"
-                  @click="isUserMenuOpen = false"
-                  class="flex items-center gap-3 px-4 py-2.5 text-sm text-horus-text-primary hover:bg-horus-bg-tertiary transition-colors"
-                >
-                  <Icon name="heroicons:shield-check" class="w-5 h-5 text-horus-text-secondary" />
-                  <span>Admin Panel</span>
-                </NuxtLink>
-
-                <NuxtLink
-                  to="/settings"
-                  @click="isUserMenuOpen = false"
-                  class="flex items-center gap-3 px-4 py-2.5 text-sm text-horus-text-primary hover:bg-horus-bg-tertiary transition-colors"
-                >
-                  <Icon name="heroicons:cog-6-tooth" class="w-5 h-5 text-horus-text-secondary" />
-                  <span>Settings</span>
-                </NuxtLink>
-
-                <button
-                  @click="openAbout"
-                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-horus-text-primary hover:bg-horus-bg-tertiary transition-colors"
-                >
-                  <Icon name="heroicons:information-circle" class="w-5 h-5 text-horus-text-secondary" />
-                  <span>About Us</span>
-                </button>
-              </div>
-
-              <!-- Logout -->
-              <div class="border-t border-horus-border-subtle py-1">
-                <button
-                  @click="handleLogout"
-                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-horus-status-danger hover:bg-horus-status-danger/10 transition-colors"
-                >
-                  <Icon name="heroicons:arrow-right-on-rectangle" class="w-5 h-5" />
-                  <span>Logout</span>
-                </button>
-              </div>
-            </div>
-          </Transition>
-        </div>
-
-        <!-- Login Button (Unauthenticated) -->
-        <HButton
-          v-else
-          variant="primary"
-          size="sm"
-          icon="heroicons:arrow-right-on-rectangle"
-          @click="() => { const { login } = useAuth(); login(route.fullPath) }"
-        >
-          Login
-        </HButton>
+          <!-- Login Button (Unauthenticated) -->
+          <HButton
+            v-else
+            variant="primary"
+            size="sm"
+            icon="heroicons:arrow-right-on-rectangle"
+            @click="() => { const { login } = useAuth(); login(route.fullPath) }"
+          >
+            Login
+          </HButton>
+        </ClientOnly>
       </div>
     </div>
 
