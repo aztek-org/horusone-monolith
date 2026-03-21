@@ -26,7 +26,7 @@ OLLAMA_MODEL := llama3.2:latest
 #   make up OLLAMA_HOST=1
 #   make up-infra OLLAMA_HOST=1
 OLLAMA_HOST ?= 0
-ifeq ($(OLLAMA_HOST),1)
+ifneq ($(OLLAMA_HOST),0)
   INFRA_SERVICES := postgres redis
   OLLAMA_URL := http://host.docker.internal:11434
 else
@@ -144,7 +144,7 @@ install-frontend: ## Install frontend Node dependencies
 .PHONY: up
 up: ## Start dev environment (infra + backend + frontend)
 	@echo "$(BOLD)═══ Starting Horus dev environment ═══$(RESET)"
-ifeq ($(OLLAMA_HOST),1)
+ifneq ($(OLLAMA_HOST),0)
 	@echo "  $(YELLOW)▸ Ollama: using host installation (http://localhost:11434)$(RESET)"
 else
 	@echo "  $(DIM)▸ Ollama: Docker container (use OLLAMA_HOST=1 for host)$(RESET)"
@@ -154,7 +154,14 @@ endif
 	@cd $(BACKEND_DIR) && $(COMPOSE_DEV) up -d $(INFRA_SERVICES)
 	@echo ""
 	@echo "$(CYAN)▸ Waiting for PostgreSQL...$(RESET)"
-	@cd $(BACKEND_DIR) && until $(COMPOSE_DEV) exec -T postgres pg_isready -U horus -q 2>/dev/null; do sleep 1; done
+	@cd $(BACKEND_DIR) && _n=0; while [ $$_n -lt 30 ]; do \
+		$(COMPOSE_DEV) exec -T postgres pg_isready -U horus -q 2>/dev/null && break; \
+		_n=$$((_n + 1)); sleep 1; \
+	done; \
+	if [ $$_n -ge 30 ]; then \
+		echo "$(RED)✘ PostgreSQL failed to start within 30s$(RESET)"; \
+		echo "  Run $(CYAN)make logs$(RESET) for details"; exit 1; \
+	fi
 	@echo "$(GREEN)✓$(RESET) PostgreSQL ready"
 	@echo ""
 	@echo "$(CYAN)▸ Running migrations...$(RESET)"
@@ -182,7 +189,7 @@ endif
 .PHONY: up-infra
 up-infra: ## Start only infrastructure (postgres, redis, ollama)
 	@echo "$(CYAN)Starting infrastructure ($(INFRA_SERVICES))...$(RESET)"
-ifeq ($(OLLAMA_HOST),1)
+ifneq ($(OLLAMA_HOST),0)
 	@echo "  $(YELLOW)▸ Ollama: using host installation$(RESET)"
 endif
 	@cd $(BACKEND_DIR) && $(COMPOSE_DEV) up -d $(INFRA_SERVICES)
