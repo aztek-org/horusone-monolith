@@ -28,6 +28,11 @@ const navItems = computed(() => {
     items.unshift({ path: '/dashboard', label: 'Dashboard', icon: 'heroicons:squares-2x2' })
   }
 
+  // Add Admin link for platform-admin/org-admin roles
+  if (isAuthenticated.value && hasAnyRole('platform-admin', 'org-admin')) {
+    items.push({ path: '/admin', label: 'Admin', icon: 'heroicons:shield-check' })
+  }
+
   return items
 })
 
@@ -192,6 +197,17 @@ onMounted(() => {
                 >
                   <Icon name="heroicons:squares-2x2" class="w-5 h-5 text-horus-text-secondary" />
                   <span>Dashboard</span>
+                </NuxtLink>
+
+                <!-- Admin Panel (platform-admin/org-admin only) -->
+                <NuxtLink
+                  v-if="hasAnyRole('platform-admin', 'org-admin')"
+                  to="/admin"
+                  @click="isUserMenuOpen = false"
+                  class="flex items-center gap-3 px-4 py-2.5 text-sm text-horus-text-primary hover:bg-horus-bg-tertiary transition-colors"
+                >
+                  <Icon name="heroicons:shield-check" class="w-5 h-5 text-horus-text-secondary" />
+                  <span>Admin Panel</span>
                 </NuxtLink>
 
                 <NuxtLink
