@@ -12,7 +12,9 @@
   "accessTokenLifespan": 300,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
-  "defaultRoles": ["student"],
+  "defaultRoles": [
+    "student"
+  ],
   "roles": {
     "realm": [
       {
@@ -49,7 +51,10 @@
       "enabled": true,
       "firstName": "Horus",
       "lastName": "Admin",
-      "realmRoles": ["platform-admin", "org-admin"],
+      "realmRoles": [
+        "platform-admin",
+        "org-admin"
+      ],
       "credentials": [
         {
           "type": "password",
@@ -68,7 +73,9 @@
       "enabled": true,
       "firstName": "Sarah",
       "lastName": "Mitchell",
-      "realmRoles": ["org-admin"],
+      "realmRoles": [
+        "org-admin"
+      ],
       "credentials": [
         {
           "type": "password",
@@ -77,7 +84,9 @@
         }
       ],
       "attributes": {
-        "organization_id": ["skybridge"]
+        "organization_id": [
+          "skybridge"
+        ]
       }
     },
     {
@@ -87,7 +96,9 @@
       "enabled": true,
       "firstName": "James",
       "lastName": "Chen",
-      "realmRoles": ["instructor"],
+      "realmRoles": [
+        "instructor"
+      ],
       "credentials": [
         {
           "type": "password",
@@ -96,7 +107,9 @@
         }
       ],
       "attributes": {
-        "organization_id": ["skybridge"]
+        "organization_id": [
+          "skybridge"
+        ]
       }
     },
     {
@@ -106,7 +119,9 @@
       "enabled": true,
       "firstName": "Maria",
       "lastName": "Santos",
-      "realmRoles": ["student"],
+      "realmRoles": [
+        "student"
+      ],
       "credentials": [
         {
           "type": "password",
@@ -115,7 +130,9 @@
         }
       ],
       "attributes": {
-        "organization_id": ["skybridge"]
+        "organization_id": [
+          "skybridge"
+        ]
       }
     },
     {
@@ -125,7 +142,9 @@
       "enabled": true,
       "firstName": "Alex",
       "lastName": "Turner",
-      "realmRoles": ["student"],
+      "realmRoles": [
+        "student"
+      ],
       "credentials": [
         {
           "type": "password",
@@ -134,7 +153,9 @@
         }
       ],
       "attributes": {
-        "organization_id": ["skybridge"]
+        "organization_id": [
+          "skybridge"
+        ]
       }
     }
   ],
@@ -143,7 +164,8 @@
     "acr",
     "profile",
     "roles",
-    "email"
+    "email",
+    "openid"
   ],
   "clients": [
     {
@@ -204,6 +226,12 @@
             "jsonType.label": "String"
           }
         }
+      ],
+      "defaultClientScopes": [
+        "openid",
+        "email",
+        "profile",
+        "roles"
       ]
     },
     {
@@ -253,6 +281,87 @@
           "protocolMapper": "oidc-audience-resolve-mapper",
           "consentRequired": false,
           "config": {}
+        }
+      ]
+    },
+    {
+      "name": "openid",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "email",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "email",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "email",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "email verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "emailVerified",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "email_verified",
+            "jsonType.label": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "name": "profile",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "username",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "full name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-full-name-mapper",
+          "consentRequired": false,
+          "config": {
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
         }
       ]
     }

@@ -153,8 +153,17 @@ export function useAuth(): AuthState & AuthActions {
   async function handleCallback(): Promise<void> {
     if (import.meta.server) return
 
-    // Extract code from URL — use full href to avoid SSR hydration edge cases
     const callbackUrl = new URL(window.location.href)
+
+    // Check for Keycloak error response first
+    const kcError = callbackUrl.searchParams.get('error')
+    if (kcError) {
+      const kcDesc = callbackUrl.searchParams.get('error_description') || kcError
+      console.error('[useAuth] Keycloak error:', kcError, kcDesc)
+      error.value = kcDesc
+      return
+    }
+
     const code = callbackUrl.searchParams.get('code')
     const codeVerifier = sessionStorage.getItem('pkce_code_verifier')
 
