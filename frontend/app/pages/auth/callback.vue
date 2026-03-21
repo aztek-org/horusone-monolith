@@ -3,12 +3,16 @@
  * OIDC callback page — handles Keycloak redirect after login.
  * Exchanges the authorization code for tokens, then redirects to the
  * originally requested page (or home).
+ *
+ * SSR is disabled (ssr: false) to ensure sessionStorage and URL params
+ * are always available during hydration.
  */
 definePageMeta({
   layout: false,
+  ssr: false,
 })
 
-const { handleCallback, isAuthenticated, error } = useAuth()
+const { handleCallback, login, isAuthenticated, error } = useAuth()
 const router = useRouter()
 
 onMounted(async () => {
@@ -20,6 +24,11 @@ onMounted(async () => {
     router.replace(redirect)
   }
 })
+
+function retryLogin(): void {
+  const redirect = sessionStorage.getItem('auth_redirect')
+  login(redirect || undefined)
+}
 </script>
 
 <template>
@@ -42,12 +51,20 @@ onMounted(async () => {
         <p class="mt-2 text-sm">
           {{ error }}
         </p>
-        <button
-          class="mt-4 rounded bg-horus-accent-cyan px-4 py-2 text-sm text-black"
-          @click="$router.replace('/')"
-        >
-          Return Home
-        </button>
+        <div class="mt-4 flex justify-center gap-3">
+          <button
+            class="rounded bg-horus-accent-cyan px-4 py-2 text-sm text-black"
+            @click="retryLogin()"
+          >
+            Try Again
+          </button>
+          <button
+            class="rounded border border-white/20 px-4 py-2 text-sm text-horus-text-secondary"
+            @click="$router.replace('/')"
+          >
+            Return Home
+          </button>
+        </div>
       </div>
     </div>
   </div>

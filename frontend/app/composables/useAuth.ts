@@ -153,11 +153,17 @@ export function useAuth(): AuthState & AuthActions {
   async function handleCallback(): Promise<void> {
     if (import.meta.server) return
 
-    const urlParams = new URLSearchParams(window.location.search)
-    const code = urlParams.get('code')
+    // Extract code from URL — use full href to avoid SSR hydration edge cases
+    const callbackUrl = new URL(window.location.href)
+    const code = callbackUrl.searchParams.get('code')
     const codeVerifier = sessionStorage.getItem('pkce_code_verifier')
 
     if (!code || !codeVerifier) {
+      console.error('[useAuth] callback missing params:', {
+        hasCode: !!code,
+        hasVerifier: !!codeVerifier,
+        href: window.location.href,
+      })
       error.value = 'Missing authorization code or PKCE verifier'
       return
     }

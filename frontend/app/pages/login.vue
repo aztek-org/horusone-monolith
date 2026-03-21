@@ -5,6 +5,7 @@
  */
 definePageMeta({
   layout: false,
+  ssr: false,
 })
 
 const { login, isAuthenticated } = useAuth()
