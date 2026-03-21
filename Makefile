@@ -20,7 +20,19 @@ COMPOSE_PROD := docker compose -f docker-compose.yml -f docker-compose.prod.yml 
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 UV_RUN := cd $(BACKEND_DIR) && uv run
-OLLAMA_MODEL := llama3.2:3b
+OLLAMA_MODEL := llama3.2:latest
+
+# Set OLLAMA_HOST=1 to skip the Ollama Docker container and use host-installed Ollama.
+#   make up OLLAMA_HOST=1
+#   make up-infra OLLAMA_HOST=1
+OLLAMA_HOST ?= 0
+ifeq ($(OLLAMA_HOST),1)
+  INFRA_SERVICES := postgres redis
+  OLLAMA_URL := http://host.docker.internal:11434
+else
+  INFRA_SERVICES := postgres redis ollama
+  OLLAMA_URL := http://ollama:11434
+endif
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 CYAN := \033[36m
@@ -48,6 +60,7 @@ help: ## Show this help
 	@printf "\n"
 	@printf "  \033[1mDevelopment\033[0m\n"
 	@printf "    \033[36mmake up                \033[0m Start dev environment (infra + backend + frontend)\n"
+	@printf "    \033[36mmake up OLLAMA_HOST=1   \033[0m Same, but use host-installed Ollama (skip Docker)\n"
 	@printf "    \033[36mmake up-infra          \033[0m Start only infrastructure (postgres, redis, ollama)\n"
 	@printf "    \033[36mmake up-full           \033[0m Start full stack including Keycloak\n"
 	@printf "    \033[36mmake down              \033[0m Stop everything (infra + background processes)\n"
@@ -131,9 +144,14 @@ install-frontend: ## Install frontend Node dependencies
 .PHONY: up
 up: ## Start dev environment (infra + backend + frontend)
 	@echo "$(BOLD)═══ Starting Horus dev environment ═══$(RESET)"
+ifeq ($(OLLAMA_HOST),1)
+	@echo "  $(YELLOW)▸ Ollama: using host installation (http://localhost:11434)$(RESET)"
+else
+	@echo "  $(DIM)▸ Ollama: Docker container (use OLLAMA_HOST=1 for host)$(RESET)"
+endif
 	@echo ""
-	@echo "$(CYAN)▸ Starting infrastructure...$(RESET)"
-	@cd $(BACKEND_DIR) && $(COMPOSE_DEV) up -d postgres redis ollama
+	@echo "$(CYAN)▸ Starting infrastructure ($(INFRA_SERVICES))...$(RESET)"
+	@cd $(BACKEND_DIR) && $(COMPOSE_DEV) up -d $(INFRA_SERVICES)
 	@echo ""
 	@echo "$(CYAN)▸ Waiting for PostgreSQL...$(RESET)"
 	@cd $(BACKEND_DIR) && until $(COMPOSE_DEV) exec -T postgres pg_isready -U horus -q 2>/dev/null; do sleep 1; done
@@ -163,8 +181,11 @@ up: ## Start dev environment (infra + backend + frontend)
 
 .PHONY: up-infra
 up-infra: ## Start only infrastructure (postgres, redis, ollama)
-	@echo "$(CYAN)Starting infrastructure...$(RESET)"
-	@cd $(BACKEND_DIR) && $(COMPOSE_DEV) up -d postgres redis ollama
+	@echo "$(CYAN)Starting infrastructure ($(INFRA_SERVICES))...$(RESET)"
+ifeq ($(OLLAMA_HOST),1)
+	@echo "  $(YELLOW)▸ Ollama: using host installation$(RESET)"
+endif
+	@cd $(BACKEND_DIR) && $(COMPOSE_DEV) up -d $(INFRA_SERVICES)
 	@echo "$(GREEN)✓$(RESET) Infrastructure running"
 
 .PHONY: up-full
