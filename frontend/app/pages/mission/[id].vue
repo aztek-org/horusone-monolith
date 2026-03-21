@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({
-  layout: 'mission',
+  layout: false,
   middleware: 'auth',
 })
 
