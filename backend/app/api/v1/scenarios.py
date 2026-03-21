@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.permissions import can_access_org, is_platform_admin
 from app.db.session import get_db_session
 from app.middleware.auth import CurrentUser, RequireInstructor
-from app.middleware.org_context import get_authenticated_user, get_org_id
+from app.middleware.org_context import RequireActiveSeat, get_authenticated_user, get_org_id
 from app.models.scenario import Scenario
 from app.models.user import User
 from app.schemas.scenario import ScenarioCreate, ScenarioResponse
@@ -56,14 +56,14 @@ async def list_scenarios(
 async def create_scenario(
     data: ScenarioCreate,
     user: RequireInstructor,
+    _seat: RequireActiveSeat,
     org_id: UUID | None = Depends(get_org_id),
     local_user: User = Depends(get_authenticated_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> ScenarioResponse:
     """Create a new training scenario.
 
-    Requires the *instructor* role or higher.  The scenario is
-    automatically scoped to the creator's organization.
+    Requires the *instructor* role or higher **and** an active seat.
     """
     scenario = Scenario(
         **data.model_dump(),

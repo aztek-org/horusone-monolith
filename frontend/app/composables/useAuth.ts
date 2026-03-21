@@ -11,12 +11,23 @@ interface AuthUser {
   organizationId: string | null
 }
 
+interface SeatInfo {
+  id: string
+  organizationId: string
+  organizationName: string | null
+  role: string
+  isActive: boolean
+}
+
 interface AuthState {
   user: Ref<AuthUser | null>
   isAuthenticated: Ref<boolean>
   isLoading: Ref<boolean>
   accessToken: Ref<string | null>
   error: Ref<string | null>
+  hasActiveSeat: Ref<boolean>
+  activeSeat: Ref<SeatInfo | null>
+  seats: Ref<SeatInfo[]>
 }
 
 interface AuthActions {
@@ -27,6 +38,7 @@ interface AuthActions {
   getAccessToken: () => Promise<string | null>
   hasRole: (role: string) => boolean
   hasAnyRole: (...roles: string[]) => boolean
+  fetchUserProfile: () => Promise<void>
 }
 
 // Module-level state (shared across components)
@@ -35,6 +47,9 @@ const accessToken = ref<string | null>(null)
 const refreshTokenValue = ref<string | null>(null)
 const isLoading = ref(true)
 const error = ref<string | null>(null)
+const seats = ref<SeatInfo[]>([])
+const hasActiveSeat = ref(false)
+const activeSeat = ref<SeatInfo | null>(null)
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -169,6 +184,9 @@ export function useAuth(): AuthState & AuthActions {
 
       const data = await response.json()
       _setTokens(data.access_token, data.refresh_token, data.expires_in)
+
+      // Fetch seat/profile info from backend
+      await fetchUserProfile()
 
       // Cache session in backend Redis (best-effort)
       try {
@@ -323,6 +341,9 @@ export function useAuth(): AuthState & AuthActions {
     accessToken.value = null
     refreshTokenValue.value = null
     user.value = null
+    seats.value = []
+    hasActiveSeat.value = false
+    activeSeat.value = null
     if (refreshTimer) {
       clearTimeout(refreshTimer)
       refreshTimer = null
@@ -343,6 +364,37 @@ export function useAuth(): AuthState & AuthActions {
     return roles.some(role => hasRole(role))
   }
 
+  /**
+   * Fetch the user profile (with seat info) from the backend.
+   * Called after login/callback to resolve seat-based access.
+   */
+  async function fetchUserProfile(): Promise<void> {
+    if (!accessToken.value) return
+
+    try {
+      const apiUrl = config.public.apiUrl as string
+      const response = await fetch(`${apiUrl}/api/v1/auth/me`, {
+        headers: { Authorization: `Bearer ${accessToken.value}` },
+      })
+
+      if (!response.ok) return
+
+      const profile = await response.json()
+      hasActiveSeat.value = profile.has_active_seat ?? false
+      seats.value = (profile.seats ?? []).map((s: Record<string, unknown>) => ({
+        id: s.id as string,
+        organizationId: s.organization_id as string,
+        organizationName: (s.organization_name as string) ?? null,
+        role: s.role as string,
+        isActive: s.is_active as boolean,
+      }))
+      activeSeat.value = seats.value.find(s => s.isActive) ?? null
+    }
+    catch {
+      // Best-effort — seat info is not critical for auth flow
+    }
+  }
+
   // On first client load, resolve auth state quickly so the app can render
   if (import.meta.client && isLoading.value) {
     // No tokens stored → not authenticated, stop loading immediately
@@ -355,6 +407,9 @@ export function useAuth(): AuthState & AuthActions {
     isLoading,
     accessToken,
     error,
+    hasActiveSeat,
+    activeSeat,
+    seats,
     login,
     logout,
     handleCallback,
@@ -362,5 +417,6 @@ export function useAuth(): AuthState & AuthActions {
     getAccessToken,
     hasRole,
     hasAnyRole,
+    fetchUserProfile,
   }
 }

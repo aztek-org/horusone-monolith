@@ -17,6 +17,7 @@ interface Scenario {
 }
 
 const { startSimulation } = useSimulationState()
+const { hasActiveSeat, hasAnyRole } = useAuth()
 const router = useRouter()
 const api = useApi()
 
@@ -24,6 +25,7 @@ const scenarios = ref<Scenario[]>([])
 const isLoading = ref(true)
 const errorMessage = ref<string | null>(null)
 const isCreating = ref(false)
+const canTrain = computed(() => hasActiveSeat.value || hasAnyRole('platform-admin'))
 
 async function fetchScenarios() {
   isLoading.value = true
@@ -42,6 +44,10 @@ async function fetchScenarios() {
 
 async function handleExecuteSimulation() {
   if (scenarios.value.length === 0) return
+  if (!canTrain.value) {
+    errorMessage.value = 'You need an active seat to start a training session. Contact your organization admin.'
+    return
+  }
 
   isCreating.value = true
   errorMessage.value = null
@@ -81,7 +87,8 @@ onMounted(() => {
             size="sm"
             icon="heroicons:play-solid"
             :loading="isCreating"
-            :disabled="isLoading || scenarios.length === 0"
+            :disabled="isLoading || scenarios.length === 0 || !canTrain"
+            :title="!canTrain ? 'Requires an active seat' : ''"
             @click="handleExecuteSimulation"
           >
             EXECUTE SIMULATION
@@ -109,6 +116,20 @@ onMounted(() => {
           >
             <Icon name="heroicons:x-mark" class="w-4 h-4" />
           </button>
+        </div>
+
+        <!-- Seat Warning -->
+        <div
+          v-if="!canTrain"
+          class="flex items-start gap-3 p-4 rounded-lg bg-horus-status-warning/10 border border-horus-status-warning/30"
+        >
+          <Icon name="heroicons:exclamation-circle" class="w-6 h-6 text-horus-status-warning flex-shrink-0 mt-0.5" />
+          <div>
+            <p class="text-sm font-medium text-horus-status-warning">Read-Only Mode</p>
+            <p class="text-xs text-horus-text-secondary mt-1">
+              You don't have an active seat. You can browse scenarios but cannot start training sessions.
+            </p>
+          </div>
         </div>
 
         <!-- Loading State -->

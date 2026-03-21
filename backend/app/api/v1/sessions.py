@@ -18,7 +18,7 @@ from sqlalchemy.orm import selectinload
 from app.core.permissions import can_access_org, has_role, is_platform_admin
 from app.db.session import get_db_session
 from app.middleware.auth import CurrentUser, TokenUser
-from app.middleware.org_context import get_authenticated_user, get_org_id
+from app.middleware.org_context import RequireActiveSeat, get_authenticated_user, get_org_id
 from app.models.training_session import TrainingSession
 from app.models.user import User
 from app.schemas.training_session import TrainingSessionCreate, TrainingSessionResponse
@@ -66,14 +66,15 @@ async def list_sessions(
 async def create_session(
     data: TrainingSessionCreate,
     user: CurrentUser,
+    _seat: RequireActiveSeat,
     org_id: UUID | None = Depends(get_org_id),
     local_user: User = Depends(get_authenticated_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> TrainingSessionResponse:
     """Create a new training session.
 
-    Any authenticated user can start a training session.  The session is
-    automatically scoped to the user and their organization.
+    Requires an **active seat** in an organization.  Users without a seat
+    can browse scenarios and view stats but cannot start training.
     """
     training_session = TrainingSession(
         **data.model_dump(),

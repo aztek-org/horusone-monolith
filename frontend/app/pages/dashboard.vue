@@ -26,7 +26,7 @@ interface TrainingSession {
   ended_at: string | null
 }
 
-const { user, hasRole, hasAnyRole } = useAuth()
+const { user, hasRole, hasAnyRole, hasActiveSeat, activeSeat } = useAuth()
 const api = useApi()
 const router = useRouter()
 
@@ -166,6 +166,22 @@ onMounted(() => {
           </button>
         </div>
 
+        <!-- No Active Seat Banner -->
+        <div
+          v-if="!hasActiveSeat && !hasAnyRole('platform-admin')"
+          class="flex items-start gap-3 p-4 rounded-lg bg-horus-status-warning/10 border border-horus-status-warning/30"
+        >
+          <Icon name="heroicons:exclamation-circle" class="w-6 h-6 text-horus-status-warning flex-shrink-0 mt-0.5" />
+          <div>
+            <p class="text-sm font-medium text-horus-status-warning">No Active Seat</p>
+            <p class="text-xs text-horus-text-secondary mt-1">
+              You don't have an active seat in any organization. You can browse scenarios and view
+              stats, but you cannot start training sessions or use the voice communication system.
+              Contact your organization administrator to request a seat.
+            </p>
+          </div>
+        </div>
+
         <!-- Stats Overview -->
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <HCard variant="default" padding="md">
@@ -289,6 +305,8 @@ onMounted(() => {
               size="sm"
               icon="heroicons:play"
               class="mt-3"
+              :disabled="!hasActiveSeat && !hasAnyRole('platform-admin')"
+              :title="!hasActiveSeat && !hasAnyRole('platform-admin') ? 'Requires an active seat' : ''"
               @click="router.push('/configurator')"
             >
               Start First Session
@@ -428,6 +446,8 @@ onMounted(() => {
               size="sm"
               icon="heroicons:play"
               class="w-full justify-start"
+              :disabled="!hasActiveSeat && !hasAnyRole('platform-admin')"
+              :title="!hasActiveSeat && !hasAnyRole('platform-admin') ? 'Requires an active seat' : ''"
               @click="router.push('/configurator')"
             >
               New Simulation

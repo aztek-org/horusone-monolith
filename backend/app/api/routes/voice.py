@@ -8,11 +8,14 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.core.audio_pipeline import AudioPipeline
 from app.core.websocket_manager import manager
+from app.db.repositories.seat_repo import SeatRepository
 from app.db.repositories.session_repo import TrainingSessionRepository
 from app.db.repositories.voice_log_repo import VoiceLogRepository
 from app.db.session import get_session_factory
+from app.middleware.auth import get_current_user_ws
 from app.schemas.training_session import TrainingSessionCreate
 from app.schemas.voice_log import VoiceLogCreate
+from app.services.user_sync import sync_user_from_token
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +25,7 @@ router = APIRouter()
 audio_pipeline: AudioPipeline | None = None
 _session_repo = TrainingSessionRepository()
 _voice_log_repo = VoiceLogRepository()
+_seat_repo = SeatRepository()
 
 
 def get_audio_pipeline() -> AudioPipeline:
@@ -66,6 +70,9 @@ async def _persist_voice_exchange(
 async def voice_communication(websocket: WebSocket) -> None:
     """WebSocket endpoint for bi-directional voice communication.
 
+    Requires authentication (token query param) and an **active seat**.
+    Users without a seat receive a close frame with code 4003.
+
     Protocol:
     1. Client sends audio chunks as binary data
     2. Server processes audio through pipeline
@@ -75,6 +82,41 @@ async def voice_communication(websocket: WebSocket) -> None:
     Args:
         websocket: WebSocket connection
     """
+    # --- Authenticate ---
+    try:
+        token_user = await get_current_user_ws(websocket)
+    except Exception:
+        # get_current_user_ws already closes the socket on failure
+        return
+
+    # --- Verify active seat (platform-admins bypass) ---
+    if "platform-admin" not in token_user.roles:
+        try:
+            session_factory = get_session_factory()
+            async with session_factory() as db:
+                local_user = await sync_user_from_token(db, token_user)
+                seats = await _seat_repo.get_user_seats(db, local_user.id)
+                active_seats = [s for s in seats if s.is_active]
+                if not active_seats:
+                    await websocket.accept()
+                    await websocket.send_json({
+                        "type": "error",
+                        "code": "NO_ACTIVE_SEAT",
+                        "message": "You do not have an active seat. Contact your organization admin.",
+                    })
+                    await websocket.close(code=4003, reason="No active seat")
+                    return
+        except Exception as e:
+            logger.error("Seat check failed during WS connect: %s", e)
+            await websocket.accept()
+            await websocket.send_json({
+                "type": "error",
+                "code": "INTERNAL_ERROR",
+                "message": "Could not verify seat status",
+            })
+            await websocket.close(code=4500, reason="Internal error")
+            return
+
     client_id = str(uuid.uuid4())
     pipeline = get_audio_pipeline()
 

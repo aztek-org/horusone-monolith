@@ -1,4 +1,4 @@
-"""Authentication endpoints — logout with Keycloak token revocation."""
+"""Authentication endpoints — logout, session caching, user profile."""
 
 from __future__ import annotations
 
@@ -6,18 +6,29 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timezone
+from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
 from app.core.redis import get_redis
+from app.db.repositories.seat_repo import SeatRepository
+from app.db.session import get_db_session
 from app.middleware.auth import CurrentUser
+from app.middleware.org_context import get_authenticated_user
+from app.models.seat import Seat
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+_seat_repo = SeatRepository()
 
 # Redis key TTLs
 SESSION_TTL_SECONDS = 86400  # 24 hours
@@ -180,4 +191,76 @@ async def create_session(
     return SessionCreateResponse(
         message="Session cached successfully",
         session_key=session_key,
+    )
+
+
+# ---------------------------------------------------------------------------
+# User profile with seat info
+# ---------------------------------------------------------------------------
+
+
+class SeatInfo(BaseModel):
+    """Seat information for the current user."""
+
+    id: UUID
+    organization_id: UUID
+    organization_name: str | None = None
+    role: str
+    is_active: bool
+
+
+class UserProfile(BaseModel):
+    """Authenticated user profile returned by ``/me``."""
+
+    id: UUID
+    keycloak_id: str
+    email: str
+    display_name: str
+    roles: list[str]
+    organization_id: UUID | None = None
+    has_active_seat: bool
+    seats: list[SeatInfo]
+
+
+@router.get("/me", response_model=UserProfile)
+async def get_current_user_profile(
+    user: CurrentUser,
+    local_user: User = Depends(get_authenticated_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> UserProfile:
+    """Return the current user's profile including seat / org membership.
+
+    This is the **primary endpoint** for the frontend to determine whether
+    the authenticated user holds an active seat and what features they
+    can access.
+    """
+    result = await session.execute(
+        select(Seat)
+        .options(selectinload(Seat.organization))
+        .where(Seat.user_id == local_user.id)
+    )
+    seats = list(result.scalars().all())
+
+    seat_infos = [
+        SeatInfo(
+            id=s.id,
+            organization_id=s.organization_id,
+            organization_name=s.organization.name if s.organization else None,
+            role=s.role,
+            is_active=s.is_active,
+        )
+        for s in seats
+    ]
+
+    has_active = any(s.is_active for s in seats) or "platform-admin" in user.roles
+
+    return UserProfile(
+        id=local_user.id,
+        keycloak_id=local_user.keycloak_id,
+        email=local_user.email,
+        display_name=local_user.display_name,
+        roles=user.roles,
+        organization_id=UUID(user.organization_id) if user.organization_id else None,
+        has_active_seat=has_active,
+        seats=seat_infos,
     )
