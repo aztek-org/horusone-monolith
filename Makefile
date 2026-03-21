@@ -26,7 +26,7 @@ OLLAMA_MODEL := llama3.2:latest
 #   make up OLLAMA_HOST=1
 #   make up-infra OLLAMA_HOST=1
 OLLAMA_HOST ?= 0
-ifneq ($(OLLAMA_HOST),0)
+ifeq ($(OLLAMA_HOST),1)
   INFRA_SERVICES := postgres redis
   OLLAMA_URL := http://host.docker.internal:11434
 else
@@ -144,7 +144,7 @@ install-frontend: ## Install frontend Node dependencies
 .PHONY: up
 up: ## Start dev environment (infra + backend + frontend)
 	@echo "$(BOLD)═══ Starting Horus dev environment ═══$(RESET)"
-ifneq ($(OLLAMA_HOST),0)
+ifeq ($(OLLAMA_HOST),1)
 	@echo "  $(YELLOW)▸ Ollama: using host installation (http://localhost:11434)$(RESET)"
 else
 	@echo "  $(DIM)▸ Ollama: Docker container (use OLLAMA_HOST=1 for host)$(RESET)"
@@ -189,7 +189,7 @@ endif
 .PHONY: up-infra
 up-infra: ## Start only infrastructure (postgres, redis, ollama)
 	@echo "$(CYAN)Starting infrastructure ($(INFRA_SERVICES))...$(RESET)"
-ifneq ($(OLLAMA_HOST),0)
+ifeq ($(OLLAMA_HOST),1)
 	@echo "  $(YELLOW)▸ Ollama: using host installation$(RESET)"
 endif
 	@cd $(BACKEND_DIR) && $(COMPOSE_DEV) up -d $(INFRA_SERVICES)

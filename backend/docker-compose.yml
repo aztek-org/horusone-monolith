@@ -139,7 +139,8 @@ services:
       - "traefik.http.routers.backend.entrypoints=web"
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
     env_file:
-      - ../.env.docker
+      - path: ../.env.docker
+        required: false
     environment:
       DATABASE_URL: postgresql+asyncpg://horus:horus@postgres:5432/horus_db
       OLLAMA_BASE_URL: http://ollama:11434
