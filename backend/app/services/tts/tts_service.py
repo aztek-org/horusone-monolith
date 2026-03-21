@@ -80,9 +80,7 @@ class TTSService:
             # Return empty audio on error
             return b""
 
-    async def synthesize_streaming(
-        self, text: str, language: str = None
-    ) -> list[bytes]:
+    async def synthesize_streaming(self, text: str, language: str = None) -> list[bytes]:
         """Synthesize speech in chunks for streaming.
 
         Args:
@@ -97,9 +95,6 @@ class TTSService:
 
         # Split into chunks for streaming
         chunk_size = 4096
-        chunks = [
-            audio_bytes[i : i + chunk_size]
-            for i in range(0, len(audio_bytes), chunk_size)
-        ]
+        chunks = [audio_bytes[i : i + chunk_size] for i in range(0, len(audio_bytes), chunk_size)]
 
         return chunks

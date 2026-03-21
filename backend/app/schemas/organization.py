@@ -1,4 +1,5 @@
 """Pydantic schemas for Organization."""
+
 import uuid
 from datetime import datetime
 

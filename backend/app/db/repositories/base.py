@@ -1,4 +1,5 @@
 """Generic base repository with common CRUD operations."""
+
 from typing import Generic, TypeVar
 
 from sqlalchemy import select
@@ -29,9 +30,7 @@ class BaseRepository(Generic[ModelType, CreateSchemaType]):
         self, session: AsyncSession, *, limit: int = 100, offset: int = 0
     ) -> list[ModelType]:
         """Get all records with pagination."""
-        result = await session.execute(
-            select(self.model).limit(limit).offset(offset)
-        )
+        result = await session.execute(select(self.model).limit(limit).offset(offset))
         return list(result.scalars().all())
 
     async def create(self, session: AsyncSession, data: CreateSchemaType) -> ModelType:

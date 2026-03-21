@@ -61,13 +61,13 @@ class AudioPipeline:
         Returns:
             PipelineResult with processed audio and transcripts.
         """
-        empty_result = PipelineResult(audio=b"", pilot_transcript="", atc_response="", language="en")
+        empty_result = PipelineResult(
+            audio=b"", pilot_transcript="", atc_response="", language="en"
+        )
         try:
             # Step 1: Speech to Text (with language detection)
             logger.info("Step 1: Transcribing pilot audio...")
-            pilot_text, detected_language = await self.stt_service.transcribe(
-                audio_data
-            )
+            pilot_text, detected_language = await self.stt_service.transcribe(audio_data)
 
             if not pilot_text:
                 logger.warning("No transcription received, returning silence")
@@ -91,7 +91,10 @@ class AudioPipeline:
             if not atc_audio_bytes:
                 logger.warning("No audio synthesized, returning silence")
                 return PipelineResult(
-                    audio=b"", pilot_transcript=pilot_text, atc_response=atc_text, language=detected_language
+                    audio=b"",
+                    pilot_transcript=pilot_text,
+                    atc_response=atc_text,
+                    language=detected_language,
                 )
 
             # Step 4: Apply Radio Effects

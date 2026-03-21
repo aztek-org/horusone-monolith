@@ -1,4 +1,5 @@
 """TrainingSession repository."""
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -18,14 +19,10 @@ class TrainingSessionRepository(BaseRepository[TrainingSession, TrainingSessionC
         self, session: AsyncSession, client_id: str
     ) -> list[TrainingSession]:
         """Get all sessions for a client."""
-        result = await session.execute(
-            select(self.model).where(self.model.client_id == client_id)
-        )
+        result = await session.execute(select(self.model).where(self.model.client_id == client_id))
         return list(result.scalars().all())
 
-    async def get_with_logs(
-        self, session: AsyncSession, session_id: int
-    ) -> TrainingSession | None:
+    async def get_with_logs(self, session: AsyncSession, session_id: int) -> TrainingSession | None:
         """Get a training session with all voice logs eagerly loaded."""
         result = await session.execute(
             select(self.model)

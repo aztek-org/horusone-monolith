@@ -76,7 +76,7 @@ class RadioEffectsProcessor:
         low = lowcut / nyquist
         high = highcut / nyquist
 
-        b, a = signal.butter(4, [low, high], btype='band')
+        b, a = signal.butter(4, [low, high], btype="band")
         filtered = signal.filtfilt(b, a, audio_data)
 
         return filtered

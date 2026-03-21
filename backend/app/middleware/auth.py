@@ -270,9 +270,7 @@ def require_role(*roles: str):
 
 
 RequireAdmin = Annotated[TokenUser, Depends(require_role("platform-admin"))]
-RequireOrgAdmin = Annotated[
-    TokenUser, Depends(require_role("platform-admin", "org-admin"))
-]
+RequireOrgAdmin = Annotated[TokenUser, Depends(require_role("platform-admin", "org-admin"))]
 RequireInstructor = Annotated[
     TokenUser, Depends(require_role("platform-admin", "org-admin", "instructor"))
 ]

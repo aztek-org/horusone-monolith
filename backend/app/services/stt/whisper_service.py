@@ -75,8 +75,7 @@ class WhisperSTTService:
                     # Last resort: assume raw PCM data at 16kHz mono
                     logger.warning("Attempting to treat as raw PCM data at 16kHz")
                     audio_array = (
-                        np.frombuffer(audio_data, dtype=np.int16).astype(np.float32)
-                        / 32768.0
+                        np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
                     )
                     sample_rate = 16000
 

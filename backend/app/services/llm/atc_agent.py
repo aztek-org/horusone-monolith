@@ -58,7 +58,9 @@ class ATCAgent:
             temperature=0.7,
         )
         self.graph = self._build_graph()
-        logger.info("ATC Agent initialized with LangGraph (model: %s)", self.settings.ollama_llm_model)
+        logger.info(
+            "ATC Agent initialized with LangGraph (model: %s)", self.settings.ollama_llm_model
+        )
 
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph state machine.
@@ -127,7 +129,8 @@ class ATCAgent:
         except Exception as e:
             logger.error("Error generating ATC response: %s", e)
             atc_response = (
-                "Repita, transmisión no clara." if language == "es"
+                "Repita, transmisión no clara."
+                if language == "es"
                 else "Say again, transmission unclear."
             )
 
@@ -206,7 +209,7 @@ class ATCAgent:
         prefixes_to_remove = ["ATC:", "Tower:", "Approach:", "Ground:", "Response:"]
         for prefix in prefixes_to_remove:
             if cleaned.startswith(prefix):
-                cleaned = cleaned[len(prefix):].strip()
+                cleaned = cleaned[len(prefix) :].strip()
 
         return cleaned
 

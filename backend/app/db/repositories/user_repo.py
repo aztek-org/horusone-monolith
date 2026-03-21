@@ -1,4 +1,5 @@
 """User repository."""
+
 import uuid
 
 from sqlalchemy import select
@@ -25,9 +26,7 @@ class UserRepository(BaseRepository[User, UserCreate]):
         self, session: AsyncSession, record_id: uuid.UUID
     ) -> User | None:
         """Get a user by UUID primary key."""
-        result = await session.execute(
-            select(self.model).where(self.model.id == record_id)
-        )
+        result = await session.execute(select(self.model).where(self.model.id == record_id))
         return result.scalar_one_or_none()
 
     async def delete(  # type: ignore[override]
@@ -42,20 +41,14 @@ class UserRepository(BaseRepository[User, UserCreate]):
 
     # ── Custom queries ─────────────────────────────────────────────
 
-    async def get_by_keycloak_id(
-        self, session: AsyncSession, keycloak_id: str
-    ) -> User | None:
+    async def get_by_keycloak_id(self, session: AsyncSession, keycloak_id: str) -> User | None:
         """Look up a user by their Keycloak subject identifier."""
         result = await session.execute(
             select(self.model).where(self.model.keycloak_id == keycloak_id)
         )
         return result.scalar_one_or_none()
 
-    async def get_by_email(
-        self, session: AsyncSession, email: str
-    ) -> User | None:
+    async def get_by_email(self, session: AsyncSession, email: str) -> User | None:
         """Look up a user by email address."""
-        result = await session.execute(
-            select(self.model).where(self.model.email == email)
-        )
+        result = await session.execute(select(self.model).where(self.model.email == email))
         return result.scalar_one_or_none()

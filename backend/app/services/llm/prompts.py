@@ -108,9 +108,7 @@ DEFAULT_FLIGHT_CONTEXT = {
 }
 
 
-def get_atc_prompt(
-    pilot_message: str, context: dict | None = None, language: str = "en"
-) -> str:
+def get_atc_prompt(pilot_message: str, context: dict | None = None, language: str = "en") -> str:
     """Generate a complete prompt for the ATC agent.
 
     Args:

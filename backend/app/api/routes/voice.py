@@ -97,11 +97,14 @@ async def voice_communication(websocket: WebSocket) -> None:
         logger.warning(f"Could not create TrainingSession (DB unavailable?): {e}")
 
     # Send connection confirmation
-    await manager.send_json(client_id, {
-        "type": "connected",
-        "client_id": client_id,
-        "message": "Voice communication ready",
-    })
+    await manager.send_json(
+        client_id,
+        {
+            "type": "connected",
+            "client_id": client_id,
+            "message": "Voice communication ready",
+        },
+    )
 
     audio_chunks: list[bytes] = []
 
@@ -125,10 +128,13 @@ async def voice_communication(websocket: WebSocket) -> None:
                     logger.info(f"Processing {len(audio_chunks)} audio chunks")
 
                     # Send processing status
-                    await manager.send_json(client_id, {
-                        "type": "processing",
-                        "message": "Processing your transmission...",
-                    })
+                    await manager.send_json(
+                        client_id,
+                        {
+                            "type": "processing",
+                            "message": "Processing your transmission...",
+                        },
+                    )
 
                     # Combine audio chunks and process
                     if audio_chunks:
@@ -147,22 +153,31 @@ async def voice_communication(websocket: WebSocket) -> None:
                                 )
 
                             await manager.send_audio(client_id, result.audio)
-                            await manager.send_json(client_id, {
-                                "type": "response_complete",
-                                "message": "ATC response sent",
-                            })
+                            await manager.send_json(
+                                client_id,
+                                {
+                                    "type": "response_complete",
+                                    "message": "ATC response sent",
+                                },
+                            )
                         else:
-                            await manager.send_json(client_id, {
-                                "type": "error",
-                                "message": "No response generated",
-                            })
+                            await manager.send_json(
+                                client_id,
+                                {
+                                    "type": "error",
+                                    "message": "No response generated",
+                                },
+                            )
 
                 elif message.get("type") == "reset":
                     pipeline.reset_conversation()
-                    await manager.send_json(client_id, {
-                        "type": "reset_complete",
-                        "message": "Conversation reset",
-                    })
+                    await manager.send_json(
+                        client_id,
+                        {
+                            "type": "reset_complete",
+                            "message": "Conversation reset",
+                        },
+                    )
 
                 elif message.get("type") == "ping":
                     await manager.send_json(client_id, {"type": "pong"})

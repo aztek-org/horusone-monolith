@@ -25,7 +25,9 @@ class ConnectionManager:
         await websocket.accept()
         self.active_connections[client_id] = websocket
         self.client_ids.add(client_id)
-        logger.info(f"Client {client_id} connected. Total connections: {len(self.active_connections)}")
+        logger.info(
+            f"Client {client_id} connected. Total connections: {len(self.active_connections)}"
+        )
 
     def disconnect(self, client_id: str) -> None:
         """Remove a WebSocket connection.
@@ -36,7 +38,9 @@ class ConnectionManager:
         if client_id in self.active_connections:
             del self.active_connections[client_id]
             self.client_ids.discard(client_id)
-            logger.info(f"Client {client_id} disconnected. Total connections: {len(self.active_connections)}")
+            logger.info(
+                f"Client {client_id} disconnected. Total connections: {len(self.active_connections)}"
+            )
 
     async def send_audio(self, client_id: str, audio_data: bytes) -> None:
         """Send audio data to a specific client.

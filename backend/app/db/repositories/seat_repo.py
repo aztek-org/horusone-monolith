@@ -1,4 +1,5 @@
 """Seat repository."""
+
 import uuid
 
 from sqlalchemy import select
@@ -25,9 +26,7 @@ class SeatRepository(BaseRepository[Seat, SeatCreate]):
         self, session: AsyncSession, record_id: uuid.UUID
     ) -> Seat | None:
         """Get a seat by UUID primary key."""
-        result = await session.execute(
-            select(self.model).where(self.model.id == record_id)
-        )
+        result = await session.execute(select(self.model).where(self.model.id == record_id))
         return result.scalar_one_or_none()
 
     async def delete(  # type: ignore[override]
@@ -42,9 +41,7 @@ class SeatRepository(BaseRepository[Seat, SeatCreate]):
 
     # ── Custom queries ─────────────────────────────────────────────
 
-    async def get_user_seats(
-        self, session: AsyncSession, user_id: uuid.UUID
-    ) -> list[Seat]:
+    async def get_user_seats(self, session: AsyncSession, user_id: uuid.UUID) -> list[Seat]:
         """Get all seats (org memberships) for a user."""
         result = await session.execute(
             select(self.model)
@@ -53,9 +50,7 @@ class SeatRepository(BaseRepository[Seat, SeatCreate]):
         )
         return list(result.scalars().all())
 
-    async def get_org_seats(
-        self, session: AsyncSession, org_id: uuid.UUID
-    ) -> list[Seat]:
+    async def get_org_seats(self, session: AsyncSession, org_id: uuid.UUID) -> list[Seat]:
         """Get all seats (members) for an organization."""
         result = await session.execute(
             select(self.model)

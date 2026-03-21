@@ -1,4 +1,5 @@
 """Pydantic schemas for Seat."""
+
 import uuid
 from datetime import datetime
 

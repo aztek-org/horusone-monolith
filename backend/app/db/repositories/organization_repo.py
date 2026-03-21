@@ -1,4 +1,5 @@
 """Organization repository."""
+
 import uuid
 
 from sqlalchemy import select
@@ -25,9 +26,7 @@ class OrganizationRepository(BaseRepository[Organization, OrganizationCreate]):
         self, session: AsyncSession, record_id: uuid.UUID
     ) -> Organization | None:
         """Get an organization by UUID primary key."""
-        result = await session.execute(
-            select(self.model).where(self.model.id == record_id)
-        )
+        result = await session.execute(select(self.model).where(self.model.id == record_id))
         return result.scalar_one_or_none()
 
     async def delete(  # type: ignore[override]
@@ -42,11 +41,7 @@ class OrganizationRepository(BaseRepository[Organization, OrganizationCreate]):
 
     # ── Custom queries ─────────────────────────────────────────────
 
-    async def get_by_slug(
-        self, session: AsyncSession, slug: str
-    ) -> Organization | None:
+    async def get_by_slug(self, session: AsyncSession, slug: str) -> Organization | None:
         """Look up an organization by its URL-safe slug."""
-        result = await session.execute(
-            select(self.model).where(self.model.slug == slug)
-        )
+        result = await session.execute(select(self.model).where(self.model.slug == slug))
         return result.scalar_one_or_none()
