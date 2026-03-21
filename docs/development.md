@@ -201,7 +201,7 @@ All requests will return a dev user — no login required.
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis ollama keycloak
 ```
 
-- **Keycloak admin console**: http://localhost:8180 (admin / admin)
+- **Keycloak admin console**: http://localhost:8080 (admin / admin)
 - The `horus` realm is auto-imported on first start
 - Frontend uses **OIDC PKCE flow** (no client secret)
 - Backend validates **RS256 JWT tokens** with JWKS endpoint caching
@@ -302,7 +302,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres re
 | PostgreSQL | 5432 | `postgresql://horus:horus@localhost:5432/horus_db` |
 | Redis | 6379 | `redis://localhost:6379/0` |
 | Ollama | 11434 | `http://localhost:11434` |
-| Keycloak | 8180 | `http://localhost:8180` |
+| Keycloak | 8180 | `http://localhost:8080` |
 
 ### Full Stack (everything in Docker)
 

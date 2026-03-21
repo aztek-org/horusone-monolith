@@ -158,7 +158,7 @@ runtimeConfig: {
   public: {
     apiUrl: process.env.NUXT_PUBLIC_API_URL || 'http://localhost:8000',
     wsUrl: process.env.NUXT_PUBLIC_WS_URL || 'ws://localhost:8000',
-    keycloakUrl: process.env.NUXT_PUBLIC_KEYCLOAK_URL || 'http://localhost:8180',
+    keycloakUrl: process.env.NUXT_PUBLIC_KEYCLOAK_URL || 'http://localhost:8080',
   },
 },
 ```

@@ -10,7 +10,7 @@
 
 | Service            | URL                             | Username / Email                 | Password     |
 |--------------------|---------------------------------|----------------------------------|--------------|
-| **Keycloak Admin** | http://localhost:8180            | `admin`                          | `admin`      |
+| **Keycloak Admin** | http://localhost:8080            | `admin`                          | `admin`      |
 | **Horus App**      | http://localhost:3000            | _(use any user below)_           |              |
 | **Horus API**      | http://localhost:8000/docs       | _(Bearer token from Keycloak)_   |              |
 | **PostgreSQL**     | `localhost:5432`                 | `horus` / `horus`                | `horus`      |
@@ -123,7 +123,7 @@ psql -h localhost -U horus -d horus_db
 ### Keycloak Admin Console
 
 ```
-URL:      http://localhost:8180  (or http://auth.localhost via Traefik)
+URL:      http://localhost:8080  (or http://auth.localhost via Traefik)
 Username: admin
 Password: admin
 Realm:    horus
@@ -159,10 +159,10 @@ KEYS prefs:*
 
 | Setting                | Value                                                    |
 |------------------------|----------------------------------------------------------|
-| **Issuer URL**         | `http://localhost:8180/realms/horus`                     |
-| **Auth endpoint**      | `http://localhost:8180/realms/horus/protocol/openid-connect/auth` |
-| **Token endpoint**     | `http://localhost:8180/realms/horus/protocol/openid-connect/token` |
-| **JWKS URI**           | `http://localhost:8180/realms/horus/protocol/openid-connect/certs` |
+| **Issuer URL**         | `http://localhost:8080/realms/horus`                     |
+| **Auth endpoint**      | `http://localhost:8080/realms/horus/protocol/openid-connect/auth` |
+| **Token endpoint**     | `http://localhost:8080/realms/horus/protocol/openid-connect/token` |
+| **JWKS URI**           | `http://localhost:8080/realms/horus/protocol/openid-connect/certs` |
 | **Client ID (SPA)**    | `horus-web`                                              |
 | **Client ID (API)**    | `horus-api`                                              |
 | **PKCE method**        | `S256`                                                   |

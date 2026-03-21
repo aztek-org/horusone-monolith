@@ -208,7 +208,7 @@ keycloak:
     timeout: 5s
     retries: 10
   ports:
-    - "8180:8080"
+    - "8080:8080"
 ```
 
 ## Traefik Integration

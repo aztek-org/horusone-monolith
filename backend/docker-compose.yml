@@ -88,7 +88,7 @@ services:
 
   # ---------------------------------------------------------------------------
   # Identity Provider — Keycloak 24 (Quarkus)
-  # Admin console: http://auth.localhost (via Traefik) or http://localhost:8180
+  # Admin console: http://auth.localhost (via Traefik) or http://localhost:8080
   # ---------------------------------------------------------------------------
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
@@ -100,13 +100,13 @@ services:
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak_db
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
-      KC_HOSTNAME: auth.localhost
+      KC_HOSTNAME_STRICT: "false"
       KC_PROXY_HEADERS: xforwarded
       KC_HEALTH_ENABLED: "true"
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
     ports:
-      - "8180:8080"
+      - "8080:8080"
     volumes:
       - ./docker/keycloak-import:/opt/keycloak/data/import:ro
     depends_on:
