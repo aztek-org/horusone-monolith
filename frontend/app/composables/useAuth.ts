@@ -45,6 +45,7 @@ interface AuthActions {
 const user = ref<AuthUser | null>(null)
 const accessToken = ref<string | null>(null)
 const refreshTokenValue = ref<string | null>(null)
+const idTokenValue = ref<string | null>(null)
 const isLoading = ref(true)
 const error = ref<string | null>(null)
 const seats = ref<SeatInfo[]>([])
@@ -198,7 +199,7 @@ export function useAuth(): AuthState & AuthActions {
       }
 
       const data = await response.json()
-      _setTokens(data.access_token, data.refresh_token, data.expires_in)
+      _setTokens(data.access_token, data.refresh_token, data.expires_in, data.id_token)
 
       // Fetch seat/profile info from backend
       await fetchUserProfile()
@@ -235,9 +236,11 @@ export function useAuth(): AuthState & AuthActions {
     access: string,
     refresh: string,
     expiresIn: number,
+    idToken?: string,
   ): void {
     accessToken.value = access
     refreshTokenValue.value = refresh
+    idTokenValue.value = idToken ?? null
 
     const payload = parseJwtPayload(access)
     user.value = extractUser(payload)
@@ -281,7 +284,7 @@ export function useAuth(): AuthState & AuthActions {
       }
 
       const data = await response.json()
-      _setTokens(data.access_token, data.refresh_token, data.expires_in)
+      _setTokens(data.access_token, data.refresh_token, data.expires_in, data.id_token)
       return true
     }
     catch {
@@ -315,11 +318,13 @@ export function useAuth(): AuthState & AuthActions {
   }
 
   /**
-   * Logout — revoke token via backend, clear local state, redirect to login.
-   * No Keycloak redirect, no confirmation prompt.
+   * Logout — revoke token via backend, end Keycloak session, clear local state.
+   * Uses Keycloak's end_session_endpoint to fully terminate the SSO session
+   * so re-login requires credentials.
    */
   async function logout(): Promise<void> {
     const currentRefreshToken = refreshTokenValue.value
+    const currentIdToken = idTokenValue.value
 
     // Clear local state immediately
     _clearAuth()
@@ -346,7 +351,19 @@ export function useAuth(): AuthState & AuthActions {
       localStorage.removeItem('horus-preferences-cache')
     }
 
-    navigateTo('/login')
+    // Redirect to Keycloak end_session to clear SSO session cookie.
+    // Without this, Keycloak auto-logs in the user on next "Sign in with SSO".
+    const logoutUrl = new URL(`${baseUrl}/logout`)
+    logoutUrl.searchParams.set('client_id', clientId)
+    logoutUrl.searchParams.set(
+      'post_logout_redirect_uri',
+      `${window.location.origin}/login`,
+    )
+    if (currentIdToken) {
+      logoutUrl.searchParams.set('id_token_hint', currentIdToken)
+    }
+
+    window.location.href = logoutUrl.toString()
   }
 
   /**
@@ -355,6 +372,7 @@ export function useAuth(): AuthState & AuthActions {
   function _clearAuth(): void {
     accessToken.value = null
     refreshTokenValue.value = null
+    idTokenValue.value = null
     user.value = null
     seats.value = []
     hasActiveSeat.value = false
