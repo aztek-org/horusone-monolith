@@ -1,0 +1,100 @@
+"""Validation graph — pre-flight flight-plan validation pipeline.
+
+```mermaid
+graph TD
+    START([START]) --> gatekeeper
+    gatekeeper --> weather_agent
+    weather_agent --> fuel_agent
+    fuel_agent --> route_agent
+    route_agent --> airspace_agent
+    airspace_agent --> performance_agent
+    performance_agent --> check_all_passed{All passed?}
+    check_all_passed -->|Yes| validation_ok[END ✅]
+    check_all_passed -->|No - critical| validation_fail[END ❌]
+```
+
+The graph runs each validation agent in sequence so that later agents
+can reference earlier results (e.g. the fuel agent can see the route
+distances computed by the route agent — though in this version each
+agent independently reads the flight plan state).
+
+The final ``check_all_passed`` conditional node inspects all
+``validation_results`` and sets ``validation_passed`` accordingly.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from langgraph.graph import END, StateGraph
+
+from app.services.llm.agents.airspace_agent import check_airspace_restrictions
+from app.services.llm.agents.fuel_agent import calculate_fuel
+from app.services.llm.agents.gatekeeper import validate_flight_plan
+from app.services.llm.agents.performance_agent import analyze_performance
+from app.services.llm.agents.route_agent import optimize_route
+from app.services.llm.agents.weather_agent import analyze_weather
+from app.services.llm.state import HorusState, SessionPhase, Severity
+
+logger = logging.getLogger(__name__)
+
+
+def _check_all_passed(state: HorusState) -> dict[str, Any]:
+    """Inspect all validation results and set the final verdict.
+
+    Returns:
+        Partial state with ``validation_passed`` and ``phase``.
+    """
+    results = state.get("validation_results") or []
+
+    has_critical = any(
+        r.get("severity") == Severity.CRITICAL.value and not r.get("passed", True)
+        for r in results
+    )
+
+    passed = not has_critical
+
+    logger.info(
+        "Validation verdict: %s (%d results, %s critical failures)",
+        "PASSED" if passed else "FAILED",
+        len(results),
+        "with" if has_critical else "no",
+    )
+
+    return {
+        "validation_passed": passed,
+        "phase": SessionPhase.PRE_FLIGHT.value if passed else SessionPhase.VALIDATION.value,
+    }
+
+
+def build_validation_graph() -> StateGraph:
+    """Build and compile the validation sub-graph.
+
+    Returns:
+        Compiled LangGraph ``StateGraph`` ready for ``.ainvoke()``.
+    """
+    graph = StateGraph(HorusState)
+
+    # ── Add nodes ─────────────────────────────────────────────────
+    graph.add_node("gatekeeper", validate_flight_plan)
+    graph.add_node("weather_agent", analyze_weather)
+    graph.add_node("fuel_agent", calculate_fuel)
+    graph.add_node("route_agent", optimize_route)
+    graph.add_node("airspace_agent", check_airspace_restrictions)
+    graph.add_node("performance_agent", analyze_performance)
+    graph.add_node("check_all_passed", _check_all_passed)
+
+    # ── Linear pipeline edges ─────────────────────────────────────
+    graph.set_entry_point("gatekeeper")
+    graph.add_edge("gatekeeper", "weather_agent")
+    graph.add_edge("weather_agent", "fuel_agent")
+    graph.add_edge("fuel_agent", "route_agent")
+    graph.add_edge("route_agent", "airspace_agent")
+    graph.add_edge("airspace_agent", "performance_agent")
+    graph.add_edge("performance_agent", "check_all_passed")
+    graph.add_edge("check_all_passed", END)
+
+    compiled = graph.compile()
+    logger.info("Validation graph compiled (%d nodes)", 7)
+    return compiled
