@@ -21,6 +21,17 @@ if config.config_file_name is not None:
 # Set target metadata to our Base
 target_metadata = Base.metadata
 
+# Indexes managed manually via op.execute() — exclude from autogenerate
+# because PostgreSQL normalizes the expression text, causing false diffs.
+EXCLUDE_INDEXES = {"idx_content_articles_fts"}
+
+
+def include_object(obj, name, type_, reflected, compare_to):
+    """Filter objects for Alembic autogenerate comparison."""
+    if type_ == "index" and name in EXCLUDE_INDEXES:
+        return False
+    return True
+
 
 def get_url() -> str:
     """Get database URL from application settings."""
@@ -42,7 +53,11 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection: Connection) -> None:
     """Execute migrations with an active connection."""
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=include_object,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
