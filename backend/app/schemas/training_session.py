@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class TrainingSessionBase(BaseModel):
     client_id: str | None = Field(default=None, max_length=36)
     scenario_id: int | None = None
-    language: str = Field(default="en", pattern="^(en|es)$")
+    language: str = Field(default="en", pattern="^(en|es|auto)$")
 
 
 class TrainingSessionCreate(TrainingSessionBase):

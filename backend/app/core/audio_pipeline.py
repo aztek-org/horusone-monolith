@@ -111,7 +111,12 @@ class AudioPipeline:
 
         except Exception as e:
             logger.error(f"Error in audio pipeline: {e}", exc_info=True)
-            return empty_result
+            return PipelineResult(
+                audio=b"",
+                pilot_transcript=empty_result.pilot_transcript,
+                atc_response=empty_result.atc_response,
+                language="en",
+            )
 
     async def _apply_effects_to_bytes(self, audio_bytes: bytes) -> bytes:
         """Apply radio effects to audio bytes.

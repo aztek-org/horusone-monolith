@@ -183,6 +183,9 @@ async def voice_communication(websocket: WebSocket) -> None:
                         combined_audio = b"".join(audio_chunks)
                         audio_chunks = []
 
+                        logger.info(
+                            f"Processing {len(combined_audio)} bytes of audio"
+                        )
                         result = await pipeline.process_audio(combined_audio)
 
                         if result.audio:
@@ -203,11 +206,23 @@ async def voice_communication(websocket: WebSocket) -> None:
                                 },
                             )
                         else:
+                            detail = "No response generated"
+                            if not result.pilot_transcript:
+                                detail = "Could not transcribe audio (STT failed)"
+                            elif not result.atc_response:
+                                detail = "LLM did not generate a response"
+                            else:
+                                detail = "Text-to-speech failed to produce audio"
+                            logger.warning(
+                                f"Pipeline returned no audio: {detail} "
+                                f"(transcript={result.pilot_transcript!r}, "
+                                f"atc={result.atc_response!r})"
+                            )
                             await manager.send_json(
                                 client_id,
                                 {
                                     "type": "error",
-                                    "message": "No response generated",
+                                    "message": detail,
                                 },
                             )
 

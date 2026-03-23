@@ -133,6 +133,9 @@ def get_atc_prompt(pilot_message: str, context: dict | None = None, language: st
     """
     if context is None:
         context = DEFAULT_FLIGHT_CONTEXT
+    else:
+        # Merge with defaults so missing keys don't cause KeyError
+        context = {**DEFAULT_FLIGHT_CONTEXT, **context}
 
     # Select language-specific prompts
     if language == "es":
