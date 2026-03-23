@@ -4,6 +4,8 @@ definePageMeta({
   middleware: 'auth',
 })
 
+type ScenarioType = 'VFR' | 'IFR' | 'Emergency' | 'Cross-country' | 'Night' | 'Weather'
+
 interface Scenario {
   id: number
   name: string
@@ -13,6 +15,8 @@ interface Scenario {
   runway: string
   weather_preset: string
   phase: string
+  scenario_type: ScenarioType | null
+  waypoint_count: number
   created_at: string
 }
 
@@ -24,6 +28,7 @@ const isLoading = ref(true)
 const errorMessage = ref<string | null>(null)
 const filterPhase = ref('')
 const filterDifficulty = ref('')
+const filterType = ref('')
 
 async function fetchScenarios() {
   isLoading.value = true
@@ -47,6 +52,7 @@ const filteredScenarios = computed(() => {
       const level = Number(filterDifficulty.value)
       if (s.difficulty !== level) return false
     }
+    if (filterType.value && filterType.value !== 'all' && s.scenario_type !== filterType.value) return false
     return true
   })
 })
@@ -61,6 +67,18 @@ function getDifficultyVariant(level: number): 'danger' | 'warning' | 'active' {
   if (level >= 4) return 'danger'
   if (level >= 2) return 'warning'
   return 'active'
+}
+
+function getScenarioTypeBadgeVariant(type: ScenarioType | null): 'cyan' | 'warning' | 'danger' | 'info' | 'mod' | 'default' {
+  switch (type) {
+    case 'VFR': return 'cyan'
+    case 'IFR': return 'mod'
+    case 'Emergency': return 'danger'
+    case 'Cross-country': return 'info'
+    case 'Night': return 'default'
+    case 'Weather': return 'warning'
+    default: return 'default'
+  }
 }
 
 function formatDate(iso: string): string {
@@ -133,6 +151,21 @@ onMounted(() => {
             label="Difficulty"
             placeholder="Select difficulty"
           />
+
+          <HDropdown
+            v-model="filterType"
+            :options="[
+              { value: 'all', label: 'All Types' },
+              { value: 'VFR', label: 'VFR' },
+              { value: 'IFR', label: 'IFR' },
+              { value: 'Emergency', label: 'Emergency' },
+              { value: 'Cross-country', label: 'Cross-country' },
+              { value: 'Night', label: 'Night' },
+              { value: 'Weather', label: 'Weather' }
+            ]"
+            label="Scenario Type"
+            placeholder="Select type"
+          />
         </div>
       </div>
     </template>
@@ -197,6 +230,21 @@ onMounted(() => {
                 <HBadge :variant="getDifficultyVariant(scenario.difficulty)" size="sm">
                   {{ getDifficultyLabel(scenario.difficulty) }}
                 </HBadge>
+              </div>
+
+              <!-- Type Badge -->
+              <div class="flex items-center gap-2">
+                <HBadge
+                  v-if="scenario.scenario_type"
+                  :variant="getScenarioTypeBadgeVariant(scenario.scenario_type)"
+                  size="sm"
+                >
+                  {{ scenario.scenario_type }}
+                </HBadge>
+                <span v-if="scenario.waypoint_count > 0" class="inline-flex items-center gap-1 text-xxs text-horus-text-muted">
+                  <Icon name="heroicons:map-pin" class="w-3 h-3" />
+                  {{ scenario.waypoint_count }} waypoints
+                </span>
               </div>
 
               <p v-if="scenario.description" class="text-xs text-horus-text-secondary line-clamp-2">

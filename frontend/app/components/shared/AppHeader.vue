@@ -20,12 +20,23 @@ const navItems = computed(() => {
   const items = [
     { path: '/configurator', label: 'Configurator', icon: 'heroicons:cog-6-tooth' },
     { path: '/library', label: 'Library', icon: 'heroicons:book-open' },
+    { path: '/flight-plan', label: 'Flight Plan', icon: 'heroicons:map' },
+    { path: '/knowledge', label: 'Knowledge', icon: 'heroicons:academic-cap' },
+    { path: '/assessments', label: 'Assessments', icon: 'heroicons:clipboard-document-check' },
+    { path: '/stats', label: 'Stats', icon: 'heroicons:chart-bar-square' },
     { path: '/performance', label: 'Performance', icon: 'heroicons:chart-bar' },
+    { path: '/leaderboard', label: 'Leaderboard', icon: 'heroicons:trophy' },
+    { path: '/badges', label: 'Badges', icon: 'heroicons:star' },
   ]
 
   // Add Dashboard link for org-admin/instructor roles
   if (isAuthenticated.value && hasAnyRole('org-admin', 'instructor')) {
     items.unshift({ path: '/dashboard', label: 'Dashboard', icon: 'heroicons:squares-2x2' })
+  }
+
+  // Add Instructor link for instructor/org-admin roles
+  if (isAuthenticated.value && hasAnyRole('instructor', 'org-admin')) {
+    items.push({ path: '/instructor', label: 'Instructor', icon: 'heroicons:user-circle' })
   }
 
   // Add Admin link for platform-admin/org-admin roles

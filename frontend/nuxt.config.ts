@@ -38,6 +38,9 @@ export default defineNuxtConfig({
     { path: '~/components/shared', pathPrefix: false },
     { path: '~/components/scenario-architect', pathPrefix: false },
     { path: '~/components/mission-hub', pathPrefix: false },
+    { path: '~/components/instructor', pathPrefix: false },
+    { path: '~/components/flight-plan', pathPrefix: false },
+    { path: '~/components/session', pathPrefix: false },
   ],
 
   app: {
