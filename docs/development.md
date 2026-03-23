@@ -59,9 +59,40 @@ Horus uses a 5-layer architecture:
 |-------|-----------|---------|
 | **Edge** | Traefik + Keycloak 24 | Reverse proxy, TLS termination, identity/auth |
 | **Realtime** | *(Planned)* Rust WebSocket gateway + Go event processor | Low-latency voice streaming |
-| **Control** | Python/FastAPI + LangGraph AI agent | API, business logic, ATC AI pipeline |
+| **Control** | Python/FastAPI + LangGraph multi-agent AI | API, business logic, ATC AI pipeline |
 | **Data** | PostgreSQL 16 + Redis 7 + *(Planned)* Qdrant | Persistence, caching, vector search |
 | **Frontend** | Nuxt 4 + Vue 3 + TailwindCSS | SPA on Cloudflare Pages |
+
+### LangGraph Multi-Agent System
+
+Horus uses a LangGraph `StateGraph` orchestrator with 3 sub-graphs and 9 specialized agents:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         HorusOrchestrator                              │
+├─────────────────┬──────────────────────────┬────────────────────────────┤
+│  Validation     │  Live Session            │  Scoring                   │
+│  Graph          │  Graph                   │  Graph                     │
+│                 │                          │                            │
+│  ┌───────────┐  │  ┌─────────────────┐     │  ┌──────────────┐         │
+│  │Gatekeeper │  │  │Understand Input │     │  │Student Tier  │         │
+│  │Weather    │  │  │Emergency Handler│     │  │Gamification  │         │
+│  │Fuel       │  │  │ATC Response(LLM)│     │  │Report Gen    │         │
+│  │Route      │  │  │Evaluate Exchange│     │  └──────────────┘         │
+│  │Airspace   │  │  └─────────────────┘     │                           │
+│  │Performance│  │                          │                            │
+│  └───────────┘  │                          │                            │
+└─────────────────┴──────────────────────────┴────────────────────────────┘
+```
+
+- **Validation graph** — pre-flight: Gatekeeper → Weather → Fuel → Route → Airspace → Performance
+- **Live session graph** — per-exchange: classify input → emergency or LLM ATC → evaluate
+- **Scoring graph** — post-flight: student evaluation → badge awards → report generation
+
+The orchestrator supports **human-in-the-loop (HITL)** — instructors can interrupt and
+override AI responses before they reach the student.
+
+📖 Full details: [ADR-004: LangGraph Multi-Agent Architecture](architecture/004-langgraph-multi-agent.md)
 
 ### Audio Pipeline
 
@@ -81,12 +112,35 @@ horus-mvp/
 │   ├── app/
 │   │   ├── main.py                 # FastAPI entry point
 │   │   ├── config.py               # Pydantic settings (env-based)
-│   │   ├── api/routes/             # Route handlers (health, voice)
+│   │   ├── api/
+│   │   │   ├── routes/             # Core routes (health, voice WebSocket)
+│   │   │   └── v1/                 # Versioned API routes
+│   │   │       ├── admin.py        # Organization + user management
+│   │   │       ├── analytics.py    # Leaderboard + overview
+│   │   │       ├── assessments.py  # Knowledge assessments + auto-grading
+│   │   │       ├── auth.py         # Authentication (session, logout, me)
+│   │   │       ├── content.py      # Knowledge base articles + search
+│   │   │       ├── flight_plans.py # Flight plan CRUD + validation + OCR
+│   │   │       ├── gamification.py # Badges + leaderboard
+│   │   │       ├── instructors.py  # Instructor profiles
+│   │   │       ├── modules.py      # Training modules
+│   │   │       ├── preferences.py  # User preferences
+│   │   │       ├── scenarios.py    # Scenario CRUD
+│   │   │       ├── sessions.py     # Training session CRUD
+│   │   │       ├── stats.py        # Student statistics + transcripts
+│   │   │       └── waypoints.py    # Waypoint search + flight track
 │   │   ├── core/                   # Audio pipeline + WebSocket manager
 │   │   ├── db/                     # SQLAlchemy async session + repositories
 │   │   ├── models/                 # ORM models (User, Organization, Seat, Scenario, etc.)
 │   │   ├── schemas/                # Pydantic request/response schemas
-│   │   └── services/               # STT (Whisper), TTS, LLM (Ollama), audio effects
+│   │   └── services/               # STT, TTS, LLM, audio effects
+│   │       └── llm/                # LangGraph multi-agent system
+│   │           ├── orchestrator.py  # HorusOrchestrator (3 sub-graphs)
+│   │           ├── state.py         # HorusState shared TypedDict
+│   │           ├── agents/          # 9 specialist agents
+│   │           ├── graphs/          # 3 compiled sub-graphs
+│   │           ├── tools/           # Weather, airspace, calculation tools
+│   │           └── prompts.py       # ATC prompt templates
 │   ├── tests/                      # pytest test suite (unit/ + integration/)
 │   ├── alembic/                    # Database migrations
 │   ├── scripts/                    # seed.py, deploy.sh, backup.sh, restore.sh
@@ -99,7 +153,7 @@ horus-mvp/
 │
 ├── frontend/                       # Nuxt 4 frontend (Cloudflare Pages)
 │   ├── app/
-│   │   ├── pages/                  # Auto-routed pages
+│   │   ├── pages/                  # Auto-routed pages (25+ routes)
 │   │   ├── components/
 │   │   │   ├── ui/                 # H-prefixed design system (HButton, HCard, etc.)
 │   │   │   ├── shared/             # Layout components
@@ -115,6 +169,11 @@ horus-mvp/
 │   ├── development.md              # This file
 │   ├── OLLAMA_SETUP.md             # LLM configuration guide
 │   └── architecture/               # Architecture Decision Records (ADRs)
+│       ├── ADR-001-monorepo-structure.md
+│       ├── ADR-002-database-postgresql.md
+│       ├── ADR-003-deployment-architecture.md
+│       ├── 004-langgraph-multi-agent.md
+│       └── 005-flight-plan-pipeline.md
 │
 └── setup.sh                        # One-time project setup script
 ```
@@ -169,7 +228,7 @@ alembic current
 alembic downgrade -1
 ```
 
-**Database tables:** `users`, `organizations`, `seats`, `scenarios`, `training_sessions`, `voice_logs`
+**Database tables:** `users`, `organizations`, `seats`, `scenarios`, `training_sessions`, `voice_logs`, `training_modules`, `student_stats`, `content_categories`, `content_articles`, `waypoints`, `flight_plans`, `flight_track_points`, `flight_insights`, `instructor_profiles`, `badges`, `user_badges`, `leaderboard_snapshots`, `assessments`, `assessment_questions`, `assessment_results`, `user_preferences`
 
 **Seed data** (idempotent — safe to run repeatedly):
 
@@ -222,15 +281,142 @@ The API server starts at http://localhost:8000.
 
 ### API Endpoints
 
+#### Core
+
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/health` | Basic health check |
 | GET | `/health/ready` | Readiness check (verifies all services) |
+| WebSocket | `/ws/voice` | Real-time voice communication |
+
+#### Authentication (`/api/v1/auth`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/auth/session` | Create auth session |
+| POST | `/auth/logout` | Logout |
+| GET | `/auth/me` | Current user profile |
+
+#### Scenarios & Sessions
+
+| Method | Path | Description |
+|--------|------|-------------|
 | GET/POST | `/api/v1/scenarios` | List / create scenarios |
-| GET/PUT/DELETE | `/api/v1/scenarios/{id}` | Scenario CRUD |
+| GET | `/api/v1/scenarios/{id}` | Get scenario details |
 | GET/POST | `/api/v1/sessions` | List / create training sessions |
 | GET | `/api/v1/sessions/{id}` | Get training session details |
-| WebSocket | `/ws/voice` | Real-time voice communication |
+
+#### Training Modules (`/api/v1/modules`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET/POST | `/modules` | List / create training modules |
+| GET/PUT/DELETE | `/modules/{id}` | Module CRUD |
+| POST | `/modules/{id}/scenarios` | Link scenario to module |
+| DELETE | `/modules/{id}/scenarios/{scenario_id}` | Unlink scenario from module |
+
+#### Student Statistics (`/api/v1/stats`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/stats/me` | Current user's stats (flight hours, scenarios completed, etc.) |
+| GET | `/stats/me/flight-hours` | Detailed flight hours breakdown |
+| GET | `/stats/me/maneuvers` | Maneuvers practiced summary |
+| GET | `/stats/me/assessments` | Assessment results history |
+| GET | `/stats/me/transcript/{session_id}` | Download session transcript |
+| GET | `/stats/{user_id}` | Stats for a specific user (instructor/admin) |
+
+#### Content / Knowledge Base (`/api/v1/content`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/content/categories` | List content categories |
+| GET | `/content/categories/{slug}` | Get category with articles |
+| GET | `/content/articles/{slug}` | Get article by slug |
+| POST | `/content/articles` | Create article (instructor/admin) |
+| PUT | `/content/articles/{id}` | Update article |
+| GET | `/content/search` | Full-text search across articles |
+
+#### Waypoints (`/api/v1/waypoints`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/waypoints/` | Search waypoints (by name, type, bounding box) |
+| POST | `/waypoints/` | Create custom waypoint |
+| GET | `/waypoints/scenarios/{id}/waypoints` | Waypoints for a scenario |
+| POST | `/waypoints/scenarios/{id}/waypoints` | Add waypoints to scenario |
+| GET | `/waypoints/sessions/{id}/track` | Recorded flight track for session |
+| GET | `/waypoints/sessions/{id}/insights` | AI-generated flight insights |
+
+#### Flight Plans (`/api/v1/flight-plans`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/flight-plans/` | List user's flight plans |
+| POST | `/flight-plans/` | Create from structured form data |
+| POST | `/flight-plans/from-text` | Create from free-form text |
+| POST | `/flight-plans/from-image` | Create from uploaded image (OCR) |
+| GET | `/flight-plans/{id}` | Get flight plan details |
+| PUT | `/flight-plans/{id}` | Update a draft flight plan |
+| POST | `/flight-plans/{id}/validate` | Run AI validation pipeline |
+| POST | `/flight-plans/{id}/activate` | Activate for live session |
+
+See [ADR-005: Flight Plan Pipeline](architecture/005-flight-plan-pipeline.md) for details.
+
+#### Instructors (`/api/v1/instructors`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/instructors/me/profile` | Current instructor's profile |
+| PUT | `/instructors/me/profile` | Update own profile |
+| GET | `/instructors/{user_id}/profile` | Get instructor profile |
+| GET | `/instructors/` | List all instructors |
+
+#### Gamification (`/api/v1/gamification`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/gamification/badges` | List all available badges |
+| GET | `/gamification/me/badges` | Current user's earned badges |
+| GET | `/gamification/leaderboard` | Leaderboard snapshot (daily/weekly/monthly) |
+| POST | `/gamification/check` | Trigger badge evaluation for current session |
+
+#### Assessments (`/api/v1/assessments`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/assessments/` | List available assessments |
+| GET | `/assessments/me/results` | Current user's assessment results |
+| GET | `/assessments/{id}` | Get assessment details + questions |
+| POST | `/assessments/` | Create assessment (instructor/admin) |
+| POST | `/assessments/{id}/submit` | Submit answers for auto-grading |
+
+#### Analytics (`/api/v1/analytics`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/analytics/leaderboard` | Global leaderboard entries |
+| GET | `/analytics/overview` | Platform-wide analytics overview |
+
+#### User Preferences (`/api/v1/users/me/preferences`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/users/me/preferences` | Get user preferences |
+| PUT | `/users/me/preferences` | Replace user preferences |
+| PATCH | `/users/me/preferences/{section}` | Update a single section |
+
+#### Admin (`/api/v1/admin`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET/POST | `/admin/organizations/` | List / create organizations |
+| GET/PUT/DELETE | `/admin/organizations/{id}` | Organization CRUD |
+| GET/POST | `/admin/organizations/{id}/seats` | Manage seats in org |
+| PUT/DELETE | `/admin/seats/{id}` | Update / remove a seat |
+| GET | `/admin/users/` | List all users |
+| GET/PUT | `/admin/users/{id}` | User detail / update |
+| GET | `/admin/stats` | Platform-wide admin statistics |
 
 ### Adding Endpoints and Models
 
@@ -269,6 +455,24 @@ For production, set `NUXT_PUBLIC_*` env vars in the Cloudflare Pages dashboard.
 | `/performance` | `performance.vue` | Training analytics and session history |
 | `/dashboard` | `dashboard.vue` | Organization admin dashboard |
 | `/settings` | `settings.vue` | User settings |
+| `/stats` | `stats.vue` | Student statistics — flight hours, maneuvers, progress tracking |
+| `/knowledge` | `knowledge.vue` | Aviation knowledge base — theory, regulations, procedures |
+| `/assessments` | `assessments.vue` | Knowledge assessments with auto-grading |
+| `/flight-plan` | `flight-plan/index.vue` | Flight plan builder (form, text, image upload) |
+| `/flight-plan/[id]` | `flight-plan/[id].vue` | Flight plan detail with validation results and map |
+| `/session/[id]` | `session/[id].vue` | Live session view — ATC voice interaction |
+| `/mission/[id]` | `mission/[id].vue` | Mission replay — track, voice transcript, insights |
+| `/instructor` | `instructor/index.vue` | Instructor dashboard — student management |
+| `/instructor/profile` | `instructor/profile.vue` | Instructor profile and qualifications |
+| `/leaderboard` | `leaderboard.vue` | Leaderboard — daily, weekly, monthly rankings |
+| `/badges` | `badges.vue` | Badge collection and progress |
+| `/auth/callback` | `auth/callback.vue` | OIDC callback handler |
+| `/admin` | `admin/index.vue` | Platform admin dashboard |
+| `/admin/users` | `admin/users.vue` | User management |
+| `/admin/organizations` | `admin/organizations/index.vue` | Organization management |
+| `/admin/organizations/[id]` | `admin/organizations/[id].vue` | Organization detail + seats |
+| `/admin/modules` | `admin/modules.vue` | Training module management |
+| `/admin/leaderboard` | `admin/leaderboard.vue` | Admin leaderboard management |
 
 ### Design System
 
@@ -513,3 +717,5 @@ See `docs/architecture/` for Architecture Decision Records (ADRs):
 - [ADR-001: Monorepo Structure](architecture/ADR-001-monorepo-structure.md)
 - [ADR-002: Database Selection](architecture/ADR-002-database-postgresql.md)
 - [ADR-003: Deployment Architecture](architecture/ADR-003-deployment-architecture.md)
+- [ADR-004: LangGraph Multi-Agent Architecture](architecture/004-langgraph-multi-agent.md)
+- [ADR-005: Flight Plan Pipeline](architecture/005-flight-plan-pipeline.md)
