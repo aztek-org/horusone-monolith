@@ -8,13 +8,24 @@ interface NavItem {
 
 const route = useRoute()
 
-const navItems: NavItem[] = [
-  { path: '/admin', label: 'Overview', icon: 'heroicons:squares-2x2', exact: true },
-  { path: '/admin/organizations', label: 'Organizations', icon: 'heroicons:building-office-2' },
-  { path: '/admin/users', label: 'Users', icon: 'heroicons:users' },
-  { path: '/admin/modules', label: 'Modules', icon: 'heroicons:academic-cap' },
-  { path: '/admin/leaderboard', label: 'Leaderboard', icon: 'heroicons:trophy' },
-]
+const { hasAnyRole } = useAuth()
+
+const navItems = computed(() => {
+  const items: NavItem[] = [
+    { path: '/admin', label: 'Overview', icon: 'heroicons:squares-2x2', exact: true },
+    { path: '/admin/organizations', label: 'Organizations', icon: 'heroicons:building-office-2' },
+    { path: '/admin/users', label: 'Users', icon: 'heroicons:users' },
+    { path: '/admin/modules', label: 'Modules', icon: 'heroicons:academic-cap' },
+    { path: '/admin/leaderboard', label: 'Leaderboard', icon: 'heroicons:trophy' },
+  ]
+
+  // Add Instructor link for instructor/org-admin roles
+  if (hasAnyRole('instructor', 'org-admin')) {
+    items.push({ path: '/instructor', label: 'Instructor', icon: 'heroicons:academic-cap' })
+  }
+
+  return items
+})
 
 function isActive(item: NavItem): boolean {
   if (item.exact) {
