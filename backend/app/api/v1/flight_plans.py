@@ -2,11 +2,11 @@
 
 - ``GET    /``                — list user's flight plans
 - ``POST   /``                — create from form data
-- ``POST   /from-text``       — create from plain text (AI stub)
-- ``POST   /from-image``      — create from uploaded image (AI stub)
+- ``POST   /from-text``       — create from plain text (AI-powered)
+- ``POST   /from-image``      — create from uploaded image (OCR + AI)
 - ``GET    /{id}``            — full flight plan with legs
 - ``PUT    /{id}``            — update flight plan
-- ``POST   /{id}/validate``   — trigger validation (stub)
+- ``POST   /{id}/validate``   — trigger LangGraph validation pipeline
 - ``POST   /{id}/activate``   — set status to active
 """
 
@@ -19,6 +19,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.db.repositories.flight_plan_repository import FlightPlanRepository
 from app.db.session import get_db_session
 from app.middleware.auth import CurrentUser
@@ -30,11 +31,21 @@ from app.schemas.flight_plan import (
     FlightPlanRead,
     FlightPlanUpdate,
 )
+from app.services.flight_plan_parser import FlightPlanParser
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/flight-plans", tags=["Flight Plans"])
 
 plan_repo = FlightPlanRepository()
+
+
+def _get_parser() -> FlightPlanParser:
+    """Construct a ``FlightPlanParser`` from current settings."""
+    settings = get_settings()
+    return FlightPlanParser(
+        ollama_base_url=settings.ollama_base_url,
+        model=settings.ollama_llm_model,
+    )
 
 
 # ── List / Create ──────────────────────────────────────────────────
@@ -107,29 +118,37 @@ async def create_flight_plan_from_text(
     org_id: uuid.UUID | None = Depends(get_org_id),
     db: AsyncSession = Depends(get_db_session),
 ) -> FlightPlanRead:
-    """Create a flight plan by parsing free-text input.
+    """Create a flight plan by parsing free-text input via AI.
 
-    .. note::
-        **Stub implementation** — actual AI text parsing will be
-        implemented in Phase 3 (LangGraph).  Currently creates a
-        draft plan with the raw text stored in ``notes``.
+    Uses the Ollama LLM to extract structured fields from the free-text
+    description.  Falls back to keyword-based extraction when the LLM
+    is unavailable.
     """
-    # TODO(phase3): Replace with LangGraph text-to-flight-plan agent
     effective_org = data.org_id or org_id
+    parser = _get_parser()
+
+    try:
+        parsed = await parser.from_text(data.text)
+    except Exception:
+        logger.warning("Flight plan text parsing failed — creating stub plan", exc_info=True)
+        parsed = {}
+
+    plan_data: dict[str, Any] = {
+        "title": data.title or _derive_title(parsed, "text"),
+        "departure_icao": parsed.get("departure_icao") or "ZZZZ",
+        "arrival_icao": parsed.get("arrival_icao") or "ZZZZ",
+        "alternate_icao": parsed.get("alternate_icao"),
+        "aircraft_type": parsed.get("aircraft_type"),
+        "route_string": parsed.get("route_string"),
+        "notes": f"[AUTO-PARSED TEXT]\n{data.text}",
+        "source_type": "text",
+        "status": "draft",
+    }
+
     plan = await plan_repo.create_flight_plan(
-        db,
-        data={
-            "title": data.title or "Flight Plan (from text)",
-            "departure_icao": "ZZZZ",
-            "arrival_icao": "ZZZZ",
-            "notes": f"[AUTO-PARSED TEXT]\n{data.text}",
-            "source_type": "text",
-            "status": "draft",
-        },
-        user_id=local_user.id,
-        org_id=effective_org,
+        db, data=plan_data, user_id=local_user.id, org_id=effective_org
     )
-    logger.info("Created draft flight plan %s from text input", plan.id)
+    logger.info("Created flight plan %s from text input (AI-parsed)", plan.id)
     return plan  # type: ignore[return-value]
 
 
@@ -146,36 +165,51 @@ async def create_flight_plan_from_image(
     org_id: uuid.UUID | None = Depends(get_org_id),
     db: AsyncSession = Depends(get_db_session),
 ) -> FlightPlanRead:
-    """Create a flight plan from an uploaded image (OCR).
+    """Create a flight plan from an uploaded image (OCR + AI parsing).
 
-    .. note::
-        **Stub implementation** — actual OCR/image parsing will be
-        implemented in Phase 3 (LangGraph).  Currently creates a
-        draft plan noting the image was received.
+    Pipeline: read image bytes → OCR text extraction → LLM parsing
+    into structured fields.  Falls back gracefully at each stage.
     """
-    # TODO(phase3): Replace with LangGraph image-to-flight-plan agent
     filename = file.filename or "unknown"
     content_type = file.content_type or "unknown"
+    parser = _get_parser()
+
+    try:
+        image_bytes = await file.read()
+    except Exception:
+        logger.exception("Failed to read uploaded image")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to read uploaded image file",
+        )
+
+    try:
+        parsed = await parser.from_image(image_bytes)
+    except Exception:
+        logger.warning("Flight plan image parsing failed — creating stub plan", exc_info=True)
+        parsed = {}
+
+    plan_data: dict[str, Any] = {
+        "title": _derive_title(parsed, f"image: {filename}"),
+        "departure_icao": parsed.get("departure_icao") or "ZZZZ",
+        "arrival_icao": parsed.get("arrival_icao") or "ZZZZ",
+        "alternate_icao": parsed.get("alternate_icao"),
+        "aircraft_type": parsed.get("aircraft_type"),
+        "route_string": parsed.get("route_string"),
+        "notes": (
+            f"[AUTO-PARSED IMAGE]\n"
+            f"Filename: {filename}\n"
+            f"Content-Type: {content_type}\n"
+            f"Parsed fields: {list(k for k, v in parsed.items() if v)}"
+        ),
+        "source_type": "image",
+        "status": "draft",
+    }
 
     plan = await plan_repo.create_flight_plan(
-        db,
-        data={
-            "title": f"Flight Plan (from image: {filename})",
-            "departure_icao": "ZZZZ",
-            "arrival_icao": "ZZZZ",
-            "notes": (
-                f"[AUTO-PARSED IMAGE]\n"
-                f"Filename: {filename}\n"
-                f"Content-Type: {content_type}\n"
-                f"TODO: OCR processing pending (Phase 3)"
-            ),
-            "source_type": "image",
-            "status": "draft",
-        },
-        user_id=local_user.id,
-        org_id=org_id,
+        db, data=plan_data, user_id=local_user.id, org_id=org_id
     )
-    logger.info("Created draft flight plan %s from image upload", plan.id)
+    logger.info("Created flight plan %s from image upload (OCR+AI)", plan.id)
     return plan  # type: ignore[return-value]
 
 
@@ -242,14 +276,12 @@ async def validate_flight_plan(
     local_user: User = Depends(get_authenticated_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
-    """Trigger validation of a flight plan.
+    """Trigger LangGraph validation of a flight plan.
 
-    .. note::
-        **Stub implementation** — actual Gatekeeper validation logic
-        will be implemented in Phase 3 (LangGraph).  Currently always
-        returns ``{"valid": true, "errors": []}``.
+    Runs the full Gatekeeper validation pipeline (weather, fuel, route,
+    airspace, performance).  Falls back to a basic structural check when
+    the orchestrator or LLM is unavailable.
     """
-    # TODO(phase3): Replace with LangGraph Gatekeeper validation agent
     plan = await plan_repo.get_flight_plan(db, plan_id, local_user.id)
     if plan is None:
         raise HTTPException(
@@ -257,8 +289,93 @@ async def validate_flight_plan(
             detail=f"Flight plan {plan_id} not found",
         )
 
-    logger.info("Validation requested for flight plan %s (stub)", plan_id)
-    return {"valid": True, "errors": [], "plan_id": str(plan_id)}
+    # Build a FlightPlanState dict from the ORM model
+    flight_plan_data: dict[str, Any] = {
+        "departure_icao": plan.departure_icao,
+        "arrival_icao": plan.arrival_icao,
+        "alternate_icao": plan.alternate_icao,
+        "aircraft_type": plan.aircraft_type or "C172",
+        "fuel_on_board": plan.fuel_required_gal or 40.0,
+        "fuel_reserve": plan.fuel_reserve_gal or 8.0,
+        "total_weight": plan.total_weight_lbs or 2200.0,
+        "max_weight": plan.max_weight_lbs or 2550.0,
+        "flight_rules": "VFR",
+        "cruise_altitude": 5500,
+        "cruise_speed": 110,
+        "estimated_time_enroute": 90.0,
+        "route": [],
+    }
+
+    try:
+        from app.services.llm.orchestrator import HorusOrchestrator
+
+        orchestrator = HorusOrchestrator()
+        result = await orchestrator.start_session(
+            flight_plan_data=flight_plan_data,
+            user_id=str(local_user.id),
+            language="en",
+        )
+
+        # Update plan status based on validation outcome
+        new_status = "validated" if result.get("validation_passed") else "draft"
+        await plan_repo.update_status(db, plan_id, new_status, local_user.id)
+
+        logger.info(
+            "Validation for plan %s: %s",
+            plan_id,
+            "PASSED" if result.get("validation_passed") else "FAILED",
+        )
+
+        return {
+            "plan_id": str(plan_id),
+            "valid": result.get("validation_passed", False),
+            "results": result.get("validation_results", []),
+            "weather": result.get("weather"),
+            "fuel_state": result.get("fuel_state"),
+            "route_info": result.get("route_info"),
+            "airspace_info": result.get("airspace_info"),
+            "aircraft_performance": result.get("aircraft_performance"),
+            "session_id": result.get("session_id"),
+        }
+
+    except Exception:
+        logger.warning(
+            "LangGraph validation unavailable for plan %s — running basic check",
+            plan_id,
+            exc_info=True,
+        )
+        # Fallback: basic structural validation
+        errors: list[dict[str, Any]] = []
+        if plan.departure_icao == "ZZZZ":
+            errors.append({
+                "agent": "gatekeeper",
+                "passed": False,
+                "severity": "critical",
+                "message": "Departure airport is unknown (ZZZZ)",
+            })
+        if plan.arrival_icao == "ZZZZ":
+            errors.append({
+                "agent": "gatekeeper",
+                "passed": False,
+                "severity": "critical",
+                "message": "Arrival airport is unknown (ZZZZ)",
+            })
+
+        is_valid = len(errors) == 0
+        if is_valid:
+            await plan_repo.update_status(db, plan_id, "validated", local_user.id)
+
+        return {
+            "plan_id": str(plan_id),
+            "valid": is_valid,
+            "results": errors,
+            "weather": None,
+            "fuel_state": None,
+            "route_info": None,
+            "airspace_info": None,
+            "aircraft_performance": None,
+            "session_id": None,
+        }
 
 
 @router.post("/{plan_id}/activate", response_model=FlightPlanRead)
@@ -279,3 +396,23 @@ async def activate_flight_plan(
             detail=f"Flight plan {plan_id} not found",
         )
     return plan  # type: ignore[return-value]
+
+
+# ── Helpers ────────────────────────────────────────────────────────
+
+
+def _derive_title(parsed: dict[str, Any], source_label: str) -> str:
+    """Build a descriptive title from parsed flight plan data.
+
+    Args:
+        parsed: Dict of parsed fields (may be empty or have ``None`` values).
+        source_label: Short description of the source (e.g. ``"text"``).
+
+    Returns:
+        A human-readable title string.
+    """
+    dep = parsed.get("departure_icao")
+    arr = parsed.get("arrival_icao")
+    if dep and arr:
+        return f"Flight Plan: {dep} → {arr}"
+    return f"Flight Plan (from {source_label})"

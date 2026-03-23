@@ -3,11 +3,14 @@
 - ``GET  /`` — all authenticated users (role-based filtering)
 - ``POST /`` — any authenticated user can start a session
 - ``GET  /{session_id}`` — access verified per user / org
+- ``POST /{session_id}/complete`` — end session and trigger scoring
 """
 
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -122,6 +125,72 @@ async def get_session(
     return training_session  # type: ignore[return-value]
 
 
+@router.post("/{session_id}/complete")
+async def complete_session(
+    session_id: int,
+    user: CurrentUser,
+    _seat: RequireActiveSeat,
+    local_user: User = Depends(get_authenticated_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, Any]:
+    """End a training session and trigger post-flight scoring.
+
+    Marks the session as ``completed``, records ``ended_at``, and runs
+    the LangGraph scoring pipeline (student evaluation + badge awards).
+    Falls back gracefully with a stub score when the orchestrator is
+    unavailable.
+    """
+    result = await session.execute(
+        select(TrainingSession).where(TrainingSession.id == session_id)
+    )
+    training_session = result.scalar_one_or_none()
+
+    if training_session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session {session_id} not found",
+        )
+
+    if not _can_view_session(user, local_user, training_session):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this session",
+        )
+
+    if training_session.status == "completed":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Session {session_id} is already completed",
+        )
+
+    # Mark session as completed
+    training_session.status = "completed"
+    training_session.ended_at = datetime.now(timezone.utc)
+    await session.flush()
+    await session.refresh(training_session)
+
+    # Run scoring pipeline
+    scoring_result = await _run_scoring(str(session_id))
+
+    logger.info(
+        "Session %s completed (user=%s, grade=%s)",
+        session_id,
+        local_user.id,
+        (scoring_result.get("scoring") or {}).get("grade", "N/A"),
+    )
+
+    return {
+        "session_id": session_id,
+        "status": "completed",
+        "ended_at": (
+            training_session.ended_at.isoformat() if training_session.ended_at else None
+        ),
+        "scoring": scoring_result.get("scoring"),
+        "badges_earned": scoring_result.get("badges_earned", []),
+        "report": scoring_result.get("report", ""),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
@@ -155,3 +224,64 @@ def _can_view_session(
         return can_access_org(token_user, training_session.org_id)
 
     return False
+
+
+# ---------------------------------------------------------------------------
+# Scoring integration
+# ---------------------------------------------------------------------------
+
+
+async def _run_scoring(session_id: str) -> dict[str, Any]:
+    """Attempt to run the LangGraph scoring pipeline.
+
+    Falls back to a stub result when the orchestrator is unavailable
+    (e.g. LangGraph / Ollama not running).
+    """
+    try:
+        from app.services.llm.orchestrator import HorusOrchestrator
+
+        orchestrator = HorusOrchestrator()
+        state = orchestrator.get_session_state(session_id)
+
+        if state is not None:
+            # Session exists in orchestrator memory — run scoring
+            result = await orchestrator.end_session(session_id)
+            logger.info("Scoring pipeline completed for session %s", session_id)
+            return result
+
+        logger.info(
+            "Session %s not in orchestrator memory — returning default scoring",
+            session_id,
+        )
+        return _default_scoring()
+
+    except Exception:
+        logger.warning(
+            "Scoring pipeline unavailable for session %s — using defaults",
+            session_id,
+            exc_info=True,
+        )
+        return _default_scoring()
+
+
+def _default_scoring() -> dict[str, Any]:
+    """Return a safe default when the scoring pipeline is unavailable."""
+    return {
+        "scoring": {
+            "communication_score": 0,
+            "decision_score": 0,
+            "procedure_score": 0,
+            "overall_score": 0,
+            "grade": "N/A",
+            "strengths": [],
+            "improvements": [
+                "Scoring unavailable — session data not found in pipeline",
+            ],
+            "summary": (
+                "Scoring could not be computed. "
+                "Review session recording manually."
+            ),
+        },
+        "badges_earned": [],
+        "report": "Scoring pipeline was not available for this session.",
+    }
