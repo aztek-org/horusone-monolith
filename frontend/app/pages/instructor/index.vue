@@ -2,7 +2,7 @@
 import type { InstructorStudent, InstructorStats, RecentSession } from '~/composables/useInstructor'
 
 definePageMeta({
-  layout: 'default',
+  layout: false,
   middleware: ['auth', 'instructor'],
 })
 

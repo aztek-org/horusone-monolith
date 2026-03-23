@@ -7,7 +7,7 @@ import type {
 } from '~/composables/useAssessments'
 
 definePageMeta({
-  layout: 'default',
+  layout: false,
   middleware: 'auth',
 })
 

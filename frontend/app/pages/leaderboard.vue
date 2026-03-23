@@ -2,7 +2,7 @@
 import type { LeaderboardEntry, LeaderboardPeriod, LeaderboardCategory, UserBadge } from '~/composables/useGamification'
 
 definePageMeta({
-  layout: 'default',
+  layout: false,
   middleware: 'auth',
 })
 

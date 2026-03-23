@@ -2,7 +2,7 @@
 import type { FlightPlanCreateData, ValidationResult } from '~/composables/useFlightPlans'
 
 definePageMeta({
-  layout: 'default',
+  layout: false,
   middleware: 'auth',
 })
 

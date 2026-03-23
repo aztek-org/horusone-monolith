@@ -6,7 +6,7 @@ import type {
 } from '~/composables/useStats'
 
 definePageMeta({
-  layout: 'default',
+  layout: false,
   middleware: 'auth',
 })
 

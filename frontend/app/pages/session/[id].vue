@@ -2,7 +2,7 @@
 import type { Map as LeafletMap } from 'leaflet'
 
 definePageMeta({
-  layout: 'default',
+  layout: false,
   middleware: 'auth',
 })
 

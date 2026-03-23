@@ -2,7 +2,7 @@
 import type { InstructorProfile, InstructorProfileUpdate, AvailabilitySlot } from '~/composables/useInstructor'
 
 definePageMeta({
-  layout: 'default',
+  layout: false,
   middleware: ['auth', 'instructor'],
 })
 

@@ -2,7 +2,7 @@
 import type { Badge, UserBadge, BadgeCategory, BadgeTier, BadgeProgress } from '~/composables/useGamification'
 
 definePageMeta({
-  layout: 'default',
+  layout: false,
   middleware: 'auth',
 })
 

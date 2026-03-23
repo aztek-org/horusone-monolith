@@ -246,6 +246,9 @@ export function useAuth(): AuthState & AuthActions {
     user.value = extractUser(payload)
     error.value = null
 
+    // Persist to sessionStorage so auth survives page reload
+    _persistAuth()
+
     // Schedule refresh before expiry (80% of lifetime)
     _scheduleRefresh(expiresIn)
   }
@@ -381,6 +384,36 @@ export function useAuth(): AuthState & AuthActions {
       clearTimeout(refreshTimer)
       refreshTimer = null
     }
+    // Clear persisted auth from sessionStorage
+    if (import.meta.client) {
+      try {
+        sessionStorage.removeItem('horus-auth')
+      }
+      catch {
+        // sessionStorage may be unavailable
+      }
+    }
+  }
+
+  /**
+   * Persist auth state to sessionStorage (survives page reload within same tab).
+   */
+  function _persistAuth(): void {
+    if (import.meta.server) return
+    try {
+      sessionStorage.setItem('horus-auth', JSON.stringify({
+        accessToken: accessToken.value,
+        refreshToken: refreshTokenValue.value,
+        idToken: idTokenValue.value,
+        user: user.value,
+        seats: seats.value,
+        hasActiveSeat: hasActiveSeat.value,
+        activeSeat: activeSeat.value,
+      }))
+    }
+    catch {
+      // sessionStorage may be unavailable (e.g. private browsing limits)
+    }
   }
 
   /**
@@ -422,15 +455,55 @@ export function useAuth(): AuthState & AuthActions {
         isActive: s.is_active as boolean,
       }))
       activeSeat.value = seats.value.find(s => s.isActive) ?? null
+
+      // Update persisted auth with seat data
+      _persistAuth()
     }
     catch {
       // Best-effort — seat info is not critical for auth flow
     }
   }
 
-  // On first client load, resolve auth state quickly so the app can render
+  // On first client load, try to restore auth state from sessionStorage
   if (import.meta.client && isLoading.value) {
-    // No tokens stored → not authenticated, stop loading immediately
+    if (!accessToken.value) {
+      try {
+        const stored = sessionStorage.getItem('horus-auth')
+        if (stored) {
+          const data = JSON.parse(stored)
+          accessToken.value = data.accessToken
+          refreshTokenValue.value = data.refreshToken
+          idTokenValue.value = data.idToken
+          user.value = data.user
+          seats.value = data.seats ?? []
+          hasActiveSeat.value = data.hasActiveSeat ?? false
+          activeSeat.value = data.activeSeat ?? null
+
+          // Schedule token refresh based on remaining lifetime
+          if (accessToken.value) {
+            try {
+              const payload = parseJwtPayload(accessToken.value)
+              const exp = (payload.exp as number) ?? 0
+              const now = Math.floor(Date.now() / 1000)
+              const remaining = exp - now
+              if (remaining > 30) {
+                _scheduleRefresh(remaining)
+              }
+              else {
+                // Token expired or about to expire — try refresh
+                refreshToken()
+              }
+            }
+            catch {
+              _clearAuth()
+            }
+          }
+        }
+      }
+      catch {
+        try { sessionStorage.removeItem('horus-auth') } catch { /* noop */ }
+      }
+    }
     isLoading.value = false
   }
 
