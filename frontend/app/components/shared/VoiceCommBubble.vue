@@ -123,6 +123,7 @@ import { useVoiceComm } from '~/composables/useVoiceComm'
 
 // Use voice communication composable
 const { status, connect, disconnect, startRecording, stopRecording } = useVoiceComm()
+const { isAuthenticated } = useAuth()
 
 // UI state
 const showInstructions = ref(true)
@@ -144,9 +145,15 @@ function loadSettings() {
   }
 }
 
-// Auto-connect on mount
+// Auto-connect when authenticated
+watch(isAuthenticated, async (authed) => {
+  if (authed) await connect()
+  else disconnect()
+})
+
+// Auto-connect on mount if already authenticated
 onMounted(async () => {
-  await connect()
+  if (isAuthenticated.value) await connect()
   
   // Load settings
   loadSettings()

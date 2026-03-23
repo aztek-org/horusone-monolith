@@ -33,12 +33,23 @@ export const useVoiceComm = () => {
   const config = useRuntimeConfig()
   const wsUrl = config.public.wsUrl as string
 
+  // Auth for token-based WS authentication
+  const { accessToken, isAuthenticated } = useAuth()
+
   /**
    * Connect to the WebSocket server
    */
   const connect = async (): Promise<void> => {
+    if (!isAuthenticated.value || !accessToken.value) {
+      status.value.error = 'Authentication required'
+      return
+    }
+
     try {
-      ws = new WebSocket(wsUrl)
+      // Pass JWT token as query parameter for WS auth
+      const url = new URL(wsUrl, window.location.origin)
+      url.searchParams.set('token', accessToken.value)
+      ws = new WebSocket(url.toString())
 
       ws.onopen = () => {
         console.log('Voice communication connected')
