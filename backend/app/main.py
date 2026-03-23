@@ -6,7 +6,22 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import health, voice
-from app.api.v1 import admin, analytics, auth, modules, preferences, scenarios, sessions
+from app.api.v1 import (
+    admin,
+    analytics,
+    assessments,
+    auth,
+    content,
+    flight_plans,
+    gamification,
+    instructors,
+    modules,
+    preferences,
+    scenarios,
+    sessions,
+    stats,
+    waypoints,
+)
 from app.config import get_settings
 
 # Configure logging
@@ -51,6 +66,13 @@ app.include_router(scenarios.router, prefix=api_v1_prefix)
 app.include_router(sessions.router, prefix=api_v1_prefix)
 app.include_router(admin.router, prefix=api_v1_prefix)
 app.include_router(analytics.router, prefix=api_v1_prefix)
+app.include_router(stats.router, prefix=api_v1_prefix)
+app.include_router(content.router, prefix=api_v1_prefix)
+app.include_router(waypoints.router, prefix=api_v1_prefix)
+app.include_router(flight_plans.router, prefix=api_v1_prefix)
+app.include_router(instructors.router, prefix=api_v1_prefix)
+app.include_router(gamification.router, prefix=api_v1_prefix)
+app.include_router(assessments.router, prefix=api_v1_prefix)
 
 
 @app.on_event("startup")
@@ -93,6 +115,13 @@ async def root() -> dict:
                 "modules": "/api/v1/modules",
                 "scenarios": "/api/v1/scenarios",
                 "sessions": "/api/v1/sessions",
+                "stats": "/api/v1/stats",
+                "content": "/api/v1/content",
+                "waypoints": "/api/v1/waypoints",
+                "flight_plans": "/api/v1/flight-plans",
+                "instructors": "/api/v1/instructors",
+                "gamification": "/api/v1/gamification",
+                "assessments": "/api/v1/assessments",
                 "admin": "/api/v1/admin",
                 "analytics": "/api/v1/analytics",
             },
