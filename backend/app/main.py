@@ -2,8 +2,9 @@
 
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.routes import health, voice
 from app.api.v1 import (
@@ -73,6 +74,16 @@ app.include_router(flight_plans.router, prefix=api_v1_prefix)
 app.include_router(instructors.router, prefix=api_v1_prefix)
 app.include_router(gamification.router, prefix=api_v1_prefix)
 app.include_router(assessments.router, prefix=api_v1_prefix)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Catch unhandled exceptions so CORS headers are always present."""
+    logger.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 
 @app.on_event("startup")
