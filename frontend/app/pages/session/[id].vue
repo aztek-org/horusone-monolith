@@ -195,7 +195,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <NuxtLayout>
+  <NuxtLayout name="default">
     <template #header>
       <AppHeader
         :title="session?.scenario_name ?? 'Session Replay'"

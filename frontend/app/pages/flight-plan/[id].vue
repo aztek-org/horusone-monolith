@@ -179,7 +179,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <NuxtLayout>
+  <NuxtLayout name="default">
     <template #header>
       <AppHeader title="Flight Plan Editor" subtitle="EDIT · VALIDATE · ACTIVATE">
         <template #action>

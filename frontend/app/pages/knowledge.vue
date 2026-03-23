@@ -216,7 +216,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <NuxtLayout>
+  <NuxtLayout name="default">
     <!-- Category Sidebar -->
     <template #sidebar>
       <div class="space-y-4">

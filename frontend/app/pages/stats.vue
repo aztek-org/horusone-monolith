@@ -222,7 +222,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <NuxtLayout>
+  <NuxtLayout name="default">
     <template #default>
       <div class="p-4 lg:p-6 space-y-6">
         <!-- Page Header -->

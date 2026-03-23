@@ -178,7 +178,7 @@ onMounted(loadProfile)
 </script>
 
 <template>
-  <NuxtLayout>
+  <NuxtLayout name="default">
     <template #header>
       <AppHeader title="Instructor Profile" subtitle="TRAINING SYSTEM - HORUS V.0.2-TOKYO" />
     </template>

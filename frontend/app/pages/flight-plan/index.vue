@@ -282,7 +282,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <NuxtLayout>
+  <NuxtLayout name="default">
     <template #header>
       <AppHeader title="Flight Plan Builder" subtitle="PLAN · VALIDATE · EXECUTE">
         <template #action>

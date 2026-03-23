@@ -115,7 +115,7 @@ onMounted(loadData)
 </script>
 
 <template>
-  <NuxtLayout>
+  <NuxtLayout name="default">
     <template #header>
       <AppHeader title="Badge Gallery" subtitle="TRAINING SYSTEM - HORUS V.0.2-TOKYO" />
     </template>
