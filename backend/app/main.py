@@ -1,10 +1,13 @@
 """Main FastAPI application for Horus ATC Voice Communication API."""
 
 import logging
+from typing import Any, Callable
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 from app.api.routes import health, voice
 from app.api.v1 import (
@@ -33,6 +36,40 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Get settings
+settings = get_settings()
+
+
+# ---------------------------------------------------------------------------
+# Catch-all error middleware — ensures CORS headers on 500s
+# ---------------------------------------------------------------------------
+
+class CatchAllErrorMiddleware(BaseHTTPMiddleware):
+    """Convert unhandled exceptions into JSON 500 responses.
+
+    This runs *inside* the CORS middleware so every response — including
+    error responses — gets proper ``Access-Control-*`` headers.
+    """
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[..., Any]
+    ) -> Response:
+        try:
+            return await call_next(request)
+        except Exception as exc:
+            logger.error(
+                "Unhandled exception on %s %s: %s",
+                request.method,
+                request.url.path,
+                exc,
+                exc_info=True,
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"detail": "Internal server error"},
+            )
+
+
 # Create FastAPI app
 app = FastAPI(
     title="Horus ATC Voice Communication API",
@@ -42,10 +79,9 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Get settings
-settings = get_settings()
-
-# Configure CORS
+# Middleware stack (last added = outermost).
+# Order: CORSMiddleware (outer) → CatchAllErrorMiddleware (inner) → routes
+app.add_middleware(CatchAllErrorMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -74,16 +110,6 @@ app.include_router(flight_plans.router, prefix=api_v1_prefix)
 app.include_router(instructors.router, prefix=api_v1_prefix)
 app.include_router(gamification.router, prefix=api_v1_prefix)
 app.include_router(assessments.router, prefix=api_v1_prefix)
-
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Catch unhandled exceptions so CORS headers are always present."""
-    logger.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc)
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error"},
-    )
 
 
 @app.on_event("startup")

@@ -134,14 +134,28 @@ async def _decode_token(token: str) -> dict:
                 detail="Unable to find signing key",
             )
 
+        # Accept tokens issued for the API client or the web SPA client.
+        # python-jose only accepts a single audience string, so we verify
+        # manually after decoding.
         payload = jwt.decode(
             token,
             rsa_key,
             algorithms=["RS256"],
-            audience=settings.keycloak_client_id,
             issuer=settings.keycloak_issuer_url,
-            options={"verify_at_hash": False},
+            options={"verify_at_hash": False, "verify_aud": False},
         )
+
+        # Manual audience check: token must contain at least one accepted aud
+        accepted = {settings.keycloak_client_id, "horus-web"}
+        token_aud = payload.get("aud", [])
+        if isinstance(token_aud, str):
+            token_aud = [token_aud]
+        if not accepted.intersection(token_aud):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token audience not accepted",
+            )
+
         return payload
 
     except JWTError as e:

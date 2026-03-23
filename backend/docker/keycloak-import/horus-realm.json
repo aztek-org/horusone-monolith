@@ -171,7 +171,7 @@
     {
       "clientId": "horus-web",
       "name": "Horus Web Frontend",
-      "description": "Horus Aviation Training Platform — Nuxt SPA frontend",
+      "description": "Horus Aviation Training Platform \u2014 Nuxt SPA frontend",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": true,
@@ -225,6 +225,17 @@
             "claim.name": "roles",
             "jsonType.label": "String"
           }
+        },
+        {
+          "name": "horus-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "horus-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
         }
       ],
       "defaultClientScopes": [
@@ -237,7 +248,7 @@
     {
       "clientId": "horus-api",
       "name": "Horus API Backend",
-      "description": "Horus Aviation Training Platform — FastAPI backend service",
+      "description": "Horus Aviation Training Platform \u2014 FastAPI backend service",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -303,7 +314,7 @@
         {
           "name": "email",
           "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "protocolMapper": "oidc-usermodel-property-mapper",
           "consentRequired": false,
           "config": {
             "userinfo.token.claim": "true",
@@ -317,7 +328,7 @@
         {
           "name": "email verified",
           "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "protocolMapper": "oidc-usermodel-property-mapper",
           "consentRequired": false,
           "config": {
             "userinfo.token.claim": "true",
@@ -341,7 +352,7 @@
         {
           "name": "username",
           "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "protocolMapper": "oidc-usermodel-property-mapper",
           "consentRequired": false,
           "config": {
             "userinfo.token.claim": "true",
@@ -349,6 +360,34 @@
             "id.token.claim": "true",
             "access.token.claim": "true",
             "claim.name": "preferred_username",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "given name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "firstName",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "given_name",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "family name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "lastName",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "family_name",
             "jsonType.label": "String"
           }
         },
