@@ -398,7 +398,8 @@ onUnmounted(() => {
         </template>
 
         <!-- ===== ASSESSMENT TAKING VIEW ===== -->
-        <template v-else-if="viewMode === 'taking' && activeAssessment && currentQuestion">
+        <template v-else-if="viewMode === 'taking'">
+        <template v-if="activeAssessment && currentQuestion">
           <!-- Header Bar -->
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div class="flex items-center gap-3">
@@ -558,9 +559,14 @@ onUnmounted(() => {
             </template>
           </div>
         </template>
+          <div v-else class="text-center py-16">
+            <p class="text-sm text-horus-text-secondary">Loading assessment...</p>
+          </div>
+        </template>
 
         <!-- ===== RESULTS VIEW ===== -->
-        <template v-else-if="viewMode === 'results' && currentResult">
+        <template v-else-if="viewMode === 'results'">
+          <template v-if="currentResult">
           <!-- Header -->
           <div class="text-center space-y-2">
             <div
@@ -716,6 +722,10 @@ onUnmounted(() => {
             >
               Retake Assessment
             </HButton>
+          </div>
+        </template>
+          <div v-else class="text-center py-16">
+            <p class="text-sm text-horus-text-secondary">Loading results...</p>
           </div>
         </template>
       </div>

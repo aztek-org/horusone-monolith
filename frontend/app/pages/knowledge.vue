@@ -586,6 +586,10 @@ onMounted(() => {
               <div class="prose-horus space-y-1" v-html="renderMarkdown(selectedArticle.body)" />
             </HCard>
           </template>
+
+          <div v-else class="text-center py-16">
+            <p class="text-sm text-horus-text-secondary">Article not found</p>
+          </div>
         </template>
       </div>
     </template>
