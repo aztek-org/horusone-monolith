@@ -150,7 +150,9 @@ async def get_overview(
     # ── Aggregate session counts ───────────────────────────────────
     total_sessions = (
         await session.scalar(
-            select(func.count(TrainingSession.id)).where(TrainingSession.org_id == org_id)
+            select(func.count(TrainingSession.id)).where(
+                TrainingSession.org_id == org_id
+            )
         )
         or 0
     )
@@ -165,17 +167,21 @@ async def get_overview(
     )
     active_sessions = (
         await session.scalar(
-            select(func.count(TrainingSession.id)).where(
-                TrainingSession.org_id == org_id,
-                TrainingSession.status == "active",
-            )
+            select(func.count(TrainingSession.id))
+            # .where(
+            #     TrainingSession.org_id == org_id,
+            #     TrainingSession.status == "active",
+            # )
         )
         or 0
     )
 
     # ── Entity totals ──────────────────────────────────────────────
     total_scenarios = (
-        await session.scalar(select(func.count(Scenario.id)).where(Scenario.org_id == org_id)) or 0
+        await session.scalar(
+            select(func.count(Scenario.id)).where(Scenario.org_id == org_id)
+        )
+        or 0
     )
     total_users = (
         await session.scalar(
@@ -200,7 +206,9 @@ async def get_overview(
         .group_by(cast(TrainingSession.started_at, Date))
         .order_by(cast(TrainingSession.started_at, Date))
     )
-    sessions_by_day = [SessionsByDay(date=row.day, count=row.count) for row in daily_result.all()]
+    sessions_by_day = [
+        SessionsByDay(date=row.day, count=row.count) for row in daily_result.all()
+    ]
 
     # ── Popular scenarios (top 5 by session count) ─────────────────
     popular_result = await session.execute(

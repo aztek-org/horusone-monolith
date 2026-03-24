@@ -119,25 +119,25 @@ echo "🤖 Step 4: Checking Ollama setup..."
 # Check if Ollama is running
 if curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
     echo -e "${GREEN}✓${NC} Ollama server is running (http://localhost:11434)"
-    
+
     # Check if model is installed (if ollama command is available)
     if command_exists ollama; then
-        if ollama list 2>/dev/null | grep -q "llama3.2:3b"; then
-            echo -e "${GREEN}✓${NC} llama3.2:3b model installed"
+        if ollama list 2>/dev/null | grep -q "llama3.2:latest"; then
+            echo -e "${GREEN}✓${NC} llama3.2:latest model installed"
         else
-            echo -e "${YELLOW}!${NC} llama3.2:3b model not found. Downloading..."
+            echo -e "${YELLOW}!${NC} llama3.2:latest model not found. Downloading..."
             echo "   This will download ~2GB, please wait..."
-            ollama pull llama3.2:3b
+            ollama pull llama3.2:latest
             echo -e "${GREEN}✓${NC} Model downloaded"
         fi
     else
         # Check via API if ollama command not available
-        if curl -s http://localhost:11434/api/tags | grep -q "llama3.2:3b"; then
-            echo -e "${GREEN}✓${NC} llama3.2:3b model found via API"
+        if curl -s http://localhost:11434/api/tags | grep -q "llama3.2:latest"; then
+            echo -e "${GREEN}✓${NC} llama3.2:latest model found via API"
         else
-            echo -e "${YELLOW}!${NC} llama3.2:3b model not detected"
+            echo -e "${YELLOW}!${NC} llama3.2:latest model not detected"
             echo "   If using shared/remote Ollama, ensure the model is available"
-            echo "   Otherwise run: ollama pull llama3.2:3b"
+            echo "   Otherwise run: ollama pull llama3.2:latest"
         fi
     fi
 else

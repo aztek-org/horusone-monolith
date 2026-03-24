@@ -168,11 +168,13 @@ endif
 	@$(UV_RUN) alembic upgrade head 2>&1 | tail -2
 	@echo ""
 	@echo "$(CYAN)▸ Starting backend (port 8000)...$(RESET)"
+	@echo "$(CYAN)▸ As common process with uvicorn and uv environment"
 	@$(UV_RUN) uvicorn app.main:app --reload --port 8000 &>/dev/null &
-	@sleep 2
+	@sleep 5
 	@echo "$(GREEN)✓$(RESET) Backend started (PID: $$(lsof -ti :8000 2>/dev/null || echo '?'))"
 	@echo ""
 	@echo "$(CYAN)▸ Starting frontend (port 3000)...$(RESET)"
+	@echo "$(CYAN)▸ As common process with pnpm...$(RESET)"
 	@cd $(FRONTEND_DIR) && pnpm dev &>/dev/null &
 	@sleep 3
 	@echo "$(GREEN)✓$(RESET) Frontend started"
