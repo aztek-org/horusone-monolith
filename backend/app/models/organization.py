@@ -34,6 +34,9 @@ class Organization(Base):
     logo_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     max_seats: Mapped[int] = mapped_column(Integer, nullable=False, default=50)
+    billing_plan: Mapped[str] = mapped_column(String(32), nullable=False, default="starter")
+    billing_status: Mapped[str] = mapped_column(String(32), nullable=False, default="trial")
+    billing_cycle: Mapped[str] = mapped_column(String(16), nullable=False, default="monthly")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

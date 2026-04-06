@@ -17,6 +17,9 @@ class OrganizationCreate(BaseModel):
         pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
     )
     max_seats: int = Field(default=50, ge=1, le=10000)
+    billing_plan: str = Field(default="starter", pattern=r"^(starter|growth|enterprise)$")
+    billing_status: str = Field(default="trial", pattern=r"^(trial|active|past_due|suspended|canceled)$")
+    billing_cycle: str = Field(default="monthly", pattern=r"^(monthly|yearly)$")
 
 
 class OrganizationRead(BaseModel):
@@ -28,6 +31,9 @@ class OrganizationRead(BaseModel):
     logo_url: str | None = None
     is_active: bool
     max_seats: int
+    billing_plan: str
+    billing_status: str
+    billing_cycle: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -39,3 +45,9 @@ class OrganizationUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     logo_url: str | None = Field(default=None, max_length=2048)
     max_seats: int | None = Field(default=None, ge=1, le=10000)
+    billing_plan: str | None = Field(default=None, pattern=r"^(starter|growth|enterprise)$")
+    billing_status: str | None = Field(
+        default=None,
+        pattern=r"^(trial|active|past_due|suspended|canceled)$",
+    )
+    billing_cycle: str | None = Field(default=None, pattern=r"^(monthly|yearly)$")

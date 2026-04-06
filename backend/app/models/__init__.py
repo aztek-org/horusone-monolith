@@ -11,6 +11,7 @@ from app.models.seat import Seat
 from app.models.student_stats import FlightHourLog, ManeuverLog, StudentStats
 from app.models.training_module import TrainingModule
 from app.models.training_session import TrainingSession
+from app.models.training_session_event import TrainingSessionEvent
 from app.models.user import User
 from app.models.user_preferences import UserPreferences
 from app.models.voice_log import VoiceLog
@@ -42,6 +43,7 @@ __all__ = [
     "StudentStats",
     "TrainingModule",
     "TrainingSession",
+    "TrainingSessionEvent",
     "User",
     "UserBadge",
     "UserPreferences",

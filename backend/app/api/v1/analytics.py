@@ -17,7 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.permissions import is_platform_admin, verify_org_access
 from app.db.repositories.organization_repo import OrganizationRepository
 from app.db.session import get_db_session
-from app.middleware.auth import RequireInstructor
+from app.middleware.auth import RequireAdmin, RequireInstructor
+from app.models.organization import Organization
 from app.models.scenario import Scenario
 from app.models.seat import Seat
 from app.models.training_session import TrainingSession
@@ -26,6 +27,7 @@ from app.models.voice_log import VoiceLog
 from app.schemas.analytics import (
     AnalyticsOverview,
     LeaderboardEntry,
+    OrganizationLeaderboardEntry,
     PopularScenario,
     SessionsByDay,
 )
@@ -129,6 +131,70 @@ async def get_leaderboard(
     ]
 
 
+@router.get("/platform-org-leaderboard", response_model=list[OrganizationLeaderboardEntry])
+async def get_platform_org_leaderboard(
+    _user: RequireAdmin,
+    limit: int = Query(default=10, ge=1, le=100),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[OrganizationLeaderboardEntry]:
+    """Get platform leaderboard ranked by organization completion volume."""
+    if not is_platform_admin(_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform-admin role required",
+        )
+
+    completed_count = func.count(TrainingSession.id).filter(TrainingSession.status == "completed")
+    active_count = func.count(TrainingSession.id).filter(TrainingSession.status == "active")
+    total_count = func.count(TrainingSession.id)
+    active_seats = (
+        select(func.count(Seat.id))
+        .where(Seat.organization_id == Organization.id, Seat.is_active.is_(True))
+        .correlate(Organization)
+        .scalar_subquery()
+    )
+
+    result = await session.execute(
+        select(
+            Organization.id.label("organization_id"),
+            Organization.name.label("organization_name"),
+            Organization.slug.label("organization_slug"),
+            Organization.is_active,
+            completed_count.label("completed_sessions"),
+            active_count.label("active_sessions"),
+            total_count.label("total_sessions"),
+            active_seats.label("active_seats"),
+        )
+        .outerjoin(TrainingSession, TrainingSession.org_id == Organization.id)
+        .group_by(Organization.id, Organization.name, Organization.slug, Organization.is_active)
+        .order_by(completed_count.desc(), total_count.desc(), Organization.name.asc())
+        .limit(limit)
+    )
+
+    leaderboard: list[OrganizationLeaderboardEntry] = []
+    for row in result.all():
+        completion_rate = (
+            (row.completed_sessions / row.total_sessions) * 100
+            if row.total_sessions > 0
+            else 0.0
+        )
+        leaderboard.append(
+            OrganizationLeaderboardEntry(
+                organization_id=row.organization_id,
+                organization_name=row.organization_name,
+                organization_slug=row.organization_slug,
+                is_active=row.is_active,
+                total_sessions=row.total_sessions,
+                completed_sessions=row.completed_sessions,
+                active_sessions=row.active_sessions,
+                active_seats=row.active_seats or 0,
+                completion_rate=round(completion_rate, 1),
+            )
+        )
+
+    return leaderboard
+
+
 # ---------------------------------------------------------------------------
 # Overview
 # ---------------------------------------------------------------------------
@@ -167,11 +233,10 @@ async def get_overview(
     )
     active_sessions = (
         await session.scalar(
-            select(func.count(TrainingSession.id))
-            # .where(
-            #     TrainingSession.org_id == org_id,
-            #     TrainingSession.status == "active",
-            # )
+            select(func.count(TrainingSession.id)).where(
+                TrainingSession.org_id == org_id,
+                TrainingSession.status == "active",
+            )
         )
         or 0
     )

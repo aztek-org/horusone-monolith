@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -15,7 +14,6 @@ from app.middleware.auth import (
     get_current_user,
     require_role,
 )
-
 
 # ── TokenUser dataclass ───────────────────────────────────────────────
 
@@ -183,15 +181,22 @@ class TestDecodeToken:
         settings = MagicMock()
         settings.keycloak_client_id = "horus-api"
         settings.keycloak_issuer_url = "http://localhost:8080/realms/horus"
+        settings.accepted_keycloak_issuers = {"http://localhost:8080/realms/horus"}
         mock_settings.return_value = settings
 
         mock_get_jwks.return_value = self.FAKE_JWKS
         mock_jwt.get_unverified_header.return_value = {"kid": "key-1", "alg": "RS256"}
-        mock_jwt.decode.return_value = {"sub": "user-1", "email": "u@e.com"}
+        mock_jwt.decode.return_value = {
+            "sub": "user-1",
+            "email": "u@e.com",
+            "iss": "http://localhost:8080/realms/horus",
+            "aud": ["horus-api"],
+        }
 
         result = await _decode_token("valid.jwt.token")
 
-        assert result == {"sub": "user-1", "email": "u@e.com"}
+        assert result["sub"] == "user-1"
+        assert result["email"] == "u@e.com"
         mock_jwt.decode.assert_called_once()
 
     @pytest.mark.asyncio
@@ -212,6 +217,7 @@ class TestDecodeToken:
         settings = MagicMock()
         settings.keycloak_client_id = "horus-api"
         settings.keycloak_issuer_url = "http://localhost:8080/realms/horus"
+        settings.accepted_keycloak_issuers = {"http://localhost:8080/realms/horus"}
         mock_settings.return_value = settings
 
         # Initial JWKS has no matching key
@@ -221,7 +227,11 @@ class TestDecodeToken:
             "keys": [{"kid": "new-key", "kty": "RSA", "n": "x", "e": "AQAB"}]
         }
         mock_jwt.get_unverified_header.return_value = {"kid": "new-key"}
-        mock_jwt.decode.return_value = {"sub": "rotated-user"}
+        mock_jwt.decode.return_value = {
+            "sub": "rotated-user",
+            "iss": "http://localhost:8080/realms/horus",
+            "aud": ["horus-api"],
+        }
 
         result = await _decode_token("rotated.jwt.token")
 
@@ -245,6 +255,7 @@ class TestDecodeToken:
         settings = MagicMock()
         settings.keycloak_client_id = "horus-api"
         settings.keycloak_issuer_url = "http://localhost:8080/realms/horus"
+        settings.accepted_keycloak_issuers = {"http://localhost:8080/realms/horus"}
         mock_settings.return_value = settings
 
         mock_get_jwks.return_value = {"keys": []}
@@ -270,6 +281,7 @@ class TestDecodeToken:
         settings = MagicMock()
         settings.keycloak_client_id = "horus-api"
         settings.keycloak_issuer_url = "http://localhost:8080/realms/horus"
+        settings.accepted_keycloak_issuers = {"http://localhost:8080/realms/horus"}
         mock_settings.return_value = settings
 
         mock_get_jwks.return_value = self.FAKE_JWKS

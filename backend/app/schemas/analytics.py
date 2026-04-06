@@ -53,3 +53,17 @@ class AnalyticsOverview(BaseModel):
     total_users: int
     sessions_by_day: list[SessionsByDay]
     popular_scenarios: list[PopularScenario]
+
+
+class OrganizationLeaderboardEntry(BaseModel):
+    """Platform-level leaderboard row for organization progress."""
+
+    organization_id: uuid.UUID
+    organization_name: str
+    organization_slug: str
+    is_active: bool
+    total_sessions: int
+    completed_sessions: int
+    active_sessions: int
+    active_seats: int
+    completion_rate: float

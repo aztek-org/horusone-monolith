@@ -165,6 +165,7 @@ class StudentStatsRepository:
         user_id: uuid.UUID,
         limit: int = 20,
         offset: int = 0,
+        maneuver_type: str | None = None,
     ) -> list[ManeuverLog]:
         """Get paginated maneuver logs for a user.
 
@@ -173,13 +174,17 @@ class StudentStatsRepository:
             user_id: UUID of the user.
             limit: Max rows to return.
             offset: Number of rows to skip.
+            maneuver_type: Optional maneuver type filter.
 
         Returns:
             List of ManeuverLog entries, newest first.
         """
+        query = select(ManeuverLog).where(ManeuverLog.user_id == user_id)
+        if maneuver_type:
+            query = query.where(ManeuverLog.maneuver_type == maneuver_type)
+
         result = await db.execute(
-            select(ManeuverLog)
-            .where(ManeuverLog.user_id == user_id)
+            query
             .order_by(ManeuverLog.created_at.desc())
             .limit(limit)
             .offset(offset)

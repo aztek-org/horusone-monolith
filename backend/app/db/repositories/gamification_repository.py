@@ -24,23 +24,61 @@ class GamificationRepository:
         self,
         db: AsyncSession,
         category: str | None = None,
+        org_id: uuid.UUID | None = None,
+        include_all: bool = False,
     ) -> list[Badge]:
         """Get all badge definitions, optionally filtered by category.
 
         Args:
             db: Async database session.
             category: Optional category filter (e.g. "flight", "communication").
+            org_id: Organization scope for org-specific badges.
+            include_all: When True, bypass org scoping (platform-admin use).
 
         Returns:
             List of active Badge rows ordered by sort_order.
         """
         query = select(Badge).where(Badge.is_active.is_(True))
+        if not include_all:
+            if org_id is None:
+                query = query.where(Badge.org_id.is_(None))
+            else:
+                query = query.where((Badge.org_id == org_id) | Badge.org_id.is_(None))
         if category:
             query = query.where(Badge.category == category)
         query = query.order_by(Badge.sort_order, Badge.name)
 
         result = await db.execute(query)
         return list(result.scalars().all())
+
+    async def get_badge_by_slug(
+        self,
+        db: AsyncSession,
+        slug: str,
+        org_id: uuid.UUID | None,
+    ) -> Badge | None:
+        """Get a badge by slug within an organization scope."""
+        query = select(Badge).where(Badge.slug == slug)
+        if org_id is None:
+            query = query.where(Badge.org_id.is_(None))
+        else:
+            query = query.where(Badge.org_id == org_id)
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def create_badge(
+        self,
+        db: AsyncSession,
+        *,
+        payload: dict[str, Any],
+        org_id: uuid.UUID | None,
+    ) -> Badge:
+        """Create a badge definition."""
+        badge = Badge(**payload, org_id=org_id)
+        db.add(badge)
+        await db.flush()
+        await db.refresh(badge)
+        return badge
 
     async def get_user_badges(
         self, db: AsyncSession, user_id: uuid.UUID
@@ -105,7 +143,7 @@ class GamificationRepository:
         return award
 
     async def check_and_award_badges(
-        self, db: AsyncSession, user_id: uuid.UUID
+        self, db: AsyncSession, user_id: uuid.UUID, org_id: uuid.UUID | None = None
     ) -> list[UserBadge]:
         """Evaluate all badge criteria and award any that are newly met.
 
@@ -129,7 +167,7 @@ class GamificationRepository:
             return []
 
         # Load all active badges
-        badges = await self.get_all_badges(db)
+        badges = await self.get_all_badges(db, org_id=org_id)
         awarded: list[UserBadge] = []
 
         for badge in badges:

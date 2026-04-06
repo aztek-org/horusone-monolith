@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+MAX_AUDIO_CHUNK_BYTES = 2 * 1024 * 1024
+MAX_AUDIO_MESSAGE_BYTES = 10 * 1024 * 1024
+
 # Global audio pipeline instance (lazy-initialized)
 audio_pipeline: AudioPipeline | None = None
 _session_repo = TrainingSessionRepository()
@@ -149,6 +152,7 @@ async def voice_communication(websocket: WebSocket) -> None:
     )
 
     audio_chunks: list[bytes] = []
+    current_audio_bytes = 0
 
     try:
         while True:
@@ -156,14 +160,58 @@ async def voice_communication(websocket: WebSocket) -> None:
             data = await websocket.receive()
 
             # Handle binary audio data
-            if "bytes" in data:
+            if "bytes" in data and data["bytes"] is not None:
                 audio_chunk = data["bytes"]
+                if len(audio_chunk) > MAX_AUDIO_CHUNK_BYTES:
+                    await manager.send_json(
+                        client_id,
+                        {
+                            "type": "error",
+                            "code": "AUDIO_CHUNK_TOO_LARGE",
+                            "message": (
+                                "Audio chunk exceeds size limit "
+                                f"({MAX_AUDIO_CHUNK_BYTES} bytes)"
+                            ),
+                        },
+                    )
+                    await websocket.close(code=4009, reason="Audio chunk too large")
+                    manager.disconnect(client_id)
+                    return
+
+                current_audio_bytes += len(audio_chunk)
+                if current_audio_bytes > MAX_AUDIO_MESSAGE_BYTES:
+                    await manager.send_json(
+                        client_id,
+                        {
+                            "type": "error",
+                            "code": "AUDIO_PAYLOAD_TOO_LARGE",
+                            "message": (
+                                "Audio transmission exceeds size limit "
+                                f"({MAX_AUDIO_MESSAGE_BYTES} bytes)"
+                            ),
+                        },
+                    )
+                    await websocket.close(code=4009, reason="Audio payload too large")
+                    manager.disconnect(client_id)
+                    return
+
                 audio_chunks.append(audio_chunk)
                 logger.debug(f"Received audio chunk: {len(audio_chunk)} bytes")
 
             # Handle text/JSON messages
-            elif "text" in data:
-                message = json.loads(data["text"])
+            elif "text" in data and data["text"] is not None:
+                try:
+                    message = json.loads(data["text"])
+                except json.JSONDecodeError:
+                    await manager.send_json(
+                        client_id,
+                        {
+                            "type": "error",
+                            "code": "INVALID_JSON",
+                            "message": "Invalid JSON message format",
+                        },
+                    )
+                    continue
 
                 if message.get("type") == "audio_end":
                     # Client finished sending audio, process it
@@ -182,6 +230,7 @@ async def voice_communication(websocket: WebSocket) -> None:
                     if audio_chunks:
                         combined_audio = b"".join(audio_chunks)
                         audio_chunks = []
+                        current_audio_bytes = 0
 
                         logger.info(
                             f"Processing {len(combined_audio)} bytes of audio"
@@ -238,6 +287,16 @@ async def voice_communication(websocket: WebSocket) -> None:
 
                 elif message.get("type") == "ping":
                     await manager.send_json(client_id, {"type": "pong"})
+
+                else:
+                    await manager.send_json(
+                        client_id,
+                        {
+                            "type": "error",
+                            "code": "UNSUPPORTED_MESSAGE_TYPE",
+                            "message": "Unsupported message type",
+                        },
+                    )
 
     except WebSocketDisconnect:
         logger.info(f"Client {client_id} disconnected")

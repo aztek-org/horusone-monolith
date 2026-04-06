@@ -23,6 +23,9 @@ class OrganizationWithStats(BaseModel):
     logo_url: str | None = None
     is_active: bool
     max_seats: int
+    billing_plan: str
+    billing_status: str
+    billing_cycle: str
     created_at: datetime
     seat_count: int = 0
     active_sessions: int = 0

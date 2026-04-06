@@ -141,9 +141,15 @@ async def _decode_token(token: str) -> dict:
             token,
             rsa_key,
             algorithms=["RS256"],
-            issuer=settings.keycloak_issuer_url,
-            options={"verify_at_hash": False, "verify_aud": False},
+            options={"verify_at_hash": False, "verify_aud": False, "verify_iss": False},
         )
+
+        token_issuer = str(payload.get("iss", "")).rstrip("/")
+        if token_issuer not in settings.accepted_keycloak_issuers:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token issuer not accepted",
+            )
 
         # Manual audience check: token must contain at least one accepted aud
         accepted = {settings.keycloak_client_id, "horus-web"}

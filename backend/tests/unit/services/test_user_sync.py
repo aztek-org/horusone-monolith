@@ -58,6 +58,7 @@ class TestSyncUserFromToken:
         token_user = _make_token_user()
 
         mock_repo.get_by_keycloak_id = AsyncMock(return_value=None)
+        mock_repo.get_by_email = AsyncMock(return_value=None)
         new_user = _make_fake_user()
         mock_repo.create = AsyncMock(return_value=new_user)
 

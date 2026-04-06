@@ -74,12 +74,19 @@ async def get_my_maneuvers(
     user: CurrentUser,
     _seat: RequireActiveSeat,
     local_user: User = Depends(get_authenticated_user),
+    maneuver_type: str | None = Query(default=None, alias="type", min_length=1, max_length=100),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[ManeuverLogRead]:
     """Get the current user's paginated maneuver log entries."""
-    logs = await stats_repo.get_maneuver_logs(db, local_user.id, limit, offset)
+    logs = await stats_repo.get_maneuver_logs(
+        db,
+        local_user.id,
+        limit,
+        offset,
+        maneuver_type=maneuver_type,
+    )
     return logs  # type: ignore[return-value]
 
 

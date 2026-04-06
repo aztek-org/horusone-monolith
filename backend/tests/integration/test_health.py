@@ -1,5 +1,4 @@
 """Integration tests for health endpoints."""
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -86,6 +85,18 @@ def test_docs_endpoint_accessible(client: TestClient) -> None:
     """OpenAPI docs endpoint should be accessible."""
     response = client.get("/docs")
     assert response.status_code == 200
+
+
+def test_health_response_includes_security_headers(client: TestClient) -> None:
+    """Responses should include baseline security headers."""
+    response = client.get("/health")
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert (
+        response.headers["content-security-policy"]
+        == "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+    )
 
 
 def test_unknown_route_returns_404(client: TestClient) -> None:

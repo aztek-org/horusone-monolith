@@ -13,6 +13,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.scenario import Scenario
+    from app.models.training_session_event import TrainingSessionEvent
     from app.models.user import User
     from app.models.voice_log import VoiceLog
 
@@ -46,6 +47,9 @@ class TrainingSession(Base):
     # ── Relationships ──────────────────────────────────────────────
     scenario: Mapped[Scenario | None] = relationship(back_populates="sessions")
     voice_logs: Mapped[list[VoiceLog]] = relationship(
+        back_populates="session", cascade="all, delete-orphan"
+    )
+    events: Mapped[list[TrainingSessionEvent]] = relationship(
         back_populates="session", cascade="all, delete-orphan"
     )
     user: Mapped[User | None] = relationship(back_populates="sessions")

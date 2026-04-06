@@ -185,17 +185,21 @@
       "baseUrl": "/",
       "redirectUris": [
         "http://localhost:3000/*",
+        "http://localhost:3001/*",
+        "http://localhost:3002/*",
         "https://horusone.app/*",
         "https://*.pages.dev/*"
       ],
       "webOrigins": [
         "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
         "https://horusone.app",
         "+"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:3000/*##https://horusone.app/*##https://*.pages.dev/*"
+        "post.logout.redirect.uris": "http://localhost:3000/*##http://localhost:3001/*##http://localhost:3002/*##https://horusone.app/*##https://*.pages.dev/*"
       },
       "protocolMappers": [
         {

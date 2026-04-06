@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ── Badge ─────────────────────────────────────────────────────────
@@ -16,6 +16,7 @@ class BadgeRead(BaseModel):
     """Schema returned when reading a badge definition."""
 
     id: uuid.UUID
+    org_id: uuid.UUID | None = None
     name: str
     slug: str
     description: str
@@ -28,6 +29,36 @@ class BadgeRead(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class BadgeCriteria(BaseModel):
+    """Validated badge criteria payload for badge creation."""
+
+    type: str = Field(
+        ...,
+        pattern=r"^(flight_hours|maneuvers|scenarios|assessments|streak|score)$",
+    )
+    threshold: float = Field(default=0, ge=0)
+
+
+class BadgeCreate(BaseModel):
+    """Request payload for creating a badge definition."""
+
+    name: str = Field(..., min_length=1, max_length=255)
+    slug: str | None = Field(default=None, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    description: str = Field(..., min_length=1, max_length=2000)
+    icon: str | None = Field(default=None, max_length=255)
+    criteria: BadgeCriteria
+    category: str = Field(
+        ...,
+        pattern=r"^(flight|communication|decision|procedure|safety|custom)$",
+    )
+    tier: str = Field(
+        ...,
+        pattern=r"^(bronze|silver|gold|platinum|custom)$",
+    )
+    sort_order: int = Field(default=0, ge=0)
+    is_active: bool = True
 
 
 # ── UserBadge ────────────────────────────────────────────────────

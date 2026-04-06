@@ -10,11 +10,13 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -35,15 +37,43 @@ class Badge(Base):
     """
 
     __tablename__ = "badges"
+    __table_args__ = (
+        Index(
+            "uq_badges_slug_shared",
+            "slug",
+            unique=True,
+            postgresql_where=text("org_id IS NULL"),
+        ),
+        Index(
+            "uq_badges_slug_org",
+            "org_id",
+            "slug",
+            unique=True,
+            postgresql_where=text("org_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_badges_name_shared",
+            "name",
+            unique=True,
+            postgresql_where=text("org_id IS NULL"),
+        ),
+        Index(
+            "uq_badges_name_org",
+            "org_id",
+            "name",
+            unique=True,
+            postgresql_where=text("org_id IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     name: Mapped[str] = mapped_column(
-        String(255), unique=True, nullable=False
+        String(255), nullable=False
     )
     slug: Mapped[str] = mapped_column(
-        String(255), unique=True, nullable=False, index=True
+        String(255), nullable=False, index=True
     )
     description: Mapped[str] = mapped_column(Text, nullable=False)
     icon: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -58,6 +88,12 @@ class Badge(Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True
     )
+    org_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -66,6 +102,7 @@ class Badge(Base):
     user_badges: Mapped[list[UserBadge]] = relationship(
         back_populates="badge"
     )
+    organization: Mapped[Organization | None] = relationship()
 
     def __repr__(self) -> str:
         return f"<Badge slug={self.slug!r} tier={self.tier!r}>"

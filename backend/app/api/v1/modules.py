@@ -4,6 +4,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.repositories.training_module_repo import TrainingModuleRepository
@@ -14,6 +15,8 @@ from app.middleware.auth import (
     RequireOrgAdmin,
     TokenUser,
 )
+from app.models.scenario import Scenario
+from app.models.training_module import TrainingModule
 from app.schemas.training_module import (
     ModuleScenarioAction,
     TrainingModuleCreate,
@@ -56,6 +59,44 @@ def _is_platform_admin(user: TokenUser) -> bool:
     return "platform-admin" in user.roles
 
 
+def _require_user_org_id(user: TokenUser) -> uuid.UUID:
+    """Get org_id for a non-platform user, or raise if unavailable."""
+    org_id = _user_org_id(user)
+    if org_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Organization context is required",
+        )
+    return org_id
+
+
+def _assert_module_access(
+    user: TokenUser,
+    module: TrainingModule,
+    *,
+    write: bool,
+) -> None:
+    """Enforce org-scoped read/write access for a module."""
+    if _is_platform_admin(user):
+        return
+
+    user_org_id = _require_user_org_id(user)
+
+    if module.org_id is None:
+        if write:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only platform-admin can modify shared modules",
+            )
+        return
+
+    if module.org_id != user_org_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Training module {module.id} not found",
+        )
+
+
 # ── Routes ─────────────────────────────────────────────────────────
 
 
@@ -95,9 +136,7 @@ async def create_module(
     """
     # Non-platform-admins can only create within their own org
     if not _is_platform_admin(user):
-        org_id = _user_org_id(user)
-        if org_id is not None:
-            data.org_id = org_id
+        data.org_id = _require_user_org_id(user)
 
     module = repo.model(
         **data.model_dump(),
@@ -113,7 +152,7 @@ async def create_module(
 @router.get("/{module_id}", response_model=TrainingModuleWithScenarios)
 async def get_module(
     module_id: uuid.UUID,
-    _user: CurrentUser,
+    user: CurrentUser,
     session: AsyncSession = Depends(get_db_session),
 ) -> TrainingModuleWithScenarios:
     """Get a training module by ID with its associated scenarios."""
@@ -123,6 +162,7 @@ async def get_module(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Training module {module_id} not found",
         )
+    _assert_module_access(user, module, write=False)
     return module  # type: ignore[return-value]
 
 
@@ -130,7 +170,7 @@ async def get_module(
 async def update_module(
     module_id: uuid.UUID,
     data: TrainingModuleUpdate,
-    _user: RequireInstructor,
+    user: RequireInstructor,
     session: AsyncSession = Depends(get_db_session),
 ) -> TrainingModuleRead:
     """Update an existing training module.
@@ -143,6 +183,7 @@ async def update_module(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Training module {module_id} not found",
         )
+    _assert_module_access(user, module, write=True)
 
     update_data = data.model_dump(exclude_unset=True)
     for field_name, value in update_data.items():
@@ -157,19 +198,21 @@ async def update_module(
 @router.delete("/{module_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_module(
     module_id: uuid.UUID,
-    _user: RequireOrgAdmin,
+    user: RequireOrgAdmin,
     session: AsyncSession = Depends(get_db_session),
 ) -> None:
     """Delete a training module.
 
     Only org-admins and platform-admins may delete modules.
     """
-    deleted = await repo.delete(session, module_id)
-    if not deleted:
+    module = await repo.get_by_id(session, module_id)
+    if module is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Training module {module_id} not found",
         )
+    _assert_module_access(user, module, write=True)
+    await session.delete(module)
     logger.info("Deleted training module: %s", module_id)
 
 
@@ -184,7 +227,7 @@ async def delete_module(
 async def add_scenario_to_module(
     module_id: uuid.UUID,
     data: ModuleScenarioAction,
-    _user: RequireInstructor,
+    user: RequireInstructor,
     session: AsyncSession = Depends(get_db_session),
 ) -> TrainingModuleWithScenarios:
     """Add a scenario to a training module (idempotent).
@@ -196,6 +239,24 @@ async def add_scenario_to_module(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Training module {module_id} not found",
+        )
+    _assert_module_access(user, module, write=True)
+
+    scenario_row = (
+        await session.execute(
+            select(Scenario.id, Scenario.org_id).where(Scenario.id == data.scenario_id)
+        )
+    ).one_or_none()
+    if scenario_row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Scenario {data.scenario_id} not found",
+        )
+    scenario_org_id = scenario_row.org_id
+    if module.org_id is not None and scenario_org_id not in {None, module.org_id}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Scenario is outside this module organization scope",
         )
 
     await repo.add_scenario(session, module_id, data.scenario_id, data.sort_order)
@@ -214,10 +275,18 @@ async def add_scenario_to_module(
 async def remove_scenario_from_module(
     module_id: uuid.UUID,
     scenario_id: int,
-    _user: RequireInstructor,
+    user: RequireInstructor,
     session: AsyncSession = Depends(get_db_session),
 ) -> None:
     """Remove a scenario from a training module."""
+    module = await repo.get_by_id(session, module_id)
+    if module is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Training module {module_id} not found",
+        )
+    _assert_module_access(user, module, write=True)
+
     removed = await repo.remove_scenario(session, module_id, scenario_id)
     if not removed:
         raise HTTPException(
