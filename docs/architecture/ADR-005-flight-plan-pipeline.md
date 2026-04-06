@@ -1,4 +1,4 @@
-# 005 — Flight Plan Pipeline
+# ADR-005: Flight Plan Pipeline
 
 **Status**: Accepted
 **Date**: 2025-07-14
@@ -18,7 +18,7 @@ The challenge is that student skill levels vary enormously:
 
 Once a flight plan exists, it must be **validated** against multiple domains (weather,
 fuel, airspace, performance) before it can be used in a live session. This validation
-is the same pipeline described in [ADR-004](./004-langgraph-multi-agent.md).
+is the same pipeline described in [ADR-004](./ADR-004-langgraph-multi-agent.md).
 
 We also need to support external data sources (weather APIs, airspace databases) that
 don't exist yet in the MVP but must have clean interfaces for future integration.
@@ -182,5 +182,5 @@ erDiagram
 
 - [FAA Flight Plan Form 7233-1](https://www.faa.gov/forms/faa7233_1)
 - [ICAO Flight Plan Format (Doc 4444)](https://www.icao.int/airnavigation/Pages/flight-plan.aspx)
-- Related ADR: [004 — LangGraph Multi-Agent Architecture](./004-langgraph-multi-agent.md)
-- Related ADR: [002 — Database Selection](./ADR-002-database-postgresql.md)
+- Related ADR: [ADR-004: LangGraph Multi-Agent Architecture](./ADR-004-langgraph-multi-agent.md)
+- Related ADR: [ADR-002: Database Selection](./ADR-002-database-postgresql.md)

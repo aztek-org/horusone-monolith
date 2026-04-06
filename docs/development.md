@@ -2,12 +2,14 @@
 
 Complete guide for setting up and working on the Horus Aviation Training Platform.
 
+For documentation structure and canonical sources, see [`docs/README.md`](README.md).
+
 ## Prerequisites
 
 | Tool | Version | Purpose |
 |------|---------|---------|
 | Python | 3.10–3.11 | Backend runtime |
-| Node.js | 20+ | Frontend build |
+| Node.js | 22+ | Frontend build |
 | pnpm | 9+ | Frontend package manager |
 | uv | latest | Python package manager |
 | Docker + Compose | latest | Infrastructure (PostgreSQL, Redis, Ollama, Keycloak) |
@@ -28,10 +30,10 @@ cd horus-mvp
 cd backend
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis ollama
 
-# 3. Activate venv, run migrations, seed data
-source .venv/bin/activate
-alembic upgrade head
-python -m scripts.seed
+# 3. Sync deps, run migrations, seed data
+uv sync
+uv run alembic upgrade head
+uv run python -m scripts.seed
 
 # 4. Pull Ollama model (first time — takes a few minutes)
 ollama pull llama3.2:3b
@@ -45,7 +47,7 @@ pnpm install
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the application.
+Open [http://localhost:3002](http://localhost:3002) to use the Hangar login gateway.
 
 > **💡 Tip:** Set `AUTH_ENABLED=false` in `backend/.env` to skip Keycloak and get a dev user automatically. This is the easiest way to develop locally.
 
@@ -92,7 +94,7 @@ Horus uses a LangGraph `StateGraph` orchestrator with 3 sub-graphs and 9 special
 The orchestrator supports **human-in-the-loop (HITL)** — instructors can interrupt and
 override AI responses before they reach the student.
 
-📖 Full details: [ADR-004: LangGraph Multi-Agent Architecture](architecture/004-langgraph-multi-agent.md)
+📖 Full details: [ADR-004: LangGraph Multi-Agent Architecture](architecture/ADR-004-langgraph-multi-agent.md)
 
 ### Audio Pipeline
 
@@ -100,7 +102,7 @@ override AI responses before they reach the student.
 Microphone → WebSocket → Whisper STT → LangGraph/Ollama LLM → TTS → Radio Effects → WebSocket → Speaker
 ```
 
-See [`.github/copilot/skills/debug-audio-pipeline.md`](../.github/copilot/skills/debug-audio-pipeline.md) for a step-by-step debug checklist.
+See [`.github/skills/debug-audio-pipeline/SKILL.md`](../.github/skills/debug-audio-pipeline/SKILL.md) for a step-by-step debug checklist.
 
 ---
 
@@ -166,14 +168,15 @@ horus-mvp/
 │   └── wrangler.toml               # Cloudflare Pages config
 │
 ├── docs/
-│   ├── development.md              # This file
+│   ├── README.md                   # Documentation index (canonical doc map)
+│   ├── development.md              # Main developer guide
 │   ├── OLLAMA_SETUP.md             # LLM configuration guide
 │   └── architecture/               # Architecture Decision Records (ADRs)
 │       ├── ADR-001-monorepo-structure.md
 │       ├── ADR-002-database-postgresql.md
 │       ├── ADR-003-deployment-architecture.md
-│       ├── 004-langgraph-multi-agent.md
-│       └── 005-flight-plan-pipeline.md
+│       ├── ADR-004-langgraph-multi-agent.md
+│       └── ADR-005-flight-plan-pipeline.md
 │
 └── setup.sh                        # One-time project setup script
 ```
@@ -200,7 +203,7 @@ Key variables to set for local dev:
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint |
 | `OLLAMA_LLM_MODEL` | `llama3.2:3b` | LLM model name for ATC responses |
 | `AUTH_ENABLED` | `true` | **Set to `false` to skip Keycloak locally** |
-| `CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Allowed frontend origins |
+| `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001,http://localhost:3002,http://127.0.0.1:3000` | Allowed frontend origins |
 | `WHISPER_MODEL` | `base` | Whisper model size (tiny/base/small/medium/large) |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
 
@@ -215,17 +218,17 @@ PostgreSQL 16 runs via Docker with the dev compose overlay exposing port 5432.
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
 
 # Run all migrations
-cd backend && source .venv/bin/activate
-alembic upgrade head
+cd backend
+uv run alembic upgrade head
 
 # Create a new migration after changing models
-alembic revision --autogenerate -m "describe_your_change"
+uv run alembic revision --autogenerate -m "describe_your_change"
 
 # Check current migration state
-alembic current
+uv run alembic current
 
 # Downgrade one step
-alembic downgrade -1
+uv run alembic downgrade -1
 ```
 
 **Database tables:** `users`, `organizations`, `seats`, `scenarios`, `training_sessions`, `voice_logs`, `training_modules`, `student_stats`, `content_categories`, `content_articles`, `waypoints`, `flight_plans`, `flight_track_points`, `flight_insights`, `instructor_profiles`, `badges`, `user_badges`, `leaderboard_snapshots`, `assessments`, `assessment_questions`, `assessment_results`, `user_preferences`
@@ -233,8 +236,8 @@ alembic downgrade -1
 **Seed data** (idempotent — safe to run repeatedly):
 
 ```bash
-python -m scripts.seed              # insert seed data (skips existing rows)
-python -m scripts.seed --reset      # truncate all tables, then re-seed
+uv run python -m scripts.seed              # insert seed data (skips existing rows)
+uv run python -m scripts.seed --reset      # truncate all tables, then re-seed
 ```
 
 The seed script creates a sample organization (`skybridge.aero`), users with different roles (admin, instructor, student), seats, scenarios, training sessions, and voice logs.
@@ -260,7 +263,7 @@ All requests will return a dev user — no login required.
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis ollama keycloak
 ```
 
-- **Keycloak admin console**: http://localhost:8080 (admin / admin)
+- **Keycloak admin console**: http://localhost:8180 (admin / admin)
 - The `horus` realm is auto-imported on first start
 - Frontend uses **OIDC PKCE flow** (no client secret)
 - Backend validates **RS256 JWT tokens** with JWKS endpoint caching
@@ -268,7 +271,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres re
 ### Running the Backend
 
 ```bash
-cd backend && source .venv/bin/activate
+cd backend
 
 # Option 1: convenience script (loads .env automatically)
 ./run_backend.sh
@@ -287,7 +290,7 @@ The API server starts at http://localhost:8000.
 |--------|------|-------------|
 | GET | `/health` | Basic health check |
 | GET | `/health/ready` | Readiness check (verifies all services) |
-| WebSocket | `/ws/voice` | Real-time voice communication |
+| WebSocket | `/ws/voice` | Real-time voice communication (JWT required, 2MB chunk limit, 10MB total payload limit) |
 
 #### Authentication (`/api/v1/auth`)
 
@@ -303,17 +306,21 @@ The API server starts at http://localhost:8000.
 |--------|------|-------------|
 | GET/POST | `/api/v1/scenarios` | List / create scenarios |
 | GET | `/api/v1/scenarios/{id}` | Get scenario details |
-| GET/POST | `/api/v1/sessions` | List / create training sessions |
+| GET/POST | `/api/v1/sessions` | List / create training sessions (`GET` supports `status`, `scenario_id`, `started_after`, `started_before`) |
 | GET | `/api/v1/sessions/{id}` | Get training session details |
+| GET | `/api/v1/sessions/{id}/events` | Get ordered session lifecycle audit events |
+| GET | `/api/v1/sessions/{id}/replay` | Get replay payload (track, insights, voice logs, scoring) |
+| POST | `/api/v1/sessions/{id}/complete` | Complete active session (idempotent) and return replay path |
 
 #### Training Modules (`/api/v1/modules`)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET/POST | `/modules` | List / create training modules |
-| GET/PUT/DELETE | `/modules/{id}` | Module CRUD |
-| POST | `/modules/{id}/scenarios` | Link scenario to module |
-| DELETE | `/modules/{id}/scenarios/{scenario_id}` | Unlink scenario from module |
+| GET | `/modules` | List training modules visible to caller scope (org + shared for org users) |
+| POST | `/modules` | Create training module (org-scoped for non-platform users) |
+| GET/PUT/DELETE | `/modules/{id}` | Read/update/delete module with org-scope authorization |
+| POST | `/modules/{id}/scenarios` | Link scenario to module (scope validated) |
+| DELETE | `/modules/{id}/scenarios/{scenario_id}` | Unlink scenario from module (scope validated) |
 
 #### Student Statistics (`/api/v1/stats`)
 
@@ -321,7 +328,7 @@ The API server starts at http://localhost:8000.
 |--------|------|-------------|
 | GET | `/stats/me` | Current user's stats (flight hours, scenarios completed, etc.) |
 | GET | `/stats/me/flight-hours` | Detailed flight hours breakdown |
-| GET | `/stats/me/maneuvers` | Maneuvers practiced summary |
+| GET | `/stats/me/maneuvers` | Maneuvers practiced summary (supports optional `type` filter) |
 | GET | `/stats/me/assessments` | Assessment results history |
 | GET | `/stats/me/transcript/{session_id}` | Download session transcript |
 | GET | `/stats/{user_id}` | Stats for a specific user (instructor/admin) |
@@ -361,7 +368,7 @@ The API server starts at http://localhost:8000.
 | POST | `/flight-plans/{id}/validate` | Run AI validation pipeline |
 | POST | `/flight-plans/{id}/activate` | Activate for live session |
 
-See [ADR-005: Flight Plan Pipeline](architecture/005-flight-plan-pipeline.md) for details.
+See [ADR-005: Flight Plan Pipeline](architecture/ADR-005-flight-plan-pipeline.md) for details.
 
 #### Instructors (`/api/v1/instructors`)
 
@@ -377,6 +384,7 @@ See [ADR-005: Flight Plan Pipeline](architecture/005-flight-plan-pipeline.md) fo
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/gamification/badges` | List all available badges |
+| POST | `/gamification/badges` | Create an organization-scoped badge definition |
 | GET | `/gamification/me/badges` | Current user's earned badges |
 | GET | `/gamification/leaderboard` | Leaderboard snapshot (daily/weekly/monthly) |
 | POST | `/gamification/check` | Trigger badge evaluation for current session |
@@ -397,6 +405,7 @@ See [ADR-005: Flight Plan Pipeline](architecture/005-flight-plan-pipeline.md) fo
 |--------|------|-------------|
 | GET | `/analytics/leaderboard` | Global leaderboard entries |
 | GET | `/analytics/overview` | Platform-wide analytics overview |
+| GET | `/analytics/platform-org-leaderboard` | Platform org ranking by completed sessions |
 
 #### User Preferences (`/api/v1/users/me/preferences`)
 
@@ -418,10 +427,11 @@ See [ADR-005: Flight Plan Pipeline](architecture/005-flight-plan-pipeline.md) fo
 | GET/PUT | `/admin/users/{id}` | User detail / update |
 | GET | `/admin/stats` | Platform-wide admin statistics |
 
-### Adding Endpoints and Models
+### Adding Endpoints, Models, and Security Reviews
 
-- **New API endpoint**: See [`.github/copilot/skills/add-api-endpoint.md`](../.github/copilot/skills/add-api-endpoint.md)
-- **New database model**: See [`.github/copilot/skills/add-db-model.md`](../.github/copilot/skills/add-db-model.md)
+- **New API endpoint**: See [`.github/skills/add-api-endpoint/SKILL.md`](../.github/skills/add-api-endpoint/SKILL.md)
+- **New database model**: See [`.github/skills/add-db-model/SKILL.md`](../.github/skills/add-db-model/SKILL.md)
+- **OWASP security review**: See [`.github/skills/owasp-security/SKILL.md`](../.github/skills/owasp-security/SKILL.md)
 
 ---
 
@@ -432,7 +442,13 @@ See [ADR-005: Flight Plan Pipeline](architecture/005-flight-plan-pipeline.md) fo
 ```bash
 cd frontend
 pnpm install
-pnpm dev        # http://localhost:3000
+# run all apps
+pnpm dev
+
+# or run individually
+pnpm dev:squawk   # http://localhost:3000
+pnpm dev:tower    # http://localhost:3001
+pnpm dev:hangar   # http://localhost:3002
 ```
 
 ### Environment
@@ -441,38 +457,38 @@ Runtime config is set via `nuxt.config.ts` with sensible localhost defaults. No 
 
 - `NUXT_PUBLIC_API_URL` → defaults to `http://localhost:8000`
 - `NUXT_PUBLIC_WS_URL` → defaults to `ws://localhost:8000/ws/voice`
+- `NUXT_PUBLIC_KEYCLOAK_URL` → defaults to `http://localhost:8180`
+- `NUXT_PUBLIC_KEYCLOAK_REALM` → defaults to `horus`
+- `NUXT_PUBLIC_KEYCLOAK_CLIENT_ID` → defaults to `horus-web`
+- `NUXT_PUBLIC_HANGAR_URL` → defaults to `http://localhost:3002`
+- `NUXT_PUBLIC_TOWER_URL` → defaults to `http://localhost:3001`
+- `NUXT_PUBLIC_SQUAWK_URL` → defaults to `http://localhost:3000`
+- `NUXT_PUBLIC_AUTH_GATEWAY_URL` → defaults to Hangar URL
 
 For production, set `NUXT_PUBLIC_*` env vars in the Cloudflare Pages dashboard.
 
-### Key Pages
+### App Domains and Auth Flow
 
-| Route | Page | Description |
-|-------|------|-------------|
-| `/` | `index.vue` | Landing / home |
-| `/login` | `login.vue` | Authentication |
-| `/configurator` | `configurator.vue` | Scenario Architect — build training scenarios |
-| `/library` | `library.vue` | Scenario Library — browse and select |
-| `/performance` | `performance.vue` | Training analytics and session history |
-| `/dashboard` | `dashboard.vue` | Organization admin dashboard |
-| `/settings` | `settings.vue` | User settings |
-| `/stats` | `stats.vue` | Student statistics — flight hours, maneuvers, progress tracking |
-| `/knowledge` | `knowledge.vue` | Aviation knowledge base — theory, regulations, procedures |
-| `/assessments` | `assessments.vue` | Knowledge assessments with auto-grading |
-| `/flight-plan` | `flight-plan/index.vue` | Flight plan builder (form, text, image upload) |
-| `/flight-plan/[id]` | `flight-plan/[id].vue` | Flight plan detail with validation results and map |
-| `/session/[id]` | `session/[id].vue` | Live session view — ATC voice interaction |
-| `/mission/[id]` | `mission/[id].vue` | Mission replay — track, voice transcript, insights |
-| `/instructor` | `instructor/index.vue` | Instructor dashboard — student management |
-| `/instructor/profile` | `instructor/profile.vue` | Instructor profile and qualifications |
-| `/leaderboard` | `leaderboard.vue` | Leaderboard — daily, weekly, monthly rankings |
-| `/badges` | `badges.vue` | Badge collection and progress |
-| `/auth/callback` | `auth/callback.vue` | OIDC callback handler |
-| `/admin` | `admin/index.vue` | Platform admin dashboard |
-| `/admin/users` | `admin/users.vue` | User management |
-| `/admin/organizations` | `admin/organizations/index.vue` | Organization management |
-| `/admin/organizations/[id]` | `admin/organizations/[id].vue` | Organization detail + seats |
-| `/admin/modules` | `admin/modules.vue` | Training module management |
-| `/admin/leaderboard` | `admin/leaderboard.vue` | Admin leaderboard management |
+| App | Local URL | Domain Scope | Current State |
+|-----|-----------|--------------|---------------|
+| Hangar | `http://localhost:3002` | Student / seat experience | Main login gateway + full pilot flow pages + server-filtered range-aware performance analytics + live trend chart + dynamic streak insights + session replay audit timeline + transcript export (TXT/JSON) + stats transcript quick-download actions + assessment result exports + personal settings workspace |
+| Tower | `http://localhost:3001` | Organization admin / instructor | Org operations dashboard with session visibility, billing profile controls, scenario studio, training plan module studio, badge studio, org-admin seat management, and app settings page |
+| Squawk | `http://localhost:3000` | Platform admin | Platform dashboard with org oversight, billing management actions, user directory controls, and app settings page |
+
+Role-based redirect after callback:
+- `platform-admin` → Squawk
+- `org-admin` / `instructor` → Tower
+- `student` (fallback authenticated user) → Hangar
+
+Route ownership enforcement:
+- Hangar no longer hosts legacy admin/instructor dashboards; `/admin/*` and `/instructor/*` paths in Hangar redirect to the role-owned app dashboard.
+
+Tower behavior:
+- `org-admin`: can view org metrics, progress analytics/leaderboard, invite seats, update seat roles, manage billing profile, create org scenarios with plan templates, author training plan modules, create org-scoped custom badges, and deactivate seats
+- `instructor`: operations view with session/billing visibility, progress analytics, scenario creation, plan authoring, and badge authoring capabilities
+
+Squawk behavior:
+- `platform-admin`: can view global stats, organization progress leaderboard, create/deactivate organizations, update org seat limits, manage org billing profiles, and enable/disable user accounts
 
 ### Design System
 
@@ -481,7 +497,7 @@ H-prefixed components live in `app/components/ui/`:
 `HButton` · `HCard` · `HBadge` · `HSlider` · `HProgress` · `HCheckbox` · `HChecklistItem` · `HDropdown` · `HDataPanel` · `HSection` · `HStatusIndicator` · `HStatusPill` · `HLogEntry` · `HRadioGroup` · `HButtonGroup`
 
 - Dark theme by default with `horus-*` and `atc-*` color tokens in `tailwind.config.ts`
-- See [`.github/copilot/skills/add-vue-component.md`](../.github/copilot/skills/add-vue-component.md) for creating new components
+- See [`.github/skills/add-vue-component/SKILL.md`](../.github/skills/add-vue-component/SKILL.md) for creating new components
 
 ---
 
@@ -506,7 +522,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres re
 | PostgreSQL | 5432 | `postgresql://horus:horus@localhost:5432/horus_db` |
 | Redis | 6379 | `redis://localhost:6379/0` |
 | Ollama | 11434 | `http://localhost:11434` |
-| Keycloak | 8180 | `http://localhost:8080` |
+| Keycloak | 8180 | `http://localhost:8180` |
 
 ### Full Stack (everything in Docker)
 
@@ -515,7 +531,7 @@ cd backend
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```
 
-Access via: `api.localhost` (backend), `auth.localhost` (Keycloak), `localhost:8080` (Traefik dashboard)
+Access via: `api.localhost` (backend), `auth.localhost` (Keycloak), `localhost:8081` (Traefik dashboard)
 
 ### Production
 
@@ -541,17 +557,17 @@ Production features:
 ### Backend
 
 ```bash
-cd backend && source .venv/bin/activate
+cd backend
 
-pytest tests/ -v                    # all tests
-pytest tests/unit/ -v               # unit only
-pytest tests/integration/ -v        # integration only
-pytest tests/ --cov=app             # with coverage
+uv run pytest tests/ -v                    # all tests
+uv run pytest tests/unit/ -v               # unit only
+uv run pytest tests/integration/ -v        # integration only
+uv run pytest tests/ --cov=app             # with coverage
 
-ruff check app/                     # lint
-ruff check app/ --fix               # auto-fix lint issues
-ruff format app/                    # format
-mypy app/                           # type check
+uv run ruff check app/                     # lint
+uv run ruff check app/ --fix               # auto-fix lint issues
+uv run ruff format app/                    # format
+uv run mypy app/                           # type check
 ```
 
 **Testing rules:**
@@ -601,21 +617,22 @@ pnpm format                         # Prettier
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
-| `python -m scripts.seed` hangs | PostgreSQL not running | `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres` |
-| `relation "users" does not exist` | Migrations not run | `alembic upgrade head` |
+| `uv run python -m scripts.seed` hangs | PostgreSQL not running | `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres` |
+| `relation "users" does not exist` | Migrations not run | `uv run alembic upgrade head` |
 | `Connection refused` on port 5432 | Postgres port not exposed | Use dev overlay: add `-f docker-compose.dev.yml` |
 | Whisper model download slow | First-time download (~1GB for `base`) | Wait, or set `WHISPER_MODEL=tiny` in `.env` for faster startup |
 | Ollama `model not found` | Model not pulled | `ollama pull llama3.2:3b` |
 | Keycloak not starting | Postgres not ready | Check `docker compose logs keycloak` — wait for postgres health check |
-| CORS errors in browser | Frontend origin not in CORS_ORIGINS | Add `http://localhost:3000` to `CORS_ORIGINS` in `.env` |
+| CORS errors in browser | Frontend origin not in CORS_ORIGINS | Add your app origins (3000/3001/3002) to `CORS_ORIGINS` in `.env` |
 | JWT validation fails | Keycloak not running or wrong issuer | Set `AUTH_ENABLED=false` in `.env` for local dev |
-| `alembic upgrade head` import error | Not in venv or deps missing | `source .venv/bin/activate && uv pip install -e ".[dev]"` |
+| `uv run alembic upgrade head` import error | Dependencies not synced | `cd backend && uv sync` |
 | Frontend `pnpm dev` fails | Node modules not installed | Run `pnpm install` first |
+| Frontend `nuxt build` fails with `ELOOP: too many symbolic links` | pnpm symlink traversal in Nitro output | Build with `NITRO_NO_SYMLINKS=1 pnpm -F <app> build` |
 | WebSocket disconnects immediately | Auth token missing/expired | Check browser console; ensure login or set `AUTH_ENABLED=false` |
 | `docker compose` not found | Old Docker version | Install Docker Compose V2 (included with Docker Desktop) |
 | Port already in use | Another service on same port | `lsof -i :PORT` to find and stop the conflicting process |
 | Redis connection refused | Redis not started | Add `redis` to your `docker compose up` command |
-| Alembic "Target database is not up to date" | Pending migrations | `alembic upgrade head` |
+| Alembic "Target database is not up to date" | Pending migrations | `uv run alembic upgrade head` |
 | `uv: command not found` | uv not installed | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 
 ### Resetting Everything
@@ -635,15 +652,14 @@ docker volume rm backend_postgres_data
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis ollama
 
 # 4. Re-run migrations and seed
-source .venv/bin/activate
-alembic upgrade head
-python -m scripts.seed
+uv run alembic upgrade head
+uv run python -m scripts.seed
 ```
 
 Or to just reset data without removing the volume:
 
 ```bash
-python -m scripts.seed --reset
+uv run python -m scripts.seed --reset
 ```
 
 ---
@@ -655,13 +671,13 @@ python -m scripts.seed --reset
 | Start infra (dev) | `cd backend && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis ollama` |
 | Start backend | `cd backend && ./run_backend.sh` |
 | Start frontend | `cd frontend && pnpm dev` |
-| Run migrations | `cd backend && alembic upgrade head` |
-| Create migration | `cd backend && alembic revision --autogenerate -m "description"` |
-| Seed database | `cd backend && python -m scripts.seed` |
-| Reset + re-seed | `cd backend && python -m scripts.seed --reset` |
-| Backend tests | `cd backend && pytest tests/ -v` |
-| Backend lint | `cd backend && ruff check app/ && ruff format app/` |
-| Backend type check | `cd backend && mypy app/` |
+| Run migrations | `cd backend && uv run alembic upgrade head` |
+| Create migration | `cd backend && uv run alembic revision --autogenerate -m "description"` |
+| Seed database | `cd backend && uv run python -m scripts.seed` |
+| Reset + re-seed | `cd backend && uv run python -m scripts.seed --reset` |
+| Backend tests | `cd backend && uv run pytest tests/ -v` |
+| Backend lint | `cd backend && uv run ruff check app/ && uv run ruff format app/` |
+| Backend type check | `cd backend && uv run mypy app/` |
 | Frontend tests | `cd frontend && pnpm test` |
 | Frontend lint | `cd frontend && pnpm lint` |
 | View DB logs | `docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f postgres` |
@@ -688,7 +704,7 @@ All variables are configured in `backend/.env`. Defaults are suitable for local 
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection string |
 | **Authentication** | | |
 | `AUTH_ENABLED` | `true` | Enable Keycloak JWT validation (`false` for dev without Keycloak) |
-| `KEYCLOAK_ISSUER_URL` | `http://localhost:8080/realms/horus` | Keycloak realm issuer URL |
+| `KEYCLOAK_ISSUER_URL` | `http://localhost:8180/realms/horus` | Keycloak realm issuer URL |
 | `KEYCLOAK_CLIENT_ID` | `horus-api` | Keycloak client ID for the API |
 | **LLM / AI** | | |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint |
@@ -706,7 +722,7 @@ All variables are configured in `backend/.env`. Defaults are suitable for local 
 | `NOISE_LEVEL` | `0.02` | Radio noise intensity |
 | `STATIC_LEVEL` | `0.01` | Radio static intensity |
 | **CORS** | | |
-| `CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Comma-separated allowed origins |
+| `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001,http://localhost:3002,http://127.0.0.1:3000` | Comma-separated allowed origins |
 
 ---
 
@@ -717,5 +733,5 @@ See `docs/architecture/` for Architecture Decision Records (ADRs):
 - [ADR-001: Monorepo Structure](architecture/ADR-001-monorepo-structure.md)
 - [ADR-002: Database Selection](architecture/ADR-002-database-postgresql.md)
 - [ADR-003: Deployment Architecture](architecture/ADR-003-deployment-architecture.md)
-- [ADR-004: LangGraph Multi-Agent Architecture](architecture/004-langgraph-multi-agent.md)
-- [ADR-005: Flight Plan Pipeline](architecture/005-flight-plan-pipeline.md)
+- [ADR-004: LangGraph Multi-Agent Architecture](architecture/ADR-004-langgraph-multi-agent.md)
+- [ADR-005: Flight Plan Pipeline](architecture/ADR-005-flight-plan-pipeline.md)

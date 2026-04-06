@@ -14,18 +14,18 @@ Use this skill when documenting a significant architecture or technology decisio
 ### 1. Determine the Next ADR Number
 
 ```bash
-ls docs/architecture/ | sort | tail -1
-# If last file is 0003-xxx.md, next is 0004
+ls docs/architecture/ADR-*.md | sort | tail -1
+# If last file is ADR-005-xxx.md, next is ADR-006
 ```
 
 ### 2. Create the ADR File
 
-File: `docs/architecture/NNNN-kebab-case-title.md`
+File: `docs/architecture/ADR-00N-kebab-case-title.md`
 
 ### 3. Use This Template
 
 ```markdown
-# NNNN — Title of Decision
+# ADR-00N: Title of Decision
 
 **Status**: Proposed
 **Date**: YYYY-MM-DD
@@ -70,8 +70,8 @@ graph TD
 
 ## References
 
-- [Relevant spec or RFC](url)
-- Related ADR: [NNNN — Title](./NNNN-title.md)
+- Relevant spec or RFC: `<insert URL>`
+- Related ADR: `ADR-00N: Title` (`./ADR-00N-title.md`)
 ```
 
 ### 4. Status Lifecycle
@@ -79,16 +79,16 @@ graph TD
 - **Proposed** → Initial state, open for discussion
 - **Accepted** → Team agreed, implementation can proceed
 - **Deprecated** → No longer relevant (explain why)
-- **Superseded by [NNNN]** → Replaced by a newer ADR (link to it)
+- **Superseded by ADR-00N** → Replaced by a newer ADR (link to it)
 
 ### 5. Examples of Good ADR Titles
 
-- `0001-use-keycloak-for-authentication.md`
-- `0002-choose-traefik-over-nginx.md`
-- `0003-langgraph-for-atc-agent-orchestration.md`
-- `0004-qdrant-for-vector-search.md`
-- `0005-rust-websocket-gateway.md`
-- `0006-organization-seat-multi-tenancy.md`
+- `ADR-001-use-keycloak-for-authentication.md`
+- `ADR-002-choose-traefik-over-nginx.md`
+- `ADR-003-langgraph-for-atc-agent-orchestration.md`
+- `ADR-004-qdrant-for-vector-search.md`
+- `ADR-005-rust-websocket-gateway.md`
+- `ADR-006-organization-seat-multi-tenancy.md`
 
 ### 6. Review Checklist
 

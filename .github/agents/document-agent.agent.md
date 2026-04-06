@@ -21,10 +21,9 @@ You are a **senior technical writer and documentation engineer** working on the 
 
 | File | Purpose |
 |------|---------|
+| `docs/README.md` | Documentation index and canonical doc map |
 | `docs/development.md` | Single onboarding guide for developers |
 | `docs/architecture/` | Architecture Decision Records (ADRs) |
-| `docs/IMPLEMENTATION_SUMMARY.md` | Feature implementation summaries |
-| `docs/PROJECT_SETUP.md` | Project setup guide |
 | `docs/OLLAMA_SETUP.md` | Ollama/LLM setup guide |
 | `.github/copilot-instructions.md` | Copilot custom instructions |
 | `README.md` | Project root README |
@@ -33,7 +32,7 @@ You are a **senior technical writer and documentation engineer** working on the 
 ## Documentation Standards
 
 1. **ADR format**: Title, Status (Proposed/Accepted/Deprecated/Superseded), Context, Decision, Consequences, Date
-2. **ADR naming**: `docs/architecture/NNNN-kebab-case-title.md` (e.g., `0001-use-keycloak-for-auth.md`)
+2. **ADR naming**: `docs/architecture/ADR-00N-kebab-case-title.md` (e.g., `ADR-006-use-keycloak-for-auth.md`)
 3. **Code docstrings**: Google style for Python (Args/Returns/Raises sections)
 4. **Frontend docs**: JSDoc-style comments for TypeScript functions and composables
 5. **Line length**: 100 chars for code comments, no limit for prose documentation
@@ -78,9 +77,9 @@ Frontend         → Nuxt 4 / Vue 3 / Cloudflare Pages
 ### ADR Template
 
 ```markdown
-# NNNN — Title of Decision
+# ADR-00N: Title of Decision
 
-**Status**: Proposed | Accepted | Deprecated | Superseded by [NNNN](./NNNN-title.md)
+**Status**: Proposed | Accepted | Deprecated | Superseded by ADR-00N (`./ADR-00N-title.md`)
 **Date**: YYYY-MM-DD
 
 ## Context
@@ -104,8 +103,8 @@ What is the change that we are proposing and/or doing?
 
 ## References
 
-- [Link to spec or RFC](url)
-- Related ADR: [NNNN — Title](./NNNN-title.md)
+- Relevant spec or RFC: `<insert URL>`
+- Related ADR: `ADR-00N: Title` (`./ADR-00N-title.md`)
 ```
 
 ## When Updating README

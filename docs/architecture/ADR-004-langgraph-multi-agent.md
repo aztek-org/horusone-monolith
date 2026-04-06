@@ -1,4 +1,4 @@
-# 004 — LangGraph Multi-Agent Architecture
+# ADR-004: LangGraph Multi-Agent Architecture
 
 **Status**: Accepted
 **Date**: 2025-07-14
@@ -264,5 +264,5 @@ sequenceDiagram
 
 - [LangGraph documentation](https://langchain-ai.github.io/langgraph/)
 - [LangGraph StateGraph API](https://langchain-ai.github.io/langgraph/reference/graphs/#langgraph.graph.StateGraph)
-- Related ADR: [001 — Monorepo Structure](./ADR-001-monorepo-structure.md)
-- Related ADR: [005 — Flight Plan Pipeline](./005-flight-plan-pipeline.md)
+- Related ADR: [ADR-001: Monorepo Structure](./ADR-001-monorepo-structure.md)
+- Related ADR: [ADR-005: Flight Plan Pipeline](./ADR-005-flight-plan-pipeline.md)
