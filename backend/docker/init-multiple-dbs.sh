@@ -12,11 +12,15 @@
 set -e
 set -u
 
+KEYCLOAK_DB_PASSWORD="${KEYCLOAK_DB_PASSWORD:-keycloak}"
+# Escape single quotes for SQL string literal safety.
+KEYCLOAK_DB_PASSWORD_ESCAPED="${KEYCLOAK_DB_PASSWORD//\'/\'\'}"
+
 echo "==> Creating keycloak database and user..."
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
     -- Create a dedicated keycloak user
-    CREATE USER keycloak WITH PASSWORD 'keycloak';
+    CREATE USER keycloak WITH PASSWORD '${KEYCLOAK_DB_PASSWORD_ESCAPED}';
 
     -- Create the keycloak database owned by the keycloak user
     CREATE DATABASE keycloak_db OWNER keycloak;

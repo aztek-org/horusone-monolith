@@ -1,13 +1,34 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Horus ATC Quick Setup Script
 # This script helps set up the complete voice communication system
 
-set -e
+set -euo pipefail
 
-echo "🎙️ Horus ATC Voice Communication System - Quick Setup"
+echo "🛩️ Horus MVP - Quick Setup"
 echo "=================================================="
 echo ""
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+if [[ ! -d backend || ! -d frontend ]]; then
+    echo "Run this script from the repository root."
+    exit 1
+fi
+
+OLLAMA_MODEL="${OLLAMA_MODEL:-llama3.2:3b}"
+if [[ -f backend/.env ]]; then
+    ENV_OLLAMA_MODEL="$(grep -E '^OLLAMA_LLM_MODEL=' backend/.env | tail -1 | cut -d'=' -f2- | tr -d '\"' | tr -d \"'\")"
+    if [[ -n "$ENV_OLLAMA_MODEL" ]]; then
+        OLLAMA_MODEL="$ENV_OLLAMA_MODEL"
+    fi
+elif [[ -f backend/.env.example ]]; then
+    ENV_OLLAMA_MODEL="$(grep -E '^OLLAMA_LLM_MODEL=' backend/.env.example | tail -1 | cut -d'=' -f2- | tr -d '\"' | tr -d \"'\")"
+    if [[ -n "$ENV_OLLAMA_MODEL" ]]; then
+        OLLAMA_MODEL="$ENV_OLLAMA_MODEL"
+    fi
+fi
 
 # Colors
 RED='\033[0;31m'
@@ -26,7 +47,7 @@ echo "📋 Step 1: Checking prerequisites..."
 if command_exists node; then
     echo -e "${GREEN}✓${NC} Node.js installed ($(node --version))"
 else
-    echo -e "${RED}✗${NC} Node.js not found. Please install Node.js 18+ from https://nodejs.org"
+    echo -e "${RED}✗${NC} Node.js not found. Please install Node.js 22+ from https://nodejs.org"
     exit 1
 fi
 
@@ -98,8 +119,7 @@ if [ ! -d ".venv" ]; then
 fi
 
 echo "Installing backend dependencies..."
-source .venv/bin/activate 2>/dev/null || . .venv/Scripts/activate 2>/dev/null
-uv pip install -e .
+uv sync
 echo -e "${GREEN}✓${NC} Backend dependencies installed"
 
 if [ ! -f ".env" ]; then
@@ -122,22 +142,22 @@ if curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
 
     # Check if model is installed (if ollama command is available)
     if command_exists ollama; then
-        if ollama list 2>/dev/null | grep -q "llama3.2:latest"; then
-            echo -e "${GREEN}✓${NC} llama3.2:latest model installed"
+        if ollama list 2>/dev/null | grep -q "$OLLAMA_MODEL"; then
+            echo -e "${GREEN}✓${NC} ${OLLAMA_MODEL} model installed"
         else
-            echo -e "${YELLOW}!${NC} llama3.2:latest model not found. Downloading..."
+            echo -e "${YELLOW}!${NC} ${OLLAMA_MODEL} model not found. Downloading..."
             echo "   This will download ~2GB, please wait..."
-            ollama pull llama3.2:latest
+            ollama pull "$OLLAMA_MODEL"
             echo -e "${GREEN}✓${NC} Model downloaded"
         fi
     else
         # Check via API if ollama command not available
-        if curl -s http://localhost:11434/api/tags | grep -q "llama3.2:latest"; then
-            echo -e "${GREEN}✓${NC} llama3.2:latest model found via API"
+        if curl -s http://localhost:11434/api/tags | grep -q "$OLLAMA_MODEL"; then
+            echo -e "${GREEN}✓${NC} ${OLLAMA_MODEL} model found via API"
         else
-            echo -e "${YELLOW}!${NC} llama3.2:latest model not detected"
+            echo -e "${YELLOW}!${NC} ${OLLAMA_MODEL} model not detected"
             echo "   If using shared/remote Ollama, ensure the model is available"
-            echo "   Otherwise run: ollama pull llama3.2:latest"
+            echo "   Otherwise run: ollama pull $OLLAMA_MODEL"
         fi
     fi
 else
@@ -165,13 +185,15 @@ echo "3. Start Frontend (in another terminal):"
 echo "   ${YELLOW}cd frontend && pnpm dev${NC}"
 echo ""
 echo "4. Open your browser:"
-echo "   ${GREEN}http://localhost:3000${NC}"
+echo "   ${GREEN}http://localhost:3000${NC} (squawk)"
+echo "   ${GREEN}http://localhost:3001${NC} (tower)"
+echo "   ${GREEN}http://localhost:3002${NC} (hangar)"
 echo ""
 echo "5. Click the mic button (bottom-right) and start talking!"
 echo ""
 echo "📚 Documentation:"
-echo "   - Complete setup: PROJECT_SETUP.md"
-echo "   - Implementation details: IMPLEMENTATION_SUMMARY.md"
+echo "   - Documentation index: docs/README.md"
+echo "   - Developer guide: docs/development.md"
 echo "   - Backend docs: backend/README.md"
 echo ""
 echo "🎙️ Happy flying! ✈️"

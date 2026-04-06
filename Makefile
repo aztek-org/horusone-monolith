@@ -20,7 +20,7 @@ COMPOSE_PROD := docker compose -f docker-compose.yml -f docker-compose.prod.yml 
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 UV_RUN := cd $(BACKEND_DIR) && uv run
-OLLAMA_MODEL := llama3.2:latest
+OLLAMA_MODEL := llama3.2:3b
 
 # Set OLLAMA_HOST=1 to skip the Ollama Docker container and use host-installed Ollama.
 #   make up OLLAMA_HOST=1
@@ -61,7 +61,7 @@ help: ## Show this help
 	@printf "  \033[1mDevelopment\033[0m\n"
 	@printf "    \033[36mmake up                \033[0m Start dev environment (infra + backend + frontend)\n"
 	@printf "    \033[36mmake up OLLAMA_HOST=1   \033[0m Same, but use host-installed Ollama (skip Docker)\n"
-	@printf "    \033[36mmake up-infra          \033[0m Start only infrastructure (postgres, redis, ollama)\n"
+	@printf "    \033[36mmake up-infra          \033[0m Start only infrastructure (postgres, redis, ollama, keycloak)\n"
 	@printf "    \033[36mmake up-full           \033[0m Start full stack including Keycloak\n"
 	@printf "    \033[36mmake down              \033[0m Stop everything (infra + background processes)\n"
 	@printf "    \033[36mmake restart           \033[0m Restart everything\n"
@@ -173,7 +173,7 @@ endif
 	@sleep 5
 	@echo "$(GREEN)✓$(RESET) Backend started (PID: $$(lsof -ti :8000 2>/dev/null || echo '?'))"
 	@echo ""
-	@echo "$(CYAN)▸ Starting frontend (port 3000)...$(RESET)"
+	@echo "$(CYAN)▸ Starting frontend apps (ports 3000/3001/3002)...$(RESET)"
 	@echo "$(CYAN)▸ As common process with pnpm...$(RESET)"
 	@cd $(FRONTEND_DIR) && pnpm dev &>/dev/null &
 	@sleep 3
@@ -181,7 +181,9 @@ endif
 	@echo ""
 	@echo "$(GREEN)$(BOLD)═══ Horus is running! ═══$(RESET)"
 	@echo ""
-	@echo "  $(BOLD)Frontend$(RESET)   → $(CYAN)http://localhost:3000$(RESET)"
+	@echo "  $(BOLD)Frontend$(RESET)   → $(CYAN)http://localhost:3000$(RESET) (squawk)"
+	@echo "  $(BOLD)Frontend$(RESET)   → $(CYAN)http://localhost:3001$(RESET) (tower)"
+	@echo "  $(BOLD)Frontend$(RESET)   → $(CYAN)http://localhost:3002$(RESET) (hangar)"
 	@echo "  $(BOLD)Backend$(RESET)    → $(CYAN)http://localhost:8000$(RESET)"
 	@echo "  $(BOLD)API Docs$(RESET)   → $(CYAN)http://localhost:8000/docs$(RESET)"
 	@echo "  $(BOLD)Health$(RESET)     → $(CYAN)http://localhost:8000/health$(RESET)"
@@ -207,7 +209,9 @@ up-full: ## Start full stack including Keycloak
 down: ## Stop everything (infra + background processes)
 	@echo "$(BOLD)Stopping Horus...$(RESET)"
 	@-lsof -ti :8000 2>/dev/null | xargs -r kill 2>/dev/null && echo "$(GREEN)✓$(RESET) Backend stopped" || true
-	@-lsof -ti :3000 2>/dev/null | xargs -r kill 2>/dev/null && echo "$(GREEN)✓$(RESET) Frontend stopped" || true
+	@-lsof -ti :3000 2>/dev/null | xargs -r kill 2>/dev/null && echo "$(GREEN)✓$(RESET) Frontend squawk stopped" || true
+	@-lsof -ti :3001 2>/dev/null | xargs -r kill 2>/dev/null && echo "$(GREEN)✓$(RESET) Frontend tower stopped" || true
+	@-lsof -ti :3002 2>/dev/null | xargs -r kill 2>/dev/null && echo "$(GREEN)✓$(RESET) Frontend hangar stopped" || true
 	@cd $(BACKEND_DIR) && $(COMPOSE_DEV) down 2>/dev/null
 	@echo "$(GREEN)✓$(RESET) Infrastructure stopped"
 
@@ -221,7 +225,7 @@ backend: ## Start backend only (assumes infra is running)
 
 .PHONY: frontend
 frontend: ## Start frontend only
-	@echo "$(CYAN)Starting frontend on port 3000...$(RESET)"
+	@echo "$(CYAN)Starting frontend apps on ports 3000/3001/3002...$(RESET)"
 	@cd $(FRONTEND_DIR) && pnpm dev
 
 .PHONY: logs
@@ -385,15 +389,19 @@ info: ## Show project status, services, and URLs
 	@printf "\n"
 	@printf "  \033[1mLocal Processes\033[0m\n"
 	@if lsof -ti :8000 &>/dev/null; then printf "    \033[32m●\033[0m Backend    pid=$$(lsof -ti :8000 | head -1)  \033[36mhttp://localhost:8000\033[0m\n"; else printf "    \033[31m○\033[0m Backend    \033[2mnot running\033[0m\n"; fi
-	@if lsof -ti :3000 &>/dev/null; then printf "    \033[32m●\033[0m Frontend   pid=$$(lsof -ti :3000 | head -1)  \033[36mhttp://localhost:3000\033[0m\n"; else printf "    \033[31m○\033[0m Frontend   \033[2mnot running\033[0m\n"; fi
+	@if lsof -ti :3000 &>/dev/null; then printf "    \033[32m●\033[0m Squawk     pid=$$(lsof -ti :3000 | head -1)  \033[36mhttp://localhost:3000\033[0m\n"; else printf "    \033[31m○\033[0m Squawk     \033[2mnot running\033[0m\n"; fi
+	@if lsof -ti :3001 &>/dev/null; then printf "    \033[32m●\033[0m Tower      pid=$$(lsof -ti :3001 | head -1)  \033[36mhttp://localhost:3001\033[0m\n"; else printf "    \033[31m○\033[0m Tower      \033[2mnot running\033[0m\n"; fi
+	@if lsof -ti :3002 &>/dev/null; then printf "    \033[32m●\033[0m Hangar     pid=$$(lsof -ti :3002 | head -1)  \033[36mhttp://localhost:3002\033[0m\n"; else printf "    \033[31m○\033[0m Hangar     \033[2mnot running\033[0m\n"; fi
 	@printf "\n"
 	@printf "  \033[1mURLs\033[0m\n"
-	@printf "    Frontend     \033[36mhttp://localhost:3000\033[0m\n"
+	@printf "    Squawk       \033[36mhttp://localhost:3000\033[0m\n"
+	@printf "    Tower        \033[36mhttp://localhost:3001\033[0m\n"
+	@printf "    Hangar       \033[36mhttp://localhost:3002\033[0m\n"
 	@printf "    Backend API  \033[36mhttp://localhost:8000\033[0m\n"
 	@printf "    API Docs     \033[36mhttp://localhost:8000/docs\033[0m\n"
 	@printf "    Health       \033[36mhttp://localhost:8000/health\033[0m\n"
 	@printf "    Keycloak     \033[36mhttp://localhost:8180\033[0m  \033[2m(if running)\033[0m\n"
-	@printf "    Traefik      \033[36mhttp://localhost:8080\033[0m  \033[2m(if running)\033[0m\n"
+	@printf "    Traefik      \033[36mhttp://localhost:8081\033[0m  \033[2m(if running)\033[0m\n"
 	@printf "\n"
 	@printf "  \033[1mDatabase\033[0m\n"
 	@cd $(BACKEND_DIR) && $(COMPOSE_DEV) exec -T postgres psql -U horus -d horus_db -tAc \

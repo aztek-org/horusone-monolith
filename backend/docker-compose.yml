@@ -1,7 +1,7 @@
 services:
   # ---------------------------------------------------------------------------
   # Reverse Proxy — Traefik v3
-  # Dashboard: http://localhost:8080
+  # Dashboard: http://localhost:8081
   # Routes: api.localhost → backend, auth.localhost → keycloak
   # ---------------------------------------------------------------------------
   traefik:
@@ -22,7 +22,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"
+      - "8081:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - letsencrypt:/letsencrypt
@@ -44,6 +44,7 @@ services:
       POSTGRES_USER: horus
       POSTGRES_PASSWORD: horus
       POSTGRES_DB: horus_db
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
@@ -88,7 +89,7 @@ services:
 
   # ---------------------------------------------------------------------------
   # Identity Provider — Keycloak 24 (Quarkus)
-  # Admin console: http://auth.localhost (via Traefik) or http://localhost:8080
+  # Admin console: http://auth.localhost (via Traefik) or http://localhost:8180 (dev override)
   # ---------------------------------------------------------------------------
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
@@ -129,7 +130,7 @@ services:
   # ---------------------------------------------------------------------------
   backend:
     build:
-      context: ..
+      context: .
       dockerfile: docker/Dockerfile
     container_name: horus-backend
     restart: unless-stopped
@@ -139,7 +140,7 @@ services:
       - "traefik.http.routers.backend.entrypoints=web"
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
     env_file:
-      - path: ../.env.docker
+      - path: ./.env.docker
         required: false
     environment:
       DATABASE_URL: postgresql+asyncpg://horus:horus@postgres:5432/horus_db

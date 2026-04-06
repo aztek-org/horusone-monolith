@@ -1,3 +1,8 @@
-#/bin/sh sh
+#!/usr/bin/env sh
 
-uv run --env-file .env uvicorn app.main:app --reload
+set -eu
+
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+exec uv run --env-file .env uvicorn app.main:app --reload

@@ -15,7 +15,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPOSE_CMD="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
-HEALTH_ENDPOINT="http://localhost:8000/health"
 HEALTH_TIMEOUT=120      # seconds to wait for health check
 HEALTH_INTERVAL=5       # seconds between retries
 
