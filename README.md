@@ -1,6 +1,17 @@
+```text
+██╗  ██╗ ██████╗ ██████╗ ██╗   ██╗███████╗ ██████╗ ███╗   ██╗███████╗
+██║  ██║██╔═══██╗██╔══██╗██║   ██║██╔════╝██╔═══██╗████╗  ██║██╔════╝
+███████║██║   ██║██████╔╝██║   ██║███████╗██║   ██║██╔██╗ ██║█████╗  
+██╔══██║██║   ██║██╔══██╗██║   ██║╚════██║██║   ██║██║╚██╗██║██╔══╝  
+██║  ██║╚██████╔╝██║  ██║╚██████╔╝███████║╚██████╔╝██║ ╚████║███████╗
+╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
+
+                 HorusOne
+```
+
 # 🛩️ Horus — AI-Powered Aviation Training Platform
 
-Real-time ATC voice communication practice powered by local LLM inference, speech recognition, and text-to-speech with radio-effect audio processing.
+Real-time ATC voice communication practice powered by LLM inference, speech recognition, and text-to-speech audio processing.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Nuxt](https://img.shields.io/badge/Nuxt-4.x-00DC82.svg)
@@ -54,17 +65,22 @@ cd backend
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis ollama
 
 # 3. Migrate + seed
-source .venv/bin/activate
-alembic upgrade head && python -m scripts.seed
+uv sync
+uv run alembic upgrade head
+uv run python -m scripts.seed
 
 # 4. Start backend
 ./run_backend.sh
 
-# 5. Start frontend (new terminal)
+# 5. Start frontend apps (new terminal)
 cd frontend && pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the application.
+Open one of the frontend apps:
+
+- [http://localhost:3000](http://localhost:3000) — squawk
+- [http://localhost:3001](http://localhost:3001) — tower
+- [http://localhost:3002](http://localhost:3002) — hangar
 
 > **💡 Tip:** Set `AUTH_ENABLED=false` in `backend/.env` to skip Keycloak auth for local development.
 
@@ -99,13 +115,14 @@ horus-mvp/
 
 | Document | Description |
 |----------|-------------|
+| [Documentation Index](docs/README.md) | Canonical documentation map and structure conventions |
 | [Development Guide](docs/development.md) | Full setup, architecture, testing, deployment, troubleshooting |
 | [Ollama Setup](docs/OLLAMA_SETUP.md) | LLM model configuration and optimization |
 | [ADR-001](docs/architecture/ADR-001-monorepo-structure.md) | Monorepo structure decision |
 | [ADR-002](docs/architecture/ADR-002-database-postgresql.md) | Database selection (PostgreSQL) |
 | [ADR-003](docs/architecture/ADR-003-deployment-architecture.md) | Deployment architecture |
-| [ADR-004](docs/architecture/004-langgraph-multi-agent.md) | LangGraph multi-agent architecture (9 agents, 3 graphs) |
-| [ADR-005](docs/architecture/005-flight-plan-pipeline.md) | Flight plan pipeline (form/text/image → validate → activate) |
+| [ADR-004](docs/architecture/ADR-004-langgraph-multi-agent.md) | LangGraph multi-agent architecture (9 agents, 3 graphs) |
+| [ADR-005](docs/architecture/ADR-005-flight-plan-pipeline.md) | Flight plan pipeline (form/text/image -> validate -> activate) |
 
 ## 📄 License
 
