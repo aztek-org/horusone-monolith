@@ -299,3 +299,203 @@ FROM pg_stat_user_indexes ORDER BY idx_scan DESC;
 SELECT sum(heap_blks_hit) / (sum(heap_blks_hit) + sum(heap_blks_read)) AS ratio
 FROM pg_statio_user_tables;
 ```
+
+---
+
+## Qdrant / Vector Search Integration
+
+### Use Cases for Horus
+1. **Scenario similarity search**: Find scenarios similar to a given training session for recommendations
+2. **Transcript semantic search**: Search voice log transcripts by meaning, not just keywords
+3. **RAG for LLM context**: Retrieve relevant aviation procedures, airport charts, NOTAMs for LLM prompts
+4. **Student performance clustering**: Group students by performance patterns for adaptive training
+
+### Qdrant Setup
+```yaml
+# Docker Compose addition
+qdrant:
+  image: qdrant/qdrant:v1.8
+  container_name: horus-qdrant
+  restart: unless-stopped
+  volumes:
+    - qdrant_data:/qdrant/storage
+  ports:
+    - "6333:6333"   # REST API
+    - "6334:6334"   # gRPC
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+```
+
+### Python Integration Pattern
+```python
+# backend/app/services/vector/qdrant_client.py
+from qdrant_client import QdrantClient, models
+
+class HorusVectorStore:
+    def __init__(self, url: str = "http://qdrant:6333"):
+        self.client = QdrantClient(url=url)
+
+    async def search_similar_scenarios(
+        self, embedding: list[float], org_id: str, limit: int = 5
+    ) -> list[dict]:
+        """Search scenarios with org-scoped filtering."""
+        results = self.client.search(
+            collection_name="scenarios",
+            query_vector=embedding,
+            query_filter=models.Filter(
+                must=[models.FieldCondition(
+                    key="organization_id",
+                    match=models.MatchValue(value=org_id),
+                )]
+            ),
+            limit=limit,
+        )
+        return [hit.payload for hit in results]
+```
+
+### pgvector Alternative (PostgreSQL-native)
+```sql
+-- Enable extension
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Add embedding column to scenarios
+ALTER TABLE scenarios ADD COLUMN embedding vector(768);
+
+-- Create index for fast similarity search
+CREATE INDEX idx_scenarios_embedding ON scenarios
+    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+-- Query similar scenarios
+SELECT id, name, 1 - (embedding <=> $1::vector) AS similarity
+FROM scenarios
+WHERE organization_id = $2
+ORDER BY embedding <=> $1::vector
+LIMIT 5;
+```
+
+### When to Use Qdrant vs pgvector
+
+| Criteria | Qdrant | pgvector |
+|----------|--------|----------|
+| Scale | Millions of vectors | Thousands to low millions |
+| Filtering | Rich payload filtering | SQL WHERE clauses |
+| Infrastructure | Separate service | Built into PostgreSQL |
+| Performance | Optimized for vector ops | Good, but shared with OLTP |
+| Complexity | Additional service to manage | No extra infra |
+
+**Recommendation**: Start with pgvector (simpler), migrate to Qdrant when vector volume exceeds 100K or advanced filtering is needed.
+
+---
+
+## Organization / Seat / User Schema Design
+
+### Multi-Tenancy Data Model
+```sql
+-- Organizations table
+organizations
+├── id (PK, uuid, gen_random_uuid())
+├── name (varchar 255, NOT NULL, unique)
+├── slug (varchar 100, NOT NULL, unique, indexed)
+├── plan_type (varchar 50: "free", "starter", "professional", "enterprise")
+├── max_seats (int, NOT NULL, default 5)
+├── is_active (boolean, default true)
+├── created_at (timestamptz)
+└── updated_at (timestamptz)
+
+-- Users table (standalone, may or may not belong to an org)
+users
+├── id (PK, uuid, gen_random_uuid())
+├── keycloak_id (varchar 36, unique, indexed)  -- Links to Keycloak user
+├── email (varchar 255, unique, indexed)
+├── full_name (varchar 255)
+├── is_active (boolean, default true)
+├── created_at (timestamptz)
+└── updated_at (timestamptz)
+
+-- Seats (the link between users and organizations)
+seats
+├── id (PK, uuid, gen_random_uuid())
+├── organization_id (FK → organizations.id, indexed)
+├── user_id (FK → users.id, indexed)
+├── role (varchar 50: "admin", "instructor", "student")
+├── is_active (boolean, default true)
+├── assigned_at (timestamptz)
+└── revoked_at (timestamptz, nullable)
+└── UNIQUE(organization_id, user_id)  -- One seat per user per org
+
+-- Add organization_id to existing tables
+ALTER TABLE scenarios ADD COLUMN organization_id uuid REFERENCES organizations(id);
+ALTER TABLE training_sessions ADD COLUMN organization_id uuid REFERENCES organizations(id);
+CREATE INDEX idx_scenarios_org ON scenarios(organization_id);
+CREATE INDEX idx_sessions_org ON training_sessions(organization_id);
+```
+
+### Key Design Decisions
+1. **Users exist independently** — a user can register without an org, and later be invited
+2. **Seats are the join table** — they link users to orgs with a role
+3. **A user can have multiple seats** — e.g., instructor at one school, student at another
+4. **organization_id on data tables** — every org-scoped table gets this FK
+5. **Soft deletes** — `is_active` flags instead of hard deletes for audit trail
+
+### Indexes for Multi-Tenancy
+```sql
+-- Fast seat lookup
+CREATE INDEX idx_seats_org_role ON seats(organization_id, role) WHERE is_active = true;
+CREATE INDEX idx_seats_user ON seats(user_id) WHERE is_active = true;
+
+-- Org-scoped queries (always filter by org_id first)
+CREATE INDEX idx_scenarios_org_difficulty ON scenarios(organization_id, difficulty);
+CREATE INDEX idx_sessions_org_status ON training_sessions(organization_id, status);
+```
+
+---
+
+## Partitioning Strategy for High-Volume Data
+
+### Voice Logs Partitioning (by month)
+```sql
+-- Partition voice_logs by created_at month for high-volume training data
+CREATE TABLE voice_logs (
+    id bigserial,
+    session_id int NOT NULL,
+    role varchar(10) NOT NULL,
+    transcript text,
+    audio_duration_ms int,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (id, created_at)
+) PARTITION BY RANGE (created_at);
+
+-- Create monthly partitions
+CREATE TABLE voice_logs_2026_01 PARTITION OF voice_logs
+    FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
+CREATE TABLE voice_logs_2026_02 PARTITION OF voice_logs
+    FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+-- ... auto-create future partitions via pg_partman or cron
+```
+
+### Telemetry Data Partitioning (TimescaleDB recommended)
+```sql
+-- If using TimescaleDB extension for flight telemetry
+CREATE TABLE flight_telemetry (
+    time timestamptz NOT NULL,
+    session_id uuid NOT NULL,
+    latitude double precision,
+    longitude double precision,
+    altitude_ft int,
+    heading_deg int,
+    speed_kts int
+);
+
+SELECT create_hypertable('flight_telemetry', 'time');
+```
+
+### When to Partition
+| Table | Volume | Strategy |
+|-------|--------|----------|
+| voice_logs | High (100K+/month) | Range partition by month |
+| flight_telemetry | Very high (millions/day) | TimescaleDB hypertable |
+| training_sessions | Medium | No partition needed yet |
+| scenarios | Low | No partition needed |

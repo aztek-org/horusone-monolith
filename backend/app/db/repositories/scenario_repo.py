@@ -1,4 +1,5 @@
 """Scenario repository."""
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,9 +14,7 @@ class ScenarioRepository(BaseRepository[Scenario, ScenarioCreate]):
     def __init__(self) -> None:
         super().__init__(Scenario)
 
-    async def get_by_airport(
-        self, session: AsyncSession, airport_icao: str
-    ) -> list[Scenario]:
+    async def get_by_airport(self, session: AsyncSession, airport_icao: str) -> list[Scenario]:
         """Get scenarios for a specific airport."""
         result = await session.execute(
             select(self.model).where(self.model.airport_icao == airport_icao)

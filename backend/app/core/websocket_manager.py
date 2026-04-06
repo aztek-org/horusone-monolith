@@ -1,7 +1,6 @@
 """WebSocket connection manager for handling multiple client connections."""
 
 import logging
-from typing import Dict, Set
 
 from fastapi import WebSocket
 
@@ -13,8 +12,8 @@ class ConnectionManager:
 
     def __init__(self) -> None:
         """Initialize the connection manager."""
-        self.active_connections: Dict[str, WebSocket] = {}
-        self.client_ids: Set[str] = set()
+        self.active_connections: dict[str, WebSocket] = {}
+        self.client_ids: set[str] = set()
 
     async def connect(self, websocket: WebSocket, client_id: str) -> None:
         """Accept and store a new WebSocket connection.
@@ -26,7 +25,9 @@ class ConnectionManager:
         await websocket.accept()
         self.active_connections[client_id] = websocket
         self.client_ids.add(client_id)
-        logger.info(f"Client {client_id} connected. Total connections: {len(self.active_connections)}")
+        logger.info(
+            f"Client {client_id} connected. Total connections: {len(self.active_connections)}"
+        )
 
     def disconnect(self, client_id: str) -> None:
         """Remove a WebSocket connection.
@@ -37,7 +38,9 @@ class ConnectionManager:
         if client_id in self.active_connections:
             del self.active_connections[client_id]
             self.client_ids.discard(client_id)
-            logger.info(f"Client {client_id} disconnected. Total connections: {len(self.active_connections)}")
+            logger.info(
+                f"Client {client_id} disconnected. Total connections: {len(self.active_connections)}"
+            )
 
     async def send_audio(self, client_id: str, audio_data: bytes) -> None:
         """Send audio data to a specific client.

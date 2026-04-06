@@ -1,12 +1,18 @@
 # Docker Compose dev overrides
 # Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Exposes service ports to localhost for local development outside Docker.
 services:
+  postgres:
+    ports:
+      - "5432:5432"
+
   backend:
     build:
       target: builder  # Use builder stage for faster rebuilds in dev
     volumes:
-      - ../app:/app/app:ro      # Mount source for hot reload
-      - ../alembic:/app/alembic:ro
+      - ./app:/app/app:ro      # Mount source for hot reload
+      - ./alembic:/app/alembic:ro
     environment:
       ENVIRONMENT: development
       LOG_LEVEL: DEBUG
@@ -16,3 +22,9 @@ services:
       --port 8000
       --reload
       --reload-dir /app/app
+
+  keycloak:
+    ports:
+      - "8180:8080"
+    environment:
+      KC_LOG_LEVEL: DEBUG

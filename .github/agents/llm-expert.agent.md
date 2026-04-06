@@ -161,3 +161,96 @@ Consider:
 - **Integration tests**: Test against a real Ollama instance (mark as `@pytest.mark.slow`)
 - **Prompt regression tests**: Save expected responses for known inputs, alert on drift
 - **Never** call real Ollama in CI — always mock
+
+---
+
+## LangGraph Agent Orchestration
+
+### Migration from LangChain to LangGraph
+LangGraph replaces simple LangChain chains with stateful, graph-based agent orchestration. This enables multi-step ATC interactions (e.g., clearance → readback verification → correction).
+
+```python
+from langgraph.graph import StateGraph, END
+from typing import TypedDict
+
+class ATCState(TypedDict):
+    pilot_transcript: str
+    scenario_context: dict
+    conversation_history: list[dict]
+    atc_response: str
+    readback_required: bool
+    feedback: dict | None
+
+def build_atc_graph() -> StateGraph:
+    graph = StateGraph(ATCState)
+    graph.add_node("parse_input", parse_pilot_input)
+    graph.add_node("retrieve_context", retrieve_scenario_context)
+    graph.add_node("generate_response", generate_atc_response)
+    graph.add_node("evaluate_readback", evaluate_pilot_readback)
+    graph.add_node("generate_feedback", generate_training_feedback)
+
+    graph.set_entry_point("parse_input")
+    graph.add_edge("parse_input", "retrieve_context")
+    graph.add_edge("retrieve_context", "generate_response")
+    graph.add_conditional_edges(
+        "generate_response",
+        should_evaluate_readback,
+        {True: "evaluate_readback", False: END},
+    )
+    graph.add_edge("evaluate_readback", "generate_feedback")
+    graph.add_edge("generate_feedback", END)
+    return graph.compile()
+```
+
+### Business Model Awareness
+The LLM agent must be aware of the organization/seat model:
+- **Organization context**: Training scenarios are org-scoped
+- **Student progression**: Track difficulty level per student (seat)
+- **Instructor overrides**: Instructors can adjust difficulty mid-session
+- **Analytics**: Generate per-session performance metrics for org dashboards
+
+## Qdrant Vector Database Integration
+
+### Use Cases
+1. **Scenario RAG**: Retrieve relevant airport procedures, charts, NOTAMs to augment LLM context
+2. **Transcript similarity**: Find similar past ATC exchanges for training examples
+3. **Adaptive difficulty**: Match student performance vectors to appropriate scenarios
+
+### RAG Pipeline Pattern
+```python
+from qdrant_client import QdrantClient, models
+
+class ATCKnowledgeBase:
+    def __init__(self, qdrant_url: str = "http://qdrant:6333"):
+        self.client = QdrantClient(url=qdrant_url)
+
+    async def retrieve_context(
+        self, query_embedding: list[float], airport_icao: str, limit: int = 3
+    ) -> list[str]:
+        results = self.client.search(
+            collection_name="aviation_procedures",
+            query_vector=query_embedding,
+            query_filter=models.Filter(
+                must=[models.FieldCondition(
+                    key="airport_icao",
+                    match=models.MatchValue(value=airport_icao),
+                )]
+            ),
+            limit=limit,
+        )
+        return [hit.payload["text"] for hit in results]
+```
+
+### LlamaIndex Integration (alternative)
+```python
+from llama_index.core import VectorStoreIndex, StorageContext
+from llama_index.vector_stores.qdrant import QdrantVectorStore
+
+vector_store = QdrantVectorStore(
+    client=qdrant_client,
+    collection_name="aviation_procedures",
+)
+storage_context = StorageContext.from_defaults(vector_store=vector_store)
+index = VectorStoreIndex.from_documents(documents, storage_context=storage_context)
+query_engine = index.as_query_engine(similarity_top_k=3)
+```

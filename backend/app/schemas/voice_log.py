@@ -1,4 +1,5 @@
 """Pydantic schemas for VoiceLog."""
+
 from datetime import datetime
 
 from pydantic import BaseModel, Field

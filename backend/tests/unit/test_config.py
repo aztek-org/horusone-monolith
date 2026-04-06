@@ -35,6 +35,13 @@ def test_cors_origins_list_trims_whitespace() -> None:
     assert origins == ["http://localhost:3000", "https://example.com"]
 
 
+def test_cors_origins_wildcard_blocked_in_production() -> None:
+    """Test wildcard CORS is blocked in production."""
+    settings = Settings(environment="production", cors_origins="*")
+    with pytest.raises(ValueError, match="Wildcard CORS origin"):
+        _ = settings.cors_origins_list
+
+
 def test_settings_custom_values() -> None:
     """Test that custom values can be passed and override defaults."""
     settings = Settings(

@@ -5,9 +5,25 @@
 .nitro
 .cache
 dist
+.turbo
 
 # Node dependencies
 node_modules
+
+# Python caches/artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Python virtual environments
+.venv/
+venv/
 
 # Logs
 logs

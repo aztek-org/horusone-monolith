@@ -76,7 +76,7 @@ class RadioEffectsProcessor:
         low = lowcut / nyquist
         high = highcut / nyquist
 
-        b, a = signal.butter(4, [low, high], btype='band')
+        b, a = signal.butter(4, [low, high], btype="band")
         filtered = signal.filtfilt(b, a, audio_data)
 
         return filtered
@@ -104,12 +104,12 @@ class RadioEffectsProcessor:
             Audio with added static
         """
         static_level = self.settings.static_level
-        
+
         # Create random static bursts
         static_probability = 0.001  # 0.1% chance per sample
         static_mask = np.random.random(audio_data.shape) < static_probability
         static = static_mask * np.random.uniform(-static_level, static_level, audio_data.shape)
-        
+
         return audio_data + static
 
     def _normalize(self, audio_data: np.ndarray) -> np.ndarray:
@@ -143,8 +143,8 @@ class RadioEffectsProcessor:
         # Add a small click at the start
         click_duration = int(0.01 * sample_rate)  # 10ms click
         start_click = np.random.uniform(-0.1, 0.1, click_duration)
-        
+
         # Add click to beginning
         audio_with_click = np.concatenate([start_click, audio_data])
-        
+
         return audio_with_click

@@ -13,13 +13,13 @@ export default defineNuxtConfig({
     public: {
       apiUrl: process.env.NUXT_PUBLIC_API_URL ?? 'http://localhost:8000',
       wsUrl: process.env.NUXT_PUBLIC_WS_URL ?? 'ws://localhost:8000/ws/voice',
+      keycloakUrl: process.env.NUXT_PUBLIC_KEYCLOAK_URL ?? 'http://localhost:8080',
+      keycloakRealm: process.env.NUXT_PUBLIC_KEYCLOAK_REALM ?? 'horus',
+      keycloakClientId: process.env.NUXT_PUBLIC_KEYCLOAK_CLIENT_ID ?? 'horus-web',
     },
   },
 
-  modules: [
-    '@nuxt/icon',
-    '@nuxt/eslint',
-  ],
+  modules: ['@nuxt/icon', '@nuxt/eslint', '@nuxt/image'],
 
   css: [
     '~/assets/css/main.css',
@@ -38,6 +38,9 @@ export default defineNuxtConfig({
     { path: '~/components/shared', pathPrefix: false },
     { path: '~/components/scenario-architect', pathPrefix: false },
     { path: '~/components/mission-hub', pathPrefix: false },
+    { path: '~/components/instructor', pathPrefix: false },
+    { path: '~/components/flight-plan', pathPrefix: false },
+    { path: '~/components/session', pathPrefix: false },
   ],
 
   app: {

@@ -1,7 +1,6 @@
 """Configuration management for Horus ATC API."""
 
 from functools import lru_cache
-from typing import List
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -43,21 +42,76 @@ class Settings(BaseSettings):
     static_level: float = 0.01
 
     # CORS
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cors_origins: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "http://localhost:3001,http://127.0.0.1:3001,"
+        "http://localhost:3002,http://127.0.0.1:3002"
+    )
 
     # Database
     database_url: str = "postgresql+asyncpg://horus:horus@localhost:5432/horus_db"
+
+    # Redis
+    redis_url: str = "redis://localhost:6379/0"
+
+    # Keycloak / Authentication
+    keycloak_issuer_url: str = "http://localhost:8180/realms/horus"
+    keycloak_issuer_aliases: str = ""
+    keycloak_jwks_url: str = ""
+    keycloak_client_id: str = "horus-api"
+    keycloak_admin_url: str = "http://localhost:8180/admin/realms/horus"
+    auth_enabled: bool = True
 
     # Logging
     log_level: str = "INFO"
 
     @property
-    def cors_origins_list(self) -> List[str]:
+    def cors_origins_list(self) -> list[str]:
         """Parse CORS origins into a list."""
-        return [origin.strip() for origin in self.cors_origins.split(",")]
+        origins = [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        if self.environment.lower() == "production" and "*" in origins:
+            raise ValueError("Wildcard CORS origin is not allowed in production")
+        return origins
+
+    @property
+    def resolved_jwks_url(self) -> str:
+        """Get JWKS URL, deriving from issuer if not explicitly set."""
+        if self.keycloak_jwks_url:
+            return self.keycloak_jwks_url
+        return f"{self.keycloak_issuer_url}/protocol/openid-connect/certs"
+
+    @property
+    def accepted_keycloak_issuers(self) -> set[str]:
+        """Get accepted issuer URLs for JWT validation.
+
+        In production this is strict by default (single issuer). In
+        development/testing, local aliases are accepted to allow easy
+        switching between direct URLs and Traefik-hosted URLs.
+        """
+        issuers = {self.keycloak_issuer_url.rstrip("/")}
+        aliases = [
+            alias.strip().rstrip("/")
+            for alias in self.keycloak_issuer_aliases.split(",")
+            if alias.strip()
+        ]
+        if aliases:
+            issuers.update(aliases)
+            return issuers
+
+        if self.environment.lower() in {"development", "testing"}:
+            issuers.update(
+                {
+                    "http://localhost:8080/realms/horus",
+                    "http://localhost:8180/realms/horus",
+                    "http://auth.localhost/realms/horus",
+                    "http://keycloak:8080/realms/horus",
+                }
+            )
+
+        return issuers
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()

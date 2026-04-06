@@ -86,3 +86,138 @@ Use `horus-*` and `atc-*` tokens, never raw Tailwind colors on dark backgrounds:
 3. Check `nuxt.config.ts` for correct `modules` and `components` registration
 4. Check `pnpm-lock.yaml` — run `pnpm install --force` if suspect corruption
 5. Check Node.js version — requires 20+
+
+---
+
+## Keycloak / OIDC Authentication
+
+### Auth Composable Pattern
+
+```typescript
+// app/composables/useAuth.ts
+interface User {
+  sub: string
+  preferred_username: string
+  email: string
+  roles: string[]
+  organization_id: string | null
+  seat_id: string | null
+}
+
+export const useAuth = () => {
+  const config = useRuntimeConfig()
+  const user = useState<User | null>('auth-user', () => null)
+  const token = useState<string | null>('auth-token', () => null)
+  const isAuthenticated = computed(() => !!user.value)
+
+  const login = () => {
+    const codeVerifier = generateCodeVerifier()
+    sessionStorage.setItem('pkce_verifier', codeVerifier)
+    const params = new URLSearchParams({
+      client_id: 'horus-web',
+      redirect_uri: `${window.location.origin}/auth/callback`,
+      response_type: 'code',
+      scope: 'openid profile email',
+      code_challenge_method: 'S256',
+      code_challenge: generateCodeChallenge(codeVerifier),
+    })
+    navigateTo(
+      `${config.public.keycloakUrl}/realms/horus/protocol/openid-connect/auth?${params}`,
+      { external: true },
+    )
+  }
+
+  const logout = () => {
+    user.value = null
+    token.value = null
+    navigateTo(
+      `${config.public.keycloakUrl}/realms/horus/protocol/openid-connect/logout?redirect_uri=${window.location.origin}`,
+      { external: true },
+    )
+  }
+
+  return { user, token, isAuthenticated, login, logout }
+}
+```
+
+### Auth Middleware for Protected Pages
+```typescript
+// app/middleware/auth.global.ts
+export default defineNuxtRouteMiddleware((to) => {
+  const { isAuthenticated } = useAuth()
+  const publicPaths = ['/', '/auth/callback', '/auth/login']
+  if (!publicPaths.includes(to.path) && !isAuthenticated.value) {
+    return navigateTo('/auth/login')
+  }
+})
+```
+
+### nuxt.config.ts additions
+```typescript
+runtimeConfig: {
+  public: {
+    apiUrl: process.env.NUXT_PUBLIC_API_URL || 'http://localhost:8000',
+    wsUrl: process.env.NUXT_PUBLIC_WS_URL || 'ws://localhost:8000',
+    keycloakUrl: process.env.NUXT_PUBLIC_KEYCLOAK_URL || 'http://localhost:8080',
+  },
+},
+```
+
+## Organization Dashboard Context
+
+### Org-Scoped Data Fetching
+```typescript
+// app/composables/useOrganization.ts
+export const useOrganization = () => {
+  const { user } = useAuth()
+  const config = useRuntimeConfig()
+
+  const orgId = computed(() => user.value?.organization_id)
+  const userRole = computed(() => user.value?.roles[0] ?? 'student')
+
+  const { data: orgDetails } = useFetch(
+    () => `${config.public.apiUrl}/api/v1/organizations/${orgId.value}`,
+    { watch: [orgId], immediate: !!orgId.value },
+  )
+
+  return { orgId, userRole, orgDetails }
+}
+```
+
+### Role-Based UI Rendering
+```vue
+<template>
+  <div>
+    <!-- Instructor/Admin only -->
+    <HSection v-if="['instructor', 'org-admin'].includes(userRole)" title="Student Progress">
+      <StudentProgressTable :org-id="orgId" />
+    </HSection>
+
+    <!-- All users -->
+    <HSection title="My Training">
+      <TrainingSessionList />
+    </HSection>
+  </div>
+</template>
+```
+
+## Seat Management UI Patterns
+
+### Seat List Component
+```typescript
+interface Seat {
+  id: string
+  user_id: string
+  user_email: string
+  user_name: string
+  role: 'admin' | 'instructor' | 'student'
+  is_active: boolean
+  assigned_at: string
+}
+```
+
+Key pages for organization management:
+- `app/pages/org/dashboard.vue` — Org overview with stats
+- `app/pages/org/seats.vue` — Seat management (invite, revoke, change role)
+- `app/pages/org/scenarios.vue` — Org-scoped scenario library
+- `app/pages/org/analytics.vue` — Training analytics and reports
