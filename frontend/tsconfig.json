@@ -1,18 +1,10 @@
 {
-  // https://nuxt.com/docs/guide/concepts/typescript
-  "files": [],
+  "compilerOptions": {
+    "strict": true
+  },
   "references": [
-    {
-      "path": "./.nuxt/tsconfig.app.json"
-    },
-    {
-      "path": "./.nuxt/tsconfig.server.json"
-    },
-    {
-      "path": "./.nuxt/tsconfig.shared.json"
-    },
-    {
-      "path": "./.nuxt/tsconfig.node.json"
-    }
+    { "path": "./apps/squawk/tsconfig.json" },
+    { "path": "./apps/tower/tsconfig.json" },
+    { "path": "./apps/hangar/tsconfig.json" }
   ]
 }

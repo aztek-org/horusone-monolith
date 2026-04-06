@@ -1,15 +1,15 @@
-name = "horus-frontend"
-pages_build_output_dir = ".output/public"
+name = "horus-frontend-squawk"
+pages_build_output_dir = "apps/squawk/.output/public"
 compatibility_date = "2025-07-15"
 compatibility_flags = ["nodejs_compat"]
 
 [build]
-command = "pnpm build"
+command = "pnpm --filter squawk build"
 
 [build.environment]
 # Set CF_PAGES=1 to activate the cloudflare-pages Nitro preset
 CF_PAGES = "1"
-NODE_VERSION = "20"
+NODE_VERSION = "22"
 
 # ── Production environment (main branch) ─────────────────────────
 [env.production.vars]
