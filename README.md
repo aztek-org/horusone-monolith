@@ -20,24 +20,16 @@ Real-time ATC voice communication practice powered by LLM inference, speech reco
 
 ## ✨ Features
 
-- **Real-time voice communication** with AI ATC controllers via WebSocket
-- **ICAO standard phraseology** training with scenario-based exercises
-- **Multiple scenario types** — ground, departure, enroute, approach, landing
-- **LangGraph multi-agent AI system** — 9 specialized reasoning agents across 3 sub-graphs
-- **AI-powered flight plan validation** — gatekeeper, weather, fuel, route, airspace, and performance checks
-- **Flight plan builder** — create plans via form, free-form text, or image upload (OCR)
-- **Student statistics & progress tracking** — flight hours, maneuvers, scenarios completed
-- **Aviation knowledge base** with full-text search across articles and categories
-- **Knowledge assessments** with auto-grading and result tracking
-- **Session track replay** with voice transcript and AI-generated flight insights
-- **Instructor dashboard** — student management, performance review, profile management
-- **Badge system & gamification** — 12 badges across flight, communication, procedures, and engagement
-- **Leaderboard** — daily, weekly, and monthly rankings
-- **Multi-tenant organization support** — users, organizations, seats, roles
-- **Performance analytics** and session history tracking
-- **Radio-effect audio processing** — band-pass filters, static, noise for realism
-- **Human-in-the-loop** — instructors can override AI ATC responses in real time
-- **Local LLM inference** via Ollama — no cloud API keys required
+- **Role-routed frontend apps**: Hangar (student), Tower (org admin/instructor), Squawk (platform admin)
+- **Real-time ATC voice communication** via WebSocket with STT → LLM → TTS → radio effects
+- **ICAO phraseology training** with scenario types across ground, departure, enroute, approach, and landing
+- **LangGraph multi-agent orchestration** with 3 sub-graphs and 9 specialized agents
+- **Session lifecycle + auditability** including completion flow, replay timeline, and event history
+- **Student analytics and exports** for stats, transcripts (replay + stats), and assessment result payloads
+- **Performance intelligence** with live trend bars, dynamic streak achievements, and server-side range loading
+- **Org and platform operations** for seat/user/org management, progress visibility, and billing profile controls
+- **Strict multi-tenant boundaries** with organization-scoped APIs and role-based access controls
+- **Local-first inference** with Ollama (default `llama3.2:3b`) and no required cloud LLM key
 
 ## 🏗️ Tech Stack
 
@@ -73,7 +65,9 @@ uv run python -m scripts.seed
 ./run_backend.sh
 
 # 5. Start frontend apps (new terminal)
-cd frontend && pnpm dev
+cd frontend
+pnpm install
+pnpm dev
 ```
 
 Open one of the frontend apps:
@@ -90,26 +84,43 @@ Open one of the frontend apps:
 
 ```
 horus-mvp/
-├── backend/                    # FastAPI Python backend (VPS)
-│   ├── app/                    # Application code
-│   │   ├── api/routes/         # HTTP + WebSocket handlers
-│   │   ├── models/             # SQLAlchemy ORM (User, Org, Scenario, etc.)
-│   │   ├── services/           # STT, TTS, LLM, audio effects
-│   │   └── db/                 # Session + repositories
-│   ├── scripts/                # seed, deploy, backup, restore
-│   ├── docker-compose*.yml     # Base, dev, and prod compose files
-│   └── tests/                  # pytest (unit + integration)
-│
-├── frontend/                   # Nuxt 4 frontend (Cloudflare Pages)
+├── backend/                        # FastAPI control layer
 │   ├── app/
-│   │   ├── pages/              # Auto-routed pages
-│   │   ├── components/ui/      # H-prefixed design system
-│   │   └── composables/        # Vue Composition API state
-│   ├── nuxt.config.ts
-│   └── wrangler.toml           # Cloudflare Pages config
+│   │   ├── api/v1/                 # Versioned REST endpoints
+│   │   ├── core/                   # Voice pipeline + websocket manager
+│   │   ├── db/                     # Async session + repositories
+│   │   ├── models/                 # SQLAlchemy ORM models
+│   │   ├── schemas/                # Pydantic request/response contracts
+│   │   └── services/               # STT, TTS, LLM, audio effects
+│   ├── alembic/                    # DB migrations
+│   ├── scripts/                    # deploy.sh, backup.sh, restore.sh, seed.py
+│   ├── docker/                     # Dockerfiles and init scripts
+│   └── tests/                      # pytest unit/integration suite
 │
-└── docs/                       # Documentation + ADRs
+├── frontend/                       # Nuxt workspace monorepo
+│   ├── apps/
+│   │   ├── hangar/                 # Student app + auth gateway
+│   │   ├── tower/                  # Org admin / instructor app
+│   │   └── squawk/                 # Platform admin app
+│   ├── packages/
+│   │   └── core/                   # Shared UI, composables, layouts
+│   ├── pnpm-workspace.yaml
+│   └── turbo.json
+│
+├── docs/                           # Canonical docs + ADRs
+└── .github/skills/                 # Reusable implementation/security skills
 ```
+
+## 🧰 Maintained Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `./setup.sh` | One-command local bootstrap (prereqs, deps, env scaffolding) |
+| `backend/run_backend.sh` | Start backend with `uv run` and `.env` loading |
+| `backend/scripts/deploy.sh` | Production deployment helper (`--full`, `--skip-migrations`) |
+| `backend/scripts/backup.sh` | PostgreSQL backups with retention pruning |
+| `backend/scripts/restore.sh` | Interactive PostgreSQL restore from `.sql` / `.sql.gz` |
+| `backend/docker/init-multiple-dbs.sh` | First-boot Postgres init for `keycloak_db` |
 
 ## 📖 Documentation
 
