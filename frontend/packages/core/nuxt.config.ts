@@ -11,6 +11,13 @@ export default defineNuxtConfig({
 
   modules: ['@nuxt/icon', '@nuxt/eslint', '@nuxt/image', '@nuxtjs/tailwindcss'],
 
+  icon: {
+    serverBundle: 'local',
+    clientBundle: {
+      scan: true,
+    },
+  },
+
   components: [
     { path: '~/components/ui', pathPrefix: false },
     { path: '~/components/shared', pathPrefix: false },
