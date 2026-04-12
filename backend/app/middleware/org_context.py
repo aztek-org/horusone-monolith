@@ -181,13 +181,13 @@ def _platform_admin_sentinel_seat(token_user: TokenUser) -> Seat:
     """
     import uuid as _uuid
 
-    seat = Seat.__new__(Seat)
-    seat.id = _uuid.uuid4()
-    seat.user_id = _uuid.UUID(int=0)
-    seat.organization_id = _uuid.UUID(int=0)
-    seat.role = "admin"
-    seat.is_active = True
-    return seat
+    return Seat(
+        id=_uuid.uuid4(),
+        user_id=_uuid.UUID(int=0),
+        organization_id=_uuid.UUID(int=0),
+        role="admin",
+        is_active=True,
+    )
 
 
 # Typed dependency alias
