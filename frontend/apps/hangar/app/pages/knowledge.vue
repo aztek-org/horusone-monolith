@@ -2,7 +2,6 @@
 import type {
   ContentCategory,
   ContentArticle,
-  ContentSearchResult,
 } from '~/composables/useContent'
 
 definePageMeta({
@@ -23,7 +22,7 @@ const categories = ref<ContentCategory[]>([])
 const selectedCategory = ref<ContentCategory | null>(null)
 const categoryArticles = ref<ContentArticle[]>([])
 const selectedArticle = ref<ContentArticle | null>(null)
-const searchResults = ref<ContentSearchResult[]>([])
+const searchResults = ref<ContentArticle[]>([])
 
 const searchQuery = ref('')
 const searchDebounce = ref<ReturnType<typeof setTimeout> | null>(null)
@@ -123,8 +122,7 @@ function handleSearch() {
     viewMode.value = 'search'
 
     try {
-      const result = await content.searchArticles(searchQuery.value.trim())
-      searchResults.value = result.items
+      searchResults.value = await content.searchArticles(searchQuery.value.trim())
     }
     catch (err) {
       const apiErr = err as { detail?: string }
@@ -153,20 +151,23 @@ function navigateBack() {
   }
 }
 
-function getDifficultyVariant(d: string): 'active' | 'warning' | 'danger' {
-  switch (d) {
-    case 'advanced': return 'danger'
-    case 'intermediate': return 'warning'
-    default: return 'active'
-  }
+function getDifficultyVariant(d: number): 'active' | 'warning' | 'danger' {
+  if (d >= 4) return 'danger'
+  if (d >= 2) return 'warning'
+  return 'active'
 }
 
-function getDifficultyLabel(d: string): string {
-  switch (d) {
-    case 'advanced': return 'Advanced'
-    case 'intermediate': return 'Intermediate'
-    default: return 'Beginner'
-  }
+function getDifficultyLabel(d: number): string {
+  if (d >= 4) return 'Advanced'
+  if (d >= 2) return 'Intermediate'
+  return 'Beginner'
+}
+
+/** Map numeric difficulty_level to the string union expected by HArticleCard */
+function difficultyToString(d: number): 'beginner' | 'intermediate' | 'advanced' {
+  if (d >= 4) return 'advanced'
+  if (d >= 2) return 'intermediate'
+  return 'beginner'
 }
 
 function formatDate(iso: string): string {
@@ -251,9 +252,6 @@ onMounted(() => {
               ]"
             />
             <span class="text-sm flex-1 truncate">{{ cat.name }}</span>
-            <span class="text-xxs font-mono text-horus-text-muted">
-              {{ cat.articleCount }}
-            </span>
           </button>
         </div>
 
@@ -393,21 +391,17 @@ onMounted(() => {
                     <h3 class="text-sm font-semibold text-horus-text-primary">
                       {{ result.title }}
                     </h3>
-                    <HBadge :variant="getDifficultyVariant(result.difficulty)" size="sm" class="flex-shrink-0">
-                      {{ getDifficultyLabel(result.difficulty) }}
+                    <HBadge :variant="getDifficultyVariant(result.difficulty_level)" size="sm" class="flex-shrink-0">
+                      {{ getDifficultyLabel(result.difficulty_level) }}
                     </HBadge>
                   </div>
                   <p class="text-xs text-horus-text-secondary line-clamp-2">
-                    {{ result.snippet || result.summary }}
+                    {{ result.summary ?? '' }}
                   </p>
                   <div class="flex items-center gap-3 text-xxs text-horus-text-muted">
-                    <span class="flex items-center gap-1">
-                      <Icon name="heroicons:folder" class="w-3 h-3" />
-                      {{ result.categoryName }}
-                    </span>
-                    <span v-if="result.viewCount > 0" class="flex items-center gap-1">
+                    <span v-if="result.view_count > 0" class="flex items-center gap-1">
                       <Icon name="heroicons:eye" class="w-3 h-3" />
-                      {{ result.viewCount }}
+                      {{ result.view_count }}
                     </span>
                   </div>
                 </div>
@@ -456,8 +450,8 @@ onMounted(() => {
                   </p>
                 </div>
                 <div class="flex items-center gap-1 text-xxs text-horus-text-muted">
-                  <Icon name="heroicons:document-text" class="w-3 h-3" />
-                  {{ cat.articleCount }} article{{ cat.articleCount === 1 ? '' : 's' }}
+                  <Icon name="heroicons:folder" class="w-3 h-3" />
+                  {{ cat.slug }}
                 </div>
               </div>
             </HCard>
@@ -502,11 +496,11 @@ onMounted(() => {
               v-for="article in categoryArticles"
               :key="article.id"
               :title="article.title"
-              :summary="article.summary"
-              :category="article.categoryName"
-              :difficulty="article.difficulty"
+              :summary="article.summary ?? ''"
+              :category="selectedCategory?.name"
+              :difficulty="difficultyToString(article.difficulty_level)"
               :tags="article.tags"
-              :view-count="article.viewCount"
+              :view-count="article.view_count"
               :slug="article.slug"
               @navigate="selectArticle"
             />
@@ -536,11 +530,11 @@ onMounted(() => {
             <HCard variant="elevated" padding="lg">
               <div class="space-y-4">
                 <div class="flex flex-wrap items-center gap-2">
-                  <HBadge :variant="getDifficultyVariant(selectedArticle.difficulty)" size="sm">
-                    {{ getDifficultyLabel(selectedArticle.difficulty) }}
+                  <HBadge :variant="getDifficultyVariant(selectedArticle.difficulty_level)" size="sm">
+                    {{ getDifficultyLabel(selectedArticle.difficulty_level) }}
                   </HBadge>
-                  <HBadge variant="info" size="sm">
-                    {{ selectedArticle.categoryName }}
+                  <HBadge v-if="selectedCategory" variant="info" size="sm">
+                    {{ selectedCategory.name }}
                   </HBadge>
                 </div>
 
@@ -548,22 +542,22 @@ onMounted(() => {
                   {{ selectedArticle.title }}
                 </h1>
 
-                <p class="text-sm text-horus-text-secondary">
+                <p v-if="selectedArticle.summary" class="text-sm text-horus-text-secondary">
                   {{ selectedArticle.summary }}
                 </p>
 
                 <div class="flex items-center gap-4 text-xxs text-horus-text-muted border-t border-horus-border-subtle pt-4">
-                  <span v-if="selectedArticle.author" class="flex items-center gap-1">
+                  <span v-if="selectedArticle.author_id" class="flex items-center gap-1">
                     <Icon name="heroicons:user" class="w-3 h-3" />
-                    {{ selectedArticle.author }}
+                    {{ selectedArticle.author_id }}
                   </span>
                   <span class="flex items-center gap-1">
                     <Icon name="heroicons:calendar" class="w-3 h-3" />
-                    {{ formatDate(selectedArticle.updatedAt) }}
+                    {{ formatDate(selectedArticle.updated_at) }}
                   </span>
                   <span class="flex items-center gap-1">
                     <Icon name="heroicons:eye" class="w-3 h-3" />
-                    {{ selectedArticle.viewCount }} views
+                    {{ selectedArticle.view_count }} views
                   </span>
                 </div>
 
@@ -583,7 +577,7 @@ onMounted(() => {
             <!-- Article Body -->
             <HCard variant="default" padding="lg" class="mt-4">
               <!-- eslint-disable-next-line vue/no-v-html -->
-              <div class="prose-horus space-y-1" v-html="renderMarkdown(selectedArticle.body)" />
+              <div class="prose-horus space-y-1" v-html="renderMarkdown(selectedArticle.content)" />
             </HCard>
           </template>
 
@@ -610,11 +604,6 @@ onMounted(() => {
               label="Categories"
               variant="compact"
             />
-            <HDataPanel
-              :value="String(categories.reduce((sum, c) => sum + c.articleCount, 0))"
-              label="Total Articles"
-              variant="compact"
-            />
           </div>
         </div>
 
@@ -629,17 +618,17 @@ onMounted(() => {
             <div class="space-y-3 text-sm">
               <div>
                 <p class="text-xxs text-horus-text-muted uppercase tracking-wider">Difficulty</p>
-                <HBadge :variant="getDifficultyVariant(selectedArticle.difficulty)" size="sm" class="mt-1">
-                  {{ getDifficultyLabel(selectedArticle.difficulty) }}
+                <HBadge :variant="getDifficultyVariant(selectedArticle.difficulty_level)" size="sm" class="mt-1">
+                  {{ getDifficultyLabel(selectedArticle.difficulty_level) }}
                 </HBadge>
               </div>
               <div>
                 <p class="text-xxs text-horus-text-muted uppercase tracking-wider">Last Updated</p>
-                <p class="text-horus-text-secondary mt-0.5">{{ formatDate(selectedArticle.updatedAt) }}</p>
+                <p class="text-horus-text-secondary mt-0.5">{{ formatDate(selectedArticle.updated_at) }}</p>
               </div>
               <div>
                 <p class="text-xxs text-horus-text-muted uppercase tracking-wider">Views</p>
-                <p class="text-horus-text-secondary mt-0.5 font-mono">{{ selectedArticle.viewCount }}</p>
+                <p class="text-horus-text-secondary mt-0.5 font-mono">{{ selectedArticle.view_count }}</p>
               </div>
             </div>
           </HCard>

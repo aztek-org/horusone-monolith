@@ -1,56 +1,42 @@
 /**
  * Typed API client composable for knowledge-base content endpoints.
  * Provides methods to fetch categories, articles, and search content.
+ *
+ * All interfaces mirror the backend snake_case JSON responses exactly.
  */
 
 export interface ContentCategory {
-  id: number
+  id: string
   name: string
   slug: string
   description: string | null
+  parent_id: string | null
+  sort_order: number
   icon: string | null
-  articleCount: number
-  sortOrder: number
+  is_active: boolean
+  created_at: string
+  children: ContentCategory[]
 }
 
 export interface ContentArticle {
-  id: number
+  id: string
+  category_id: string
   title: string
   slug: string
-  summary: string
-  body: string
-  categoryId: number
-  categoryName: string
-  categorySlug: string
-  difficulty: 'beginner' | 'intermediate' | 'advanced'
+  content: string
+  summary: string | null
+  difficulty_level: number
   tags: string[]
-  author: string | null
-  viewCount: number
-  createdAt: string
-  updatedAt: string
-}
-
-export interface ContentSearchResult {
-  id: number
-  title: string
-  slug: string
-  summary: string
-  snippet: string
-  categoryName: string
-  categorySlug: string
-  difficulty: 'beginner' | 'intermediate' | 'advanced'
-  viewCount: number
-  score: number
+  author_id: string | null
+  org_id: string | null
+  is_published: boolean
+  view_count: number
+  created_at: string
+  updated_at: string
 }
 
 interface ContentCategoryDetail extends ContentCategory {
   articles: ContentArticle[]
-}
-
-interface PaginatedSearch {
-  items: ContentSearchResult[]
-  total: number
-  hasMore: boolean
 }
 
 export function useContent() {
@@ -72,13 +58,13 @@ export function useContent() {
     query: string,
     limit = 20,
     offset = 0,
-  ): Promise<PaginatedSearch> {
+  ): Promise<ContentArticle[]> {
     const params = new URLSearchParams({
       q: query,
       limit: String(limit),
       offset: String(offset),
     })
-    return api.get<PaginatedSearch>(
+    return api.get<ContentArticle[]>(
       `/api/v1/content/search?${params.toString()}`,
     )
   }
