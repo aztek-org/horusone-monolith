@@ -31,14 +31,42 @@ info()  { echo -e "${GREEN}[INFO]${NC}  $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 
+usage() {
+  cat <<EOF
+Usage: $0 [--db <database>]
+
+Options:
+  --db <database>  Backup only one database (horus_db | keycloak_db)
+  -h, --help       Show this help message
+EOF
+}
+
 # --- Parse arguments -------------------------------------------------------
 TARGET_DB=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --db) TARGET_DB="$2"; shift 2 ;;
+    --db)
+      if [[ $# -lt 2 ]]; then
+        error "Missing value for --db"
+        usage
+        exit 1
+      fi
+      TARGET_DB="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
     *)    error "Unknown argument: $1"; exit 1 ;;
   esac
 done
+
+if [[ -n "$TARGET_DB" ]] && [[ "$TARGET_DB" != "horus_db" ]] && [[ "$TARGET_DB" != "keycloak_db" ]]; then
+  error "Invalid --db value: $TARGET_DB"
+  usage
+  exit 1
+fi
 
 # Determine which databases to back up
 if [[ -n "$TARGET_DB" ]]; then

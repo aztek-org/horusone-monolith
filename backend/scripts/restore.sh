@@ -26,29 +26,59 @@ info()  { echo -e "${GREEN}[INFO]${NC}  $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 
+usage() {
+  cat <<EOF
+Usage: $0 [--db <database>] <backup-file>
+
+Examples:
+  $0 backups/horus_db_20240101_120000.sql.gz
+  $0 backups/keycloak_db_20240101_120000.sql.gz
+  $0 --db horus_db backups/some-custom-name.sql.gz
+
+Options:
+  --db <database>  Force restore target (horus_db | keycloak_db)
+  -h, --help       Show this help message
+EOF
+}
+
 # --- Parse arguments -------------------------------------------------------
 FORCE_DB=""
 BACKUP_FILE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --db) FORCE_DB="$2"; shift 2 ;;
+    --db)
+      if [[ $# -lt 2 ]]; then
+        error "Missing value for --db"
+        usage
+        exit 1
+      fi
+      FORCE_DB="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
     -*)   error "Unknown option: $1"; exit 1 ;;
     *)    BACKUP_FILE="$1"; shift ;;
   esac
 done
 
 if [[ -z "$BACKUP_FILE" ]]; then
-  error "Usage: $0 [--db <database>] <backup-file>"
-  echo ""
-  echo "Examples:"
-  echo "  $0 backups/horus_db_20240101_120000.sql.gz"
-  echo "  $0 --db keycloak_db backups/custom-backup.sql"
+  error "Missing <backup-file> argument."
+  usage
   exit 1
 fi
 
 if [[ ! -f "$BACKUP_FILE" ]]; then
   error "Backup file not found: $BACKUP_FILE"
+  exit 1
+fi
+
+if [[ -n "$FORCE_DB" ]] && [[ "$FORCE_DB" != "horus_db" ]] && [[ "$FORCE_DB" != "keycloak_db" ]]; then
+  error "Invalid --db value: $FORCE_DB"
+  usage
   exit 1
 fi
 
