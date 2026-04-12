@@ -17,14 +17,25 @@ if [[ ! -d backend || ! -d frontend ]]; then
     exit 1
 fi
 
+read_ollama_model_from_file() {
+    local env_file="$1"
+    local value
+    value="$(awk -F= '/^OLLAMA_LLM_MODEL=/{value=substr($0, index($0, "=") + 1)} END{print value}' "$env_file")"
+    value="${value%\"}"
+    value="${value#\"}"
+    value="${value%\'}"
+    value="${value#\'}"
+    printf '%s' "$value"
+}
+
 OLLAMA_MODEL="${OLLAMA_MODEL:-llama3.2:3b}"
 if [[ -f backend/.env ]]; then
-    ENV_OLLAMA_MODEL="$(grep -E '^OLLAMA_LLM_MODEL=' backend/.env | tail -1 | cut -d'=' -f2- | tr -d '\"' | tr -d \"'\")"
+    ENV_OLLAMA_MODEL="$(read_ollama_model_from_file backend/.env)"
     if [[ -n "$ENV_OLLAMA_MODEL" ]]; then
         OLLAMA_MODEL="$ENV_OLLAMA_MODEL"
     fi
 elif [[ -f backend/.env.example ]]; then
-    ENV_OLLAMA_MODEL="$(grep -E '^OLLAMA_LLM_MODEL=' backend/.env.example | tail -1 | cut -d'=' -f2- | tr -d '\"' | tr -d \"'\")"
+    ENV_OLLAMA_MODEL="$(read_ollama_model_from_file backend/.env.example)"
     if [[ -n "$ENV_OLLAMA_MODEL" ]]; then
         OLLAMA_MODEL="$ENV_OLLAMA_MODEL"
     fi
