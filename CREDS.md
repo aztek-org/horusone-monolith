@@ -5,6 +5,16 @@
 > This file documents **development/demo credentials and scope mappings** currently present in the repository.
 > Do not use these credentials in production.
 
+### Keycloak realm users
+
+| Username / Email | Password | Realm roles | `organization_id` attribute |
+|---|---|---|---|
+| `admin@horusone.app` | `@dmin2026` | `platform-admin`, `org-admin` | _(empty)_ |
+| `sarah.mitchell@skybridge.aero` | `stud3nt2026` | `org-admin` | `skybridge` |
+| `james.chen@skybridge.aero` | `stud3nt2026` | `instructor` | `skybridge` |
+| `maria.santos@skybridge.aero` | `stud3nt2026` | `student` | `skybridge` |
+| `alex.turner@skybridge.aero` | `stud3nt2026` | `student` | `skybridge` |
+
 ## 1) Platform endpoints (current local setup)
 
 | Surface | URL / Host | Notes |
@@ -25,16 +35,6 @@
 Source of truth:
 - `backend/docker/keycloak-import/horus-realm.json` (users, passwords, realm roles)
 - `backend/scripts/seed.py` (DB user + seat records and role mapping)
-
-### Keycloak realm users
-
-| Username / Email | Password | Realm roles | `organization_id` attribute |
-|---|---|---|---|
-| `admin@horusone.app` | `@dmin2026` | `platform-admin`, `org-admin` | _(empty)_ |
-| `sarah.mitchell@skybridge.aero` | `stud3nt2026` | `org-admin` | `skybridge` |
-| `james.chen@skybridge.aero` | `stud3nt2026` | `instructor` | `skybridge` |
-| `maria.santos@skybridge.aero` | `stud3nt2026` | `student` | `skybridge` |
-| `alex.turner@skybridge.aero` | `stud3nt2026` | `student` | `skybridge` |
 
 ### DB/seat role mapping from seed script
 
