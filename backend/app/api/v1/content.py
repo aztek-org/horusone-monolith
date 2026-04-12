@@ -25,6 +25,7 @@ from app.schemas.content import (
     ContentArticleCreate,
     ContentArticleRead,
     ContentArticleUpdate,
+    ContentCategoryDetailRead,
     ContentCategoryRead,
 )
 
@@ -59,13 +60,13 @@ async def list_categories(
 
 @router.get(
     "/categories/{slug}",
-    response_model=ContentCategoryRead,
+    response_model=ContentCategoryDetailRead,
 )
 async def get_category(
     slug: str,
     _user: CurrentUser,
     db: AsyncSession = Depends(get_db_session),
-) -> ContentCategoryRead:
+) -> ContentCategoryDetailRead:
     """Get a single category by slug with its articles."""
     category = await content_repo.get_category_by_slug(db, slug)
     if category is None:

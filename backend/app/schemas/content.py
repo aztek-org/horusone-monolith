@@ -75,6 +75,12 @@ class ContentArticleRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ContentCategoryDetailRead(ContentCategoryRead):
+    """Category with nested articles for the detail endpoint."""
+
+    articles: list[ContentArticleRead] = []
+
+
 class ContentArticleUpdate(BaseModel):
     """Schema for partial article updates."""
 
