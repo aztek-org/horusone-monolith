@@ -40,7 +40,8 @@ const aircraftPosition: [number, number] = [20.6500, -103.3300]
 onMounted(async () => {
   if (mapContainer.value) {
     // Dynamic import for SSR compatibility
-    L.value = await import('leaflet')
+    const leafletModule = await import('leaflet')
+    L.value = leafletModule.default ?? leafletModule
 
     // Initialize map
     map.value = L.value.map(mapContainer.value, {
