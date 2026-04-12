@@ -48,7 +48,7 @@ export default defineNuxtConfig({
   // Runtime config — values injected from env at build time
   runtimeConfig: {
     public: {
-      apiUrl: process.env.NUXT_PUBLIC_API_URL ?? 'http://localhost:8000',
+      apiUrl: process.env.NUXT_PUBLIC_API_URL ?? '',
       wsUrl: process.env.NUXT_PUBLIC_WS_URL ?? 'ws://localhost:8000/ws/voice',
       keycloakUrl: process.env.NUXT_PUBLIC_KEYCLOAK_URL ?? 'http://localhost:8180',
       keycloakRealm: process.env.NUXT_PUBLIC_KEYCLOAK_REALM ?? 'horus',
@@ -73,6 +73,11 @@ export default defineNuxtConfig({
   // Cloudflare Pages deployment
   nitro: {
     preset: process.env.CF_PAGES ? 'cloudflare-pages' : undefined,
+    devProxy: {
+      '/api/': { target: 'http://localhost:8000/api/', changeOrigin: true },
+      '/health': { target: 'http://localhost:8000/health', changeOrigin: true },
+      '/ws/': { target: 'ws://localhost:8000/ws/', changeOrigin: true, ws: true },
+    },
   },
 
   tailwindcss: {
