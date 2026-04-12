@@ -77,14 +77,14 @@ onMounted(() => {
 <template>
   <div class="flex min-h-screen items-center justify-center bg-horus-bg-primary">
     <div class="w-full max-w-md rounded-xl border border-white/10 bg-horus-bg-secondary p-8 text-center">
-      <NuxtImg
+      <img
         src="/horusone_logo.png"
         alt="Horus"
         class="mx-auto mb-2 h-16"
         loading="eager"
         width="200"
         height="64"
-      />
+      >
       <p class="mb-8 text-sm text-horus-text-secondary">
         AI-Powered Aviation Training Platform
       </p>
