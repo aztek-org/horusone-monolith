@@ -34,13 +34,15 @@ class ContentRepository:
         Returns:
             List of ContentCategory rows ordered by sort_order.
         """
-        query = select(ContentCategory)
+        query = select(ContentCategory).options(
+            selectinload(ContentCategory.children)
+        )
         if not include_inactive:
             query = query.where(ContentCategory.is_active.is_(True))
         query = query.order_by(ContentCategory.sort_order, ContentCategory.name)
 
         result = await db.execute(query)
-        return list(result.scalars().all())
+        return list(result.scalars().unique().all())
 
     async def get_category_by_slug(
         self, db: AsyncSession, slug: str
@@ -57,7 +59,10 @@ class ContentRepository:
         result = await db.execute(
             select(ContentCategory)
             .where(ContentCategory.slug == slug)
-            .options(selectinload(ContentCategory.articles))
+            .options(
+                selectinload(ContentCategory.articles),
+                selectinload(ContentCategory.children),
+            )
         )
         return result.scalar_one_or_none()
 

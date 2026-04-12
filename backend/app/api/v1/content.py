@@ -48,8 +48,13 @@ async def list_categories(
     By default only active categories are returned.  Pass
     ``include_inactive=true`` to include all.
     """
-    categories = await content_repo.get_categories(db, include_inactive)
-    return categories  # type: ignore[return-value]
+    try:
+        categories = await content_repo.get_categories(db, include_inactive)
+        logger.info("Returning %d categories", len(categories))
+        return categories  # type: ignore[return-value]
+    except Exception:
+        logger.exception("Failed to list content categories")
+        raise
 
 
 @router.get(

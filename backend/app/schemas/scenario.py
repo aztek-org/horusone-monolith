@@ -19,7 +19,7 @@ class ScenarioBase(BaseModel):
     phase: str = Field(default="ground")
     scenario_type: str | None = Field(
         default=None,
-        pattern=r"^(training|evaluation|emergency|checkride)$",
+        pattern=r"^(training|evaluation|emergency|checkride|VFR|IFR|MVFR|LIFR)$",
     )
     flight_plan_template: dict[str, Any] | None = Field(default_factory=dict)
 

@@ -62,7 +62,10 @@ class ContentCategory(Base):
 
     # ── Relationships ──────────────────────────────────────────────
     parent: Mapped[ContentCategory | None] = relationship(
-        remote_side="ContentCategory.id", backref="children"
+        remote_side="ContentCategory.id", back_populates="children"
+    )
+    children: Mapped[list[ContentCategory]] = relationship(
+        back_populates="parent"
     )
     articles: Mapped[list[ContentArticle]] = relationship(
         back_populates="category"

@@ -48,8 +48,14 @@ async def list_scenarios(
         else:
             query = query.where(Scenario.org_id.is_(None))
 
-    result = await session.execute(query.limit(limit).offset(offset))
-    return list(result.scalars().all())  # type: ignore[return-value]
+    try:
+        result = await session.execute(query.limit(limit).offset(offset))
+        scenarios = list(result.scalars().all())
+        logger.info("Returning %d scenarios (org_id=%s)", len(scenarios), org_id)
+        return scenarios  # type: ignore[return-value]
+    except Exception:
+        logger.exception("Failed to list scenarios (org_id=%s)", org_id)
+        raise
 
 
 @router.post("/", response_model=ScenarioResponse, status_code=status.HTTP_201_CREATED)
