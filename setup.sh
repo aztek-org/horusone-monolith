@@ -52,6 +52,109 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+python_version_supported() {
+    local python_cmd="$1"
+    "$python_cmd" - <<'PY'
+import sys
+
+sys.exit(0 if (3, 10) <= sys.version_info[:2] < (3, 12) else 1)
+PY
+}
+
+find_supported_python() {
+    local candidate
+
+    for candidate in python3.11 python3.10 python3; do
+        if command_exists "$candidate" && python_version_supported "$candidate"; then
+            printf '%s' "$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+http_get() {
+    local url="$1"
+
+    if command_exists curl; then
+        curl -fsSL "$url"
+        return 0
+    fi
+
+    python3 - "$url" <<'PY'
+import sys
+import urllib.request
+
+with urllib.request.urlopen(sys.argv[1], timeout=5) as response:
+    sys.stdout.write(response.read().decode())
+PY
+}
+
+http_url_exists() {
+    local url="$1"
+
+    if command_exists curl; then
+        curl -s "$url" >/dev/null 2>&1
+        return $?
+    fi
+
+    python3 - "$url" <<'PY'
+import sys
+import urllib.request
+
+try:
+    with urllib.request.urlopen(sys.argv[1], timeout=5):
+        pass
+except Exception:
+    raise SystemExit(1)
+PY
+}
+
+read_pnpm_version_from_package_json() {
+    node -p "const pkg = require('./frontend/package.json'); (pkg.packageManager || '').split('@')[1] || ''"
+}
+
+ensure_pnpm() {
+    local pnpm_version
+
+    pnpm_version="$(read_pnpm_version_from_package_json)"
+
+    if command_exists pnpm; then
+        return 0
+    fi
+
+    if command_exists corepack; then
+        echo -e "${YELLOW}!${NC} pnpm not found. Using corepack..." >&2
+        if corepack pnpm --version >/dev/null 2>&1; then
+            return 0
+        fi
+
+        echo -e "${YELLOW}!${NC} corepack could not activate pnpm. Falling back to npm..." >&2
+    fi
+
+    echo -e "${YELLOW}!${NC} pnpm not found. Installing to user-local npm prefix..." >&2
+    export NPM_CONFIG_PREFIX="${HOME}/.local"
+    export PATH="${HOME}/.local/bin:${PATH}"
+    npm install -g "pnpm@${pnpm_version:-latest}"
+}
+
+pnpm_exec() {
+    if command_exists pnpm; then
+        pnpm "$@"
+    else
+        corepack pnpm "$@"
+    fi
+}
+
+pnpm_version() {
+    if command_exists pnpm; then
+        pnpm --version
+    else
+        corepack pnpm --version
+    fi
+}
+
 # Step 1: Check prerequisites
 echo "📋 Step 1: Checking prerequisites..."
 
@@ -62,17 +165,19 @@ else
     exit 1
 fi
 
-if command_exists pnpm; then
-    echo -e "${GREEN}✓${NC} pnpm installed ($(pnpm --version))"
-else
-    echo -e "${YELLOW}!${NC} pnpm not found. Installing..."
-    npm install -g pnpm
-fi
+ensure_pnpm
+echo -e "${GREEN}✓${NC} pnpm installed ($(pnpm_version))"
 
-if command_exists python3; then
-    echo -e "${GREEN}✓${NC} Python installed ($(python3 --version))"
+PYTHON_CMD="$(find_supported_python || true)"
+if [[ -n "$PYTHON_CMD" ]]; then
+    echo -e "${GREEN}✓${NC} Python installed ($($PYTHON_CMD --version))"
+elif command_exists python3; then
+    echo -e "${RED}✗${NC} Unsupported Python version ($(python3 --version))"
+    echo "   Horus backend requires Python 3.10 or 3.11."
+    echo "   Install Python 3.11 and re-run setup."
+    exit 1
 else
-    echo -e "${RED}✗${NC} Python 3.10+ not found. Please install Python from https://python.org"
+    echo -e "${RED}✗${NC} Python 3.10 or 3.11 not found. Please install Python from https://python.org"
     exit 1
 fi
 
@@ -80,12 +185,21 @@ if command_exists uv; then
     echo -e "${GREEN}✓${NC} uv installed ($(uv --version))"
 else
     echo -e "${YELLOW}!${NC} uv not found. Installing..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    export PATH="$HOME/.cargo/bin:$PATH"
+    if command_exists curl; then
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.cargo/bin:$PATH"
+    else
+        if ! "$PYTHON_CMD" -m pip --version >/dev/null 2>&1; then
+            "$PYTHON_CMD" -m ensurepip --upgrade --user
+        fi
+
+        "$PYTHON_CMD" -m pip install --user uv
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+    fi
 fi
 
 # Check Ollama by trying to connect to the service
-if curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
+if http_url_exists http://localhost:11434/api/tags; then
     echo -e "${GREEN}✓${NC} Ollama service is accessible (http://localhost:11434)"
 elif command_exists ollama; then
     echo -e "${YELLOW}!${NC} Ollama command found but service not running"
@@ -114,7 +228,7 @@ echo ""
 # Step 2: Install frontend dependencies
 echo "📦 Step 2: Installing frontend dependencies..."
 cd frontend
-pnpm install
+pnpm_exec install
 cd ..
 echo -e "${GREEN}✓${NC} Frontend dependencies installed"
 echo ""
@@ -125,7 +239,7 @@ cd backend
 
 if [ ! -d ".venv" ]; then
     echo "Creating Python virtual environment..."
-    uv venv
+    uv venv --python "$PYTHON_CMD"
     echo -e "${GREEN}✓${NC} Virtual environment created"
 fi
 
@@ -148,7 +262,7 @@ echo ""
 echo "🤖 Step 4: Checking Ollama setup..."
 
 # Check if Ollama is running
-if curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
+if http_url_exists http://localhost:11434/api/tags; then
     echo -e "${GREEN}✓${NC} Ollama server is running (http://localhost:11434)"
 
     # Check if model is installed (if ollama command is available)
@@ -163,7 +277,7 @@ if curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
         fi
     else
         # Check via API if ollama command not available
-        if curl -s http://localhost:11434/api/tags | grep -q "$OLLAMA_MODEL"; then
+        if http_get http://localhost:11434/api/tags | grep -q "$OLLAMA_MODEL"; then
             echo -e "${GREEN}✓${NC} ${OLLAMA_MODEL} model found via API"
         else
             echo -e "${YELLOW}!${NC} ${OLLAMA_MODEL} model not detected"
