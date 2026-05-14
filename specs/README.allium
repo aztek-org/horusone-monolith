@@ -1,0 +1,36 @@
+-- Horus Platform — Master Specification Index
+-- ======================================================
+--
+-- This directory contains the formal Allium specification for the
+-- Horus AI-Powered Aviation Training Platform.
+--
+-- File inventory:
+--   core.allium      — Identity, tenancy, organizations, users, seats, RBAC
+--   training.allium  — Scenarios, training sessions, voice logs, modules
+--   content.allium   — Content articles, assessments, badges, leaderboards
+--   flight.allium    — Flight plans, legs, waypoints, performance logs
+--   surfaces.allium  — API boundary surfaces (Hangar, Tower, Squawk)
+--
+-- Quick start:
+--   1. Read core.allium first ( foundational domain )
+--   2. Read training.allium ( primary training flow )
+--   3. Read content.allium + flight.allium ( supporting domains )
+--   4. Read surfaces.allium ( API contracts )
+--
+-- Cross-module references:
+--   - core/Organization is the tenancy root
+--   - core/User is the identity root
+--   - core/Seat binds users to organizations with roles
+--   - training/Scenario and content/ContentArticle are org-scoped content
+--   - training/TrainingSession is the primary runtime entity
+--   - content/AssessmentResult and flight/FlightHourLog capture outcomes
+--
+-- Config values:
+--   max_seats_per_org: Integer = 50
+--   default_session_timeout: Duration = 30.minutes
+--   invitation_expiry: Duration = 7.days
+--
+-- Open questions:
+--   - Should flight plans require a linked scenario, or be independent?
+--   - Should instructor ratings be public within the org?
+--   - Should leaderboard snapshots be auto-generated or on-demand?

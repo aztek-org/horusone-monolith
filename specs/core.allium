@@ -1,0 +1,190 @@
+-- Core domain: identity, tenancy, and access control
+-- See: training.allium, content.allium, assessment.allium, flight.allium
+
+config {
+    max_seats_per_org: Integer = 50
+    default_session_timeout: Duration = 30.minutes
+    invitation_expiry: Duration = 7.days
+}
+
+-- ---------------------------------------------------------------------------
+-- Entities
+-- ---------------------------------------------------------------------------
+
+entity Organization {
+    slug: String
+    name: String
+    status: active | suspended | archived
+
+    seats: Seat with organization = this
+    scenarios: Scenario with org = this
+    training_modules: TrainingModule with org = this
+    content_articles: ContentArticle with org = this
+    knowledge_assessments: KnowledgeAssessment with org = this
+    flight_plans: FlightPlan with org = this
+    leaderboard_snapshots: LeaderboardSnapshot with org = this
+
+    active_seats: seats where status = active
+    seat_count: active_seats.count
+
+    transitions status {
+        active -> suspended
+        active -> archived
+        suspended -> active
+        suspended -> archived
+        terminal: archived
+    }
+}
+
+entity User {
+    keycloak_id: String
+    email: String
+    preferred_username: String
+    email_verified: Boolean
+    status: active | inactive | banned
+
+    seat: Seat? with user = this
+    preferences: UserPreferences? with user = this
+    stats: StudentStats? with user = this
+    instructor_profile: InstructorProfile? with user = this
+    training_sessions: TrainingSession with user = this
+    flight_plans: FlightPlan with user = this
+    flight_hour_logs: FlightHourLog with user = this
+    assessment_results: AssessmentResult with user = this
+    user_badges: UserBadge with user = this
+    maneuver_logs: ManeuverLog with user = this
+
+    is_platform_admin: not exists seat
+    org: seat.organization
+    role: seat.role
+
+    transitions status {
+        active -> inactive
+        active -> banned
+        inactive -> active
+        terminal: banned
+    }
+}
+
+entity Seat {
+    user: User
+    organization: Organization
+    role: admin | instructor | student
+    status: active | revoked | pending
+
+    transitions status {
+        pending -> active
+        pending -> revoked
+        active -> revoked
+        terminal: revoked
+    }
+}
+
+entity UserPreferences {
+    user: User
+    notification_setting: NotificationSetting
+    digest_enabled: Boolean = false
+    timezone: String = "UTC"
+    ui_theme: light | dark | system = system
+}
+
+value NotificationSetting {
+    email_enabled: Boolean
+    push_enabled: Boolean
+    digest_enabled: Boolean
+}
+
+-- ---------------------------------------------------------------------------
+-- Rules
+-- ---------------------------------------------------------------------------
+
+rule SeatInvitationAccepted {
+    when: seat: Seat.status transitions_to active
+    requires: seat.status was pending
+    ensures:
+        seat.user.status = active
+}
+
+rule SeatRevoked {
+    when: seat: Seat.status transitions_to revoked
+    ensures:
+        for session in seat.user.training_sessions where status = active:
+            session.status = terminated
+}
+
+rule OrganizationArchived {
+    when: org: Organization.status transitions_to archived
+    ensures:
+        for seat in org.seats where status != revoked:
+            seat.status = revoked
+        for scenario in org.scenarios where status = published:
+            scenario.status = archived
+        for module in org.training_modules where status = active:
+            module.status = archived
+}
+
+rule UserBanned {
+    when: user: User.status transitions_to banned
+    requires: exists user.seat
+    ensures:
+        user.seat.status = revoked
+        for session in user.training_sessions where status = active:
+            session.status = terminated
+}
+
+-- ---------------------------------------------------------------------------
+-- Invariants
+-- ---------------------------------------------------------------------------
+
+invariant UniqueOrgSlug {
+    for org1 in Organizations, org2 in Organizations:
+        org1 != org2 implies org1.slug != org2.slug
+}
+
+invariant OneActiveSeatPerUser {
+    for user in Users:
+        user.seat_count <= 1
+    where user.seat_count = (user.seats where status = active).count
+}
+
+invariant PlatformAdminHasNoSeat {
+    for user in Users:
+        user.is_platform_admin implies not exists user.seat
+}
+
+-- ---------------------------------------------------------------------------
+-- Surfaces
+-- ---------------------------------------------------------------------------
+
+surface OrgManagement {
+    facing actor: OrgAdmin
+    identified_by: seat.organization
+    within: Organization
+
+    context org: Organization where slug = seat.organization.slug
+
+    exposes:
+        org.name
+        org.status
+        org.seat_count
+        for s in org.active_seats:
+            s.user.email
+            s.user.preferred_username
+            s.role
+            s.status
+
+    provides:
+        InviteSeat(email: String, role: admin | instructor | student)
+            when org.status = active and org.seat_count < config.max_seats_per_org
+
+        RevokeSeat(seat: Seat)
+            when seat.organization = org and seat.status = active
+
+        UpdateSeatRole(seat: Seat, role: admin | instructor | student)
+            when seat.organization = org and seat.status = active
+
+    related:
+        ScenarioManagement(org)
+        ContentManagement(org)
+        AssessmentManagement(org)
+}

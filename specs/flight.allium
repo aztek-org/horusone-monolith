@@ -1,0 +1,197 @@
+-- Flight planning domain: flight plans, legs, waypoints, and performance logs
+
+use "./core.allium" as core
+use "./training.allium" as training
+
+-- ---------------------------------------------------------------------------
+-- Entities
+-- ---------------------------------------------------------------------------
+
+entity FlightPlan {
+    user: User
+    org: Organization
+    scenario: Scenario?
+    title: String
+    status: draft | filed | active | completed | cancelled
+    created_at: Timestamp
+    activated_at: Timestamp?
+    completed_at: Timestamp?
+
+    legs: FlightPlanLeg with flight_plan = this
+
+    total_distance_nm: Decimal?
+    estimated_duration_minutes: Integer?
+
+    transitions status {
+        draft -> filed
+        filed -> active
+        active -> completed
+        active -> cancelled
+        filed -> cancelled
+        terminal: completed, cancelled
+    }
+}
+
+entity FlightPlanLeg {
+    flight_plan: FlightPlan
+    sequence: Integer
+    departure: Waypoint
+    arrival: Waypoint
+    distance_nm: Decimal?
+    estimated_time_minutes: Integer?
+    altitude_ft: Integer?
+}
+
+entity FlightHourLog {
+    user: User
+    session: TrainingSession?
+    duration_minutes: Integer
+    scenario_type: Scenario.scenario_type
+    logged_at: Timestamp
+}
+
+entity FlightInsight {
+    session: TrainingSession
+    summary: String
+    strengths: List<String>
+    weaknesses: List<String>
+    icao_accuracy_score: Integer?
+    communication_score: Integer?
+    situational_awareness_score: Integer?
+    generated_at: Timestamp
+}
+
+entity ManeuverLog {
+    user: User
+    session: TrainingSession
+    maneuver_type: String
+    start_time: Timestamp
+    end_time: Timestamp?
+    performance_score: Integer?
+    notes: String?
+}
+
+entity SessionTrack {
+    session: TrainingSession
+    track_data: List<VoiceLog>
+    replay_available: Boolean = true
+    expires_at: Timestamp?
+}
+
+-- ---------------------------------------------------------------------------
+-- Rules
+-- ---------------------------------------------------------------------------
+
+rule FlightPlanActivated {
+    when: plan: FlightPlan.status transitions_to active
+    requires: plan.status was filed
+    ensures:
+        plan.activated_at = now
+}
+
+rule FlightPlanCompleted {
+    when: plan: FlightPlan.status transitions_to completed
+    requires: plan.status was active
+    ensures:
+        plan.completed_at = now
+        FlightHourLog.created(
+            user: plan.user,
+            duration_minutes: plan.estimated_duration_minutes,
+            scenario_type: plan.scenario.scenario_type,
+            logged_at: now
+        )
+}
+
+rule FlightInsightGenerated {
+    when: insight: FlightInsight.created
+    requires: insight.session.status = completed
+    ensures:
+        insight.generated_at = now
+        insight.icao_accuracy_score >= 0
+        insight.icao_accuracy_score <= 100
+}
+
+rule SessionTrackExpired {
+    when: track: SessionTrack where expires_at <= now
+    requires: track.replay_available = true
+    ensures:
+        track.replay_available = false
+}
+
+rule ManeuverLogClosed {
+    when: log: ManeuverLog where end_time != null
+    requires: log.end_time > log.start_time
+    ensures:
+        log.performance_score >= 0
+        log.performance_score <= 100
+}
+
+-- ---------------------------------------------------------------------------
+-- Surfaces
+-- ---------------------------------------------------------------------------
+
+surface FlightPlanningSurface {
+    facing actor: Student
+    identified_by: user
+
+    context user: User where this = actor
+
+    exposes:
+        for plan in user.flight_plans:
+            plan.title
+            plan.status
+            plan.created_at
+            plan.total_distance_nm
+            plan.legs.count
+
+    provides:
+        CreateFlightPlan(title: String, scenario: Scenario?)
+
+        FileFlightPlan(plan: FlightPlan)
+            when plan.user = user and plan.status = draft
+
+        ActivateFlightPlan(plan: FlightPlan)
+            when plan.user = user and plan.status = filed
+
+        CompleteFlightPlan(plan: FlightPlan)
+            when plan.user = user and plan.status = active
+
+        CancelFlightPlan(plan: FlightPlan)
+            when plan.user = user and plan.status in {filed, active}
+
+        AddLeg(plan: FlightPlan, departure: Waypoint, arrival: Waypoint, sequence: Integer)
+            when plan.user = user and plan.status = draft
+
+    related:
+        StudentDashboard(actor)
+        TrainingSessionSurface(actor)
+}
+
+surface FlightInsightsSurface {
+    facing actor: Student | Instructor
+    identified_by: user
+
+    context session: TrainingSession where user = actor or user.seat.role = instructor
+
+    exposes:
+        session.scenario.title
+        session.started_at
+        session.ended_at
+        session.flight_insights.summary
+        session.flight_insights.strengths
+        session.flight_insights.weaknesses
+        session.flight_insights.icao_accuracy_score
+        session.flight_insights.communication_score
+        session.flight_insights.situational_awareness_score
+        for log in session.maneuver_logs:
+            log.maneuver_type
+            log.performance_score
+            log.notes
+
+    provides:
+        ViewReplay(session: TrainingSession)
+            when session.session_track.replay_available = true
+
+    related:
+        StudentDashboard(actor)
+}

@@ -1,0 +1,252 @@
+-- Content and assessment domain: articles, quizzes, and flight planning
+
+use "./core.allium" as core
+use "./training.allium" as training
+
+-- ---------------------------------------------------------------------------
+-- Entities
+-- ---------------------------------------------------------------------------
+
+entity ContentCategory {
+    name: String
+    description: String
+    sort_order: Integer
+}
+
+entity ContentArticle {
+    org: Organization
+    category: ContentCategory
+    author: User
+    title: String
+    body: String
+    status: draft | published | archived
+    published_at: Timestamp?
+    reading_time_minutes: Integer?
+
+    transitions status {
+        draft -> published
+        published -> archived
+        draft -> archived
+        terminal: archived
+    }
+}
+
+entity KnowledgeAssessment {
+    org: Organization
+    module: TrainingModule
+    created_by: User
+    title: String
+    description: String
+    passing_score: Integer = 70
+    time_limit_minutes: Integer?
+    status: draft | active | archived
+
+    results: AssessmentResult with assessment = this
+
+    transitions status {
+        draft -> active
+        active -> archived
+        draft -> archived
+        terminal: archived
+    }
+}
+
+entity AssessmentResult {
+    user: User
+    assessment: KnowledgeAssessment
+    score: Integer
+    status: pending | passed | failed
+    completed_at: Timestamp?
+    answers: List<Answer>
+
+    transitions status {
+        pending -> passed
+        pending -> failed
+        terminal: passed, failed
+    }
+}
+
+value Answer {
+    question_id: String
+    selected_option: String
+    is_correct: Boolean
+}
+
+entity Badge {
+    name: String
+    description: String
+    icon_url: String
+    criteria: String
+    rarity: common | uncommon | rare | epic
+}
+
+entity UserBadge {
+    user: User
+    badge: Badge
+    awarded_at: Timestamp
+    context: String?
+}
+
+entity StudentStats {
+    user: User
+    total_sessions: Integer = 0
+    total_flight_hours: Decimal = 0.0
+    assessments_passed: Integer = 0
+    assessments_failed: Integer = 0
+    average_score: Decimal?
+    current_streak: Integer = 0
+    longest_streak: Integer = 0
+    last_activity_at: Timestamp?
+
+    success_rate: assessments_passed / (assessments_passed + assessments_failed)
+}
+
+entity LeaderboardSnapshot {
+    org: Organization
+    period: weekly | monthly | all_time
+    generated_at: Timestamp
+
+    entries: List<LeaderboardEntry>
+}
+
+value LeaderboardEntry {
+    rank: Integer
+    user: User
+    score: Integer
+    sessions_completed: Integer
+    flight_hours: Decimal
+}
+
+-- ---------------------------------------------------------------------------
+-- Rules
+-- ---------------------------------------------------------------------------
+
+rule AssessmentSubmitted {
+    when: result: AssessmentResult.status transitions_to passed
+           or result: AssessmentResult.status transitions_to failed
+    requires: result.status was pending
+    ensures:
+        result.completed_at = now
+        result.status = passed if result.score >= result.assessment.passing_score
+        result.status = failed if result.score < result.assessment.passing_score
+}
+
+rule StudentStatsUpdated {
+    when: result: AssessmentResult.status transitions_to passed
+    let stats = result.user.stats
+    ensures:
+        stats.assessments_passed = stats.assessments_passed + 1
+        stats.last_activity_at = now
+        if stats.current_streak > stats.longest_streak:
+            stats.longest_streak = stats.current_streak
+}
+
+rule StudentStatsUpdatedOnFail {
+    when: result: AssessmentResult.status transitions_to failed
+    let stats = result.user.stats
+    ensures:
+        stats.assessments_failed = stats.assessments_failed + 1
+        stats.current_streak = 0
+        stats.last_activity_at = now
+}
+
+rule BadgeAwarded {
+    when: stats: StudentStats.current_streak becomes 7
+    ensures:
+        UserBadge.created(
+            user: stats.user,
+            badge: Badge where name = "Week Warrior",
+            awarded_at: now,
+            context: "7-day streak"
+        )
+}
+
+rule LeaderboardGenerated {
+    when: snapshot: LeaderboardSnapshot.created
+    requires: snapshot.period = weekly implies day_of_week(now) = Monday
+    ensures:
+        snapshot.generated_at = now
+        snapshot.entries.count >= 0
+}
+
+-- ---------------------------------------------------------------------------
+-- Surfaces
+-- ---------------------------------------------------------------------------
+
+surface StudentDashboard {
+    facing actor: Student
+    identified_by: user
+
+    context user: User where this = actor
+
+    exposes:
+        user.preferred_username
+        user.stats.total_sessions
+        user.stats.total_flight_hours
+        user.stats.average_score
+        user.stats.current_streak
+        user.stats.success_rate
+        for badge in user.user_badges:
+            badge.badge.name
+            badge.badge.icon_url
+            badge.awarded_at
+
+    provides:
+        ViewLeaderboard(period: weekly | monthly | all_time)
+
+    related:
+        TrainingSessionSurface(actor)
+        FlightPlanningSurface(actor)
+}
+
+surface ContentManagement {
+    facing actor: Instructor | OrgAdmin
+    identified_by: seat.organization
+    within: Organization
+
+    context org: Organization
+
+    exposes:
+        for article in org.content_articles:
+            article.title
+            article.category.name
+            article.status
+            article.author.email
+            article.published_at
+
+    provides:
+        CreateArticle(title: String, category: ContentCategory)
+            when org.status = active
+
+        PublishArticle(article: ContentArticle)
+            when article.org = org and article.status = draft
+
+        ArchiveArticle(article: ContentArticle)
+            when article.org = org and article.status = published
+
+    related:
+        OrgManagement(org)
+}
+
+surface AssessmentSurface {
+    facing actor: Student
+    identified_by: user
+
+    context assessment: KnowledgeAssessment
+
+    exposes:
+        assessment.title
+        assessment.description
+        assessment.passing_score
+        assessment.time_limit_minutes
+
+    provides:
+        StartAssessment()
+            when not exists AssessmentResult where user = actor and assessment = assessment and status = pending
+
+        SubmitAssessment(answers: List<Answer>)
+            when exists AssessmentResult where user = actor and assessment = assessment and status = pending
+
+    related:
+        StudentDashboard(actor)
+}

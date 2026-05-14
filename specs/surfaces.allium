@@ -1,0 +1,177 @@
+-- API boundary surfaces for the Horus platform
+-- Defines the contract between frontend apps and the backend
+
+use "./core.allium" as core
+use "./training.allium" as training
+use "./content.allium" as content
+use "./flight.allium" as flight
+
+-- ---------------------------------------------------------------------------
+-- Actor declarations
+-- ---------------------------------------------------------------------------
+
+actor Student {
+    identified_by: User where role = student
+}
+
+actor Instructor {
+    identified_by: User where role = instructor
+}
+
+actor OrgAdmin {
+    identified_by: User where role = admin
+}
+
+actor PlatformAdmin {
+    identified_by: User where is_platform_admin = true
+}
+
+-- ---------------------------------------------------------------------------
+-- Platform admin surface (Squawk)
+-- ---------------------------------------------------------------------------
+
+surface SquawkAdmin {
+    facing actor: PlatformAdmin
+    identified_by: user
+
+    exposes:
+        for org in Organizations:
+            org.slug
+            org.name
+            org.status
+            org.seat_count
+
+    provides:
+        CreateOrganization(slug: String, name: String)
+        SuspendOrganization(org: Organization)
+            when org.status = active
+        ArchiveOrganization(org: Organization)
+            when org.status in {active, suspended}
+        ViewSystemMetrics()
+
+    related:
+        UserManagement(actor)
+}
+
+surface UserManagement {
+    facing actor: PlatformAdmin
+    identified_by: user
+
+    exposes:
+        for user in Users:
+            user.email
+            user.status
+            user.keycloak_id
+            user.is_platform_admin
+            user.org?.slug
+            user.role
+
+    provides:
+        BanUser(user: User)
+            when user.status = active
+        UnbanUser(user: User)
+            when user.status = banned
+
+    related:
+        SquawkAdmin(actor)
+}
+
+-- ---------------------------------------------------------------------------
+-- Instructor surface (Tower)
+-- ---------------------------------------------------------------------------
+
+surface InstructorDashboard {
+    facing actor: Instructor
+    identified_by: user
+    within: Organization
+
+    context org: Organization where slug = user.org.slug
+
+    exposes:
+        for session in TrainingSession where org = org:
+            session.user.email
+            session.scenario.title
+            session.status
+            session.started_at
+            session.completion_percentage
+
+        for plan in FlightPlan where org = org:
+            plan.user.email
+            plan.title
+            plan.status
+
+    provides:
+        ViewStudentProgress(student: User)
+            when student.org = org and student.role = student
+        ViewSessionReplay(session: TrainingSession)
+            when session.org = org
+
+    related:
+        ScenarioManagement(org)
+        ContentManagement(org)
+        FlightInsightsSurface(actor)
+}
+
+-- ---------------------------------------------------------------------------
+-- Student surface (Hangar)
+-- ---------------------------------------------------------------------------
+
+surface HangarApp {
+    facing actor: Student
+    identified_by: user
+
+    context user: User where this = actor
+
+    exposes:
+        user.preferred_username
+        user.org.name
+        user.stats
+        for module in user.org.training_modules where status = active:
+            module.title
+            module.scenarios.count
+        for scenario in user.org.scenarios where status = published:
+            scenario.title
+            scenario.scenario_type
+            scenario.difficulty
+
+    provides:
+        StartTraining(scenario: Scenario)
+            when scenario.org = user.org and scenario.status = published
+
+    related:
+        StudentDashboard(actor)
+        TrainingSessionSurface(actor)
+        FlightPlanningSurface(actor)
+        AssessmentSurface(actor)
+}
+
+-- ---------------------------------------------------------------------------
+-- Integration contracts
+-- ---------------------------------------------------------------------------
+
+contract AuthContract {
+    authenticate: (token: String) -> User
+    authorize: (user: User, action: String, resource: String) -> Boolean
+
+    @invariant TokenValidation
+        -- Tokens are validated against Keycloak issuer.
+        -- Invalid or expired tokens reject the request.
+}
+
+contract VoicePipelineContract {
+    process_audio: (audio: ByteArray, context: SessionContext) -> VoiceResponse
+    stream_response: (response: VoiceResponse) -> AudioStream
+
+    @invariant LatencyBound
+        -- End-to-end latency from audio submission to TTS playback
+        -- must not exceed 5 seconds under normal load.
+}
+
+contract EventStreamContract {
+    publish: (event: DomainEvent) -> Unit
+    subscribe: (eventType: String, handler: EventHandler) -> Subscription
+
+    @invariant AtLeastOnce
+        -- Events are delivered at least once.
+        -- Consumers must handle idempotency.
+}

@@ -1,0 +1,241 @@
+-- Training domain: scenarios, sessions, voice pipeline, and curriculum
+
+use "./core.allium" as core
+
+-- ---------------------------------------------------------------------------
+-- Entities
+-- ---------------------------------------------------------------------------
+
+entity Scenario {
+    org: Organization
+    created_by: User
+    title: String
+    description: String
+    scenario_type: ground | departure | enroute | approach | landing
+    status: draft | published | archived
+    difficulty: beginner | intermediate | advanced
+    icao_phraseology: Boolean = true
+
+    waypoints: ScenarioWaypoint with scenario = this
+    sessions: TrainingSession with scenario = this
+    modules: TrainingModule via module_scenarios
+
+    transitions status {
+        draft -> published
+        published -> archived
+        draft -> archived
+        terminal: archived
+    }
+}
+
+entity Waypoint {
+    identifier: String
+    latitude: Decimal
+    longitude: Decimal
+    altitude: Integer?
+    waypoint_type: fix | airport | navaid | intersection
+}
+
+entity ScenarioWaypoint {
+    scenario: Scenario
+    waypoint: Waypoint
+    sequence: Integer
+}
+
+entity TrainingModule {
+    org: Organization
+    created_by: User
+    title: String
+    description: String
+    status: draft | active | archived
+
+    scenarios: Scenario via module_scenarios
+    assessments: KnowledgeAssessment with module = this
+
+    transitions status {
+        draft -> active
+        active -> archived
+        draft -> archived
+        terminal: archived
+    }
+}
+
+entity ModuleScenario {
+    module: TrainingModule
+    scenario: Scenario
+}
+
+entity TrainingSession {
+    user: User
+    org: Organization
+    scenario: Scenario
+    status: pending | active | paused | completed | terminated
+    started_at: Timestamp?
+    ended_at: Timestamp?
+    completion_percentage: Decimal = 0.0
+
+    voice_logs: VoiceLog with session = this
+    flight_hour_log: FlightHourLog? with session = this
+    flight_insights: FlightInsight? with session = this
+    session_track: SessionTrack? with session = this
+    maneuver_logs: ManeuverLog with session = this
+
+    is_active: status = active
+    duration: ended_at - started_at
+
+    transitions status {
+        pending -> active
+        active -> paused
+        paused -> active
+        active -> completed
+        active -> terminated
+        paused -> terminated
+        terminal: completed, terminated
+    }
+}
+
+entity VoiceLog {
+    session: TrainingSession
+    sequence: Integer
+    speaker: student | atc_agent
+    transcript: String
+    audio_path: String
+    timestamp: Timestamp
+    latency_ms: Integer?
+    confidence: Decimal?
+}
+
+entity InstructorProfile {
+    user: User
+    bio: String?
+    certifications: List<String>
+    specialties: List<Scenario.scenario_type>
+    rating: Decimal?
+}
+
+-- ---------------------------------------------------------------------------
+-- Rules
+-- ---------------------------------------------------------------------------
+
+rule SessionStarted {
+    when: session: TrainingSession.status transitions_to active
+    requires: session.status was pending
+    ensures: session.started_at = now
+}
+
+rule SessionCompleted {
+    when: session: TrainingSession.status transitions_to completed
+    requires: session.status in {active, paused}
+    ensures:
+        session.ended_at = now
+        session.completion_percentage = 100.0
+        FlightHourLog.created(
+            user: session.user,
+            session: session,
+            duration_minutes: session.duration / 60,
+            scenario_type: session.scenario.scenario_type
+        )
+        SessionTrack.created(
+            session: session,
+            track_data: session.voice_logs
+        )
+}
+
+rule SessionTerminated {
+    when: session: TrainingSession.status transitions_to terminated
+    requires: session.status in {active, paused}
+    ensures: session.ended_at = now
+}
+
+rule VoiceLogRecorded {
+    when: log: VoiceLog.created
+    requires: log.session.status = active
+    ensures:
+        log.timestamp = now
+        log.sequence = (log.session.voice_logs.count) + 1
+}
+
+rule ScenarioPublished {
+    when: scenario: Scenario.status transitions_to published
+    requires: scenario.status was draft
+    ensures:
+        scenario.waypoints.count >= 2
+}
+
+rule ModuleActivated {
+    when: module: TrainingModule.status transitions_to active
+    requires: module.status was draft
+    ensures:
+        module.scenarios.count >= 1
+}
+
+-- ---------------------------------------------------------------------------
+-- Surfaces
+-- ---------------------------------------------------------------------------
+
+surface TrainingSessionSurface {
+    facing actor: Student
+    identified_by: user
+
+    context session: TrainingSession where user = actor
+
+    exposes:
+        session.scenario.title
+        session.scenario.scenario_type
+        session.status
+        session.started_at
+        session.completion_percentage
+        for log in session.voice_logs:
+            log.sequence
+            log.speaker
+            log.transcript
+            log.timestamp
+
+    provides:
+        StartSession(scenario: Scenario)
+            when not exists TrainingSession where user = actor and status = active
+
+        PauseSession()
+            when session.status = active
+
+        ResumeSession()
+            when session.status = paused
+
+        CompleteSession()
+            when session.status = active
+
+        SubmitVoice(audio: ByteArray)
+            when session.status = active
+
+    related:
+        StudentDashboard(actor)
+}
+
+surface ScenarioManagement {
+    facing actor: Instructor | OrgAdmin
+    identified_by: seat.organization
+    within: Organization
+
+    context org: Organization
+
+    exposes:
+        for scenario in org.scenarios:
+            scenario.title
+            scenario.scenario_type
+            scenario.status
+            scenario.difficulty
+            scenario.created_by.email
+
+    provides:
+        CreateScenario(title: String, scenario_type: Scenario.scenario_type)
+            when org.status = active
+
+        PublishScenario(scenario: Scenario)
+            when scenario.org = org and scenario.status = draft
+
+        ArchiveScenario(scenario: Scenario)
+            when scenario.org = org and scenario.status = published
+
+    related:
+        OrgManagement(org)
+}
