@@ -1,0 +1,1 @@
+{"nodes": [{"id": "ocr_service_OCRService", "label": "OCRService", "file_type": "code", "source_file": "backend/app/services/external/ocr_service.py", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}
