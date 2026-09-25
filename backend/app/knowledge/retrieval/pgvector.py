@@ -151,5 +151,6 @@ class PgVectorRetriever:
                 section=chunk.section,
                 char_start=chunk.char_start,
                 char_end=chunk.char_end,
+                source_filename=document.source_filename,
             ),
         )

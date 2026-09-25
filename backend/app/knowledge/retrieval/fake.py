@@ -20,7 +20,14 @@ class FakeRetriever:
         self._chunks.append(chunk)
 
     async def search(self, query: RetrievalQuery) -> list[RetrievedChunk]:
-        """Return chunks matching the tenant, references, and query tokens."""
+        """Return chunks matching the tenant, references, and query tokens.
+
+        A ``knowledge_refs`` entry matches a chunk by document UUID, source
+        filename, or title — the same three forms ``PgVectorRetriever`` accepts.
+        The forms are kept in step deliberately: a Scene that names a document by
+        filename must behave identically against this adapter and against the
+        production one.
+        """
         query_tokens = set(_TOKEN_PATTERN.findall(query.query.lower()))
         candidates: list[tuple[float, RetrievedChunk]] = []
         for chunk in self._chunks:
@@ -29,6 +36,7 @@ class FakeRetriever:
             if query.knowledge_refs and not (
                 str(chunk.document_id) in query.knowledge_refs
                 or chunk.title in query.knowledge_refs
+                or chunk.source_filename in query.knowledge_refs
             ):
                 continue
             chunk_tokens = set(_TOKEN_PATTERN.findall(chunk.content.lower()))
@@ -48,6 +56,7 @@ class FakeRetriever:
                 section=chunk.section,
                 char_start=chunk.char_start,
                 char_end=chunk.char_end,
+                source_filename=chunk.source_filename,
             )
             for score, chunk in candidates[: query.top_k]
         ]

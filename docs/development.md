@@ -67,11 +67,12 @@ Horus uses a 5-layer architecture:
 
 ### LangGraph Multi-Agent System
 
-Horus uses a LangGraph `StateGraph` orchestrator with 3 sub-graphs and 9 specialized agents:
+Horus composes three `StateGraph` sub-graphs behind a single Session module
+(`TrainingSessionModule`) with 9 specialized agents:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         HorusOrchestrator                              │
+│                        TrainingSessionModule                            │
 ├─────────────────┬──────────────────────────┬────────────────────────────┤
 │  Validation     │  Live Session            │  Scoring                   │
 │  Graph          │  Graph                   │  Graph                     │
@@ -91,8 +92,21 @@ Horus uses a LangGraph `StateGraph` orchestrator with 3 sub-graphs and 9 special
 - **Live session graph** — per-exchange: classify input → emergency or LLM ATC → evaluate
 - **Scoring graph** — post-flight: student evaluation → badge awards → report generation
 
-The orchestrator supports **human-in-the-loop (HITL)** — instructors can interrupt and
-override AI responses before they reach the student.
+`HorusOrchestrator`, which used to compose these, was retired; `ATCAgent` remains
+as a thin adapter for the `AudioPipeline` interface. See
+[ADR-006](architecture/ADR-006-scene-session-and-persistent-langgraph.md).
+
+**Human-in-the-loop (HITL) is built and deliberately switched off.** The live
+graph can be compiled to pause before the ATC response and before the emergency
+handler, and `TrainingSessionModule.await_instructor()` can release a held
+exchange with the instructor's own words or with the graph's — with the pending
+state checkpointed, so a review survives a restart. But no config field sets
+`interrupt_before_response`, no route calls `await_instructor`, and the frontend
+renders no pending state, so **no deployment has instructor override available**.
+Turning it on needs all three; tracked in
+[#3](https://github.com/martinsgmx/horusone-mvp/issues/3). Don't debug HITL as if
+it were live: if you are reading this expecting to override a response, the flag
+is `False` and the path is unreachable.
 
 📖 Full details: [ADR-004: LangGraph Multi-Agent Architecture](architecture/ADR-004-langgraph-multi-agent.md)
 

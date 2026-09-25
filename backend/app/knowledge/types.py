@@ -43,7 +43,16 @@ class RetrievalQuery:
 
 @dataclass(frozen=True)
 class RetrievedChunk:
-    """A citation-ready chunk returned by a retriever."""
+    """A citation-ready chunk returned by a retriever.
+
+    ``source_filename`` is the uploaded file's name, carried on the result so
+    every retriever can answer the same ``RetrievalQuery.knowledge_refs``
+    question: a reference is a document UUID, a source filename, or a document
+    title.  It defaults to ``""`` so a retriever that cannot name a source is
+    not forced to invent one, but a retriever that *can* must populate it —
+    otherwise a Scene that references a document by filename resolves in
+    production and silently returns nothing in development.
+    """
 
     chunk_id: uuid.UUID
     document_id: uuid.UUID
@@ -55,6 +64,7 @@ class RetrievedChunk:
     section: str | None
     char_start: int
     char_end: int
+    source_filename: str = ""
 
 
 class KnowledgeRetriever(Protocol):

@@ -135,14 +135,19 @@ class _QueryStringScrubber(SpanProcessor):
     **Values** follow from the classification. An attribute whose name is wholly
     caller text is deleted: it is free text with no URL prefix to keep, and the
     usual case -- a runtime-formatted exception message -- has no delimiter to
-    truncate at. That is a blunt instrument while product code still interpolates
+    truncate at. The ``message`` term is broader than the exception case it was
+    written for: it also removes ``error.message`` and ``log.record.message``, so
+    an OTel Logs bridge over these spans loses the log body, not only the
+    exception text. That is a blunt instrument while product code still
+    interpolates
     request text into its errors, which is why
     :func:`configure_telemetry` says so in the deploy log; an exception message
     built from constants and the exception type could be kept instead. Any other
     matched value keeps only the prefix before a literal or percent-encoded
     query/fragment delimiter. A numeric matched value is left alone, because a
-    number cannot contain a delimiter: that is what keeps ``net.host.port``,
-    ``server.port`` and ``client.port`` in the span, and the three host attributes
+    number cannot contain a delimiter: that single type test is the *only* reason
+    ``net.host.port``, ``server.port`` and ``client.port`` stay in the span, and
+    the three host attributes
     that really do carry caller text -- ``http.host``, ``http.server_name`` and
     ``http.user_agent`` -- are strings, so they stay fully covered. A matched
     value in any other shape, or a sequence containing a non-string, is deleted
@@ -445,6 +450,13 @@ def _warn_exception_text_is_removed() -> None:
     The removal is a real observability cost, and an engineer has to learn it
     from the log of the deployment they are looking at -- never from the trace
     that stopped being useful during an incident.
+
+    The message names ``exception.message`` because that is the carrier that
+    actually exists today, but the policy is by *name token*: the
+    ``message`` term also removes ``error.message`` and
+    ``log.record.message``, so an OTel Logs bridge over these spans loses the
+    log body as well as the exception text.  Anyone reading a trace expecting
+    the log line that explained it should read the application log.
     """
     logger.warning(
         "telemetry privacy policy: exception.message and exception.stacktrace are "

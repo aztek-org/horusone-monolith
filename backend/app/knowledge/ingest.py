@@ -46,6 +46,17 @@ class KnowledgeIngestor:
 
         The caller owns the transaction boundary. Quota validation deliberately
         happens before the embedding provider is called.
+
+        **A failed ingest leaves no durable trace by default.** The ``failed``
+        ``IngestEvent`` added in the ``except`` branch is only ever flushed on
+        the caller's session, and the caller re-raises and rolls back, so the
+        audit row is discarded along with the partial document and chunks. That
+        is the correct behaviour for the document -- there is nothing half-written
+        to keep -- but it means "failed ingests are audited" is not true of a
+        caller that owns the transaction. To make the failure survive, commit the
+        failure event on its own connection, outside the caller's transaction, or
+        log it where the transaction cannot reach it. See
+        ``docs/knowledge/INGEST.md`` for the operator-facing statement.
         """
         text, hints = extract_text(upload.source_filename, upload.content)
         spans = chunk_document(

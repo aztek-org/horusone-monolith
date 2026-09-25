@@ -73,13 +73,68 @@ therefore see its own chunks and platform-wide chunks, never another tenant's
 chunks. This predicate belongs in the database query; callers must not be
 trusted to perform isolation themselves.
 
-## Chroma as a local adapter
+## A failed ingest leaves no audit row
 
-`FakeRetriever` is the in-process adapter used outside production and for
-route tests. Chroma can be used as a local development adapter behind the same
-`KnowledgeRetriever.search()` seam: persist the same chunk text, vector,
-organization, publication, and citation offsets in a local Chroma collection,
-then apply the same tenant/publication/reference predicates before returning
-results. Production remains PostgreSQL + pgvector so the durable system of
-record and the HNSW operator workflow stay centralized. Chroma is not a second
-source of truth and must not bypass the query-level tenant gate.
+This is the one thing about the path that is easy to assume and is not true.
+
+`ingest()` catches an exception after `db.flush()` has given the `ContentDocument`
+an id, adds a `failed` `IngestEvent` carrying the error text, and re-raises. It
+does **not** commit. The caller owns the transaction, and the HTTP upload path's
+session dependency does this on the way out:
+
+```python
+try:
+    yield session
+    await session.commit()
+except Exception:
+    await session.rollback()   # app/db/session.py
+    raise
+```
+
+`ingest()` re-raises, so the dependency rolls back, and the `failed` row is
+discarded along with the half-written document and its chunks. After a failed
+upload, `ingest_events` contains **nothing at all** — not a `succeeded` row and
+not a `failed` one. That is the right call for the document: a rolled-back
+document is a document that never existed, and a `failed` row pointing at a
+`content_documents` id that no longer exists would be a dangling reference.
+
+It does mean **"every ingest is audited" is false today**, and the only durable
+record of a failed upload is the application log. Two ways to change that, if the
+audit trail is required:
+
+1. Commit the failure event on its own connection, outside the caller's
+   transaction — a second short-lived session that inserts only the
+   `ingest_events` row. The document row must not be part of that transaction, so
+   the `document_id` foreign key has to be satisfied by something, or made
+   nullable for the failure case.
+2. Keep the single transaction and make failure a recorded outcome rather than a
+   raised one: return an `IngestResult(status="failed")` and let the caller
+   decide. That changes the interface, so it is a real design decision rather
+   than a bug fix.
+
+Until one of those is done, an operator investigating "why did my upload not
+appear" reads the log, not the table.
+
+## The local adapter
+
+`FakeRetriever` (`backend/app/knowledge/retrieval/fake.py`) is the in-process
+retriever used outside production and for route tests. It is an in-memory list
+with deterministic token-overlap scoring. It satisfies the same
+`KnowledgeRetriever.search()` seam as `PgVectorRetriever`, and the two are held
+to the same contract: both accept a `knowledge_refs` entry as a document UUID, a
+source filename, or a document title, so a Scene that names a document by
+filename resolves identically in development and in production. That parity is
+asserted from both sides —
+`backend/tests/unit/knowledge/test_retriever_reference_contract.py` covers the
+fake, and `backend/tests/unit/knowledge/test_pgvector_retriever.py` asserts that
+the pgvector compiled SQL carries `source_filename IN` and `title IN`.
+
+There is **no Chroma in this repository.** Not in `backend/pyproject.toml`, not
+in `backend/uv.lock`, not under `backend/app/`. A local vector store can be put
+behind the same seam — persist the same chunk text, vector, organization,
+publication, and citation offsets, then apply the same
+tenant/publication/reference predicates before returning results — and it must
+not become a second source of truth or bypass the query-level tenant gate. But
+describing that as "the local adapter" describes an aspiration, not a shipped
+adapter. Production remains PostgreSQL + pgvector, so the durable system of
+record and the HNSW operator workflow stay centralized.

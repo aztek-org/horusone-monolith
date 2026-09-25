@@ -44,16 +44,17 @@ header — and the earlier ADR links forward.
 | Scene and Session are distinct concepts | [ADR-006](ADR-006-scene-session-and-persistent-langgraph.md) | `CONTEXT.md` (the glossary) |
 | 1000-token / 150-token chunking contract | [ADR-008](ADR-008-tenant-scoped-knowledge-and-pgvector-retrieval.md) | `docs/knowledge/INGEST.md` |
 | 768-dimension embedding lock | [ADR-008](ADR-008-tenant-scoped-knowledge-and-pgvector-retrieval.md) | `docs/knowledge/INGEST.md` |
-| A shipped default that disagrees with an accepted decision is a defect | [ADR-009](ADR-009-opentelemetry-and-postgres-trace.md) | [ADR-007](ADR-007-llm-provider-adapters.md) |
+| A shipped default that disagrees with an accepted decision is a defect — on every surface that ships the value, not only the code path | [ADR-009](ADR-009-opentelemetry-and-postgres-trace.md) | [ADR-007](ADR-007-llm-provider-adapters.md) |
 | Spans carry identifiers and timings, never product content | [ADR-009](ADR-009-opentelemetry-and-postgres-trace.md) | `backend/app/observability/telemetry.py` |
 | All SQL is parameterised | [ADR-002](ADR-002-database-postgresql.md) | [ADR-009](ADR-009-opentelemetry-and-postgres-trace.md) |
+| Instructor override (HITL) is built and deliberately switched off | [ADR-006](ADR-006-scene-session-and-persistent-langgraph.md) | [ADR-004](ADR-004-langgraph-multi-agent.md), `CONTEXT.md`, `docs/development.md`, issue [#3](https://github.com/martinsgmx/horusone-mvp/issues/3) |
 
 ## Operator manuals
 
 | Manual | Covers |
 |---|---|
-| [`docs/knowledge/INGEST.md`](../knowledge/INGEST.md) | Supported formats, the chunking contract, the dimension lock, quotas, publication, tenant isolation |
-| [`docs/knowledge/RETRIEVAL.md`](../knowledge/RETRIEVAL.md) | pgvector retrieval, HNSW operator workflow, hybrid/RRF search |
+| [`docs/knowledge/INGEST.md`](../knowledge/INGEST.md) | Supported formats, the chunking contract, the dimension lock, quotas, publication, tenant isolation, why a failed ingest leaves no audit row, the local adapter |
+| [`docs/knowledge/RETRIEVAL.md`](../knowledge/RETRIEVAL.md) | pgvector retrieval, hybrid/RRF search, the fact that **neither** leg ships an index, the HNSW operator workflow and why it must not be partial |
 | [`scene-config.example.yaml`](scene-config.example.yaml) | Scene authoring format consumed by `SCENES_PATH` |
 
 `docs/knowledge/INGEST.md` is itself a golden file:

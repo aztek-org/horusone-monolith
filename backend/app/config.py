@@ -151,52 +151,140 @@ class Settings(BaseSettings):
 
     @property
     def ollama_base_url(self) -> str:
-        """Temporary compatibility alias; remove when Tasks 2, 5, and 7 migrate consumers."""
+        """Flat alias for a grouped field; a live caller still reads this name.
+
+        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
+        7) are complete, so this shim is no longer scheduled for an
+        unfinished task — it is scheduled for the callers named below.
+
+        Read by: `app/api/v1/flight_plans.py:47`.
+
+        Four aliases now have no reader under `app/` at all —
+        `ollama_embedding_model`, `sample_rate`, `audio_format`, and
+        `chunk_size` are read only by tests and external scripts — and are the
+        first to go.
+        """
         return self.llm.base_url
 
     @property
     def ollama_llm_model(self) -> str:
-        """Temporary compatibility alias; remove when Tasks 2, 5, and 7 migrate consumers."""
+        """Flat alias for a grouped field; a live caller still reads this name.
+
+        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
+        7) are complete, so this shim is no longer scheduled for an
+        unfinished task — it is scheduled for the callers named below.
+
+        Read by: `app/api/v1/flight_plans.py:48`.
+
+        """
         return self.llm.model
 
     @property
     def ollama_embedding_model(self) -> str:
-        """Temporary compatibility alias; remove when Tasks 2, 5, and 7 migrate consumers."""
+        """Flat alias for a grouped field; a live caller still reads this name.
+
+        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
+        7) are complete, so this shim is no longer scheduled for an
+        unfinished task — it is scheduled for the callers named below.
+
+        Read by: no application caller left.
+
+        """
         return self.llm.embedding_model
 
     @property
     def sample_rate(self) -> int:
-        """Temporary compatibility alias; remove when Tasks 2, 5, and 7 migrate consumers."""
+        """Flat alias for a grouped field; a live caller still reads this name.
+
+        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
+        7) are complete, so this shim is no longer scheduled for an
+        unfinished task — it is scheduled for the callers named below.
+
+        Read by: no application caller left.
+
+        """
         return self.audio.sample_rate
 
     @property
     def chunk_size(self) -> int:
-        """Temporary compatibility alias; remove when Tasks 2, 5, and 7 migrate consumers."""
+        """Flat alias for a grouped field; a live caller still reads this name.
+
+        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
+        7) are complete, so this shim is no longer scheduled for an
+        unfinished task — it is scheduled for the callers named below.
+
+        Read by: no application caller left.
+
+        Name collision: this is the **audio** chunk size. The knowledge
+        chunk window is `settings.knowledge.chunk_size`, and that is what
+        `KnowledgeIngestor` reads (ADR-008). Pick the wrong one and the
+        wrong 1000 lands in `ingest_events.chunk_size`.
+        """
         return self.audio.chunk_size
 
     @property
     def audio_format(self) -> str:
-        """Temporary compatibility alias; remove when Tasks 2, 5, and 7 migrate consumers."""
+        """Flat alias for a grouped field; a live caller still reads this name.
+
+        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
+        7) are complete, so this shim is no longer scheduled for an
+        unfinished task — it is scheduled for the callers named below.
+
+        Read by: no application caller left.
+
+        """
         return self.audio.audio_format
 
     @property
     def enable_radio_effects(self) -> bool:
-        """Temporary compatibility alias; remove when Tasks 2, 5, and 7 migrate consumers."""
+        """Flat alias for a grouped field; a live caller still reads this name.
+
+        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
+        7) are complete, so this shim is no longer scheduled for an
+        unfinished task — it is scheduled for the callers named below.
+
+        Read by: `app/services/audio_effects/filters.py:34`.
+
+        """
         return self.audio.enable_radio_effects
 
     @property
     def noise_level(self) -> float:
-        """Temporary compatibility alias; remove when Tasks 2, 5, and 7 migrate consumers."""
+        """Flat alias for a grouped field; a live caller still reads this name.
+
+        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
+        7) are complete, so this shim is no longer scheduled for an
+        unfinished task — it is scheduled for the callers named below.
+
+        Read by: `app/services/audio_effects/filters.py:93`.
+
+        """
         return self.audio.noise_level
 
     @property
     def static_level(self) -> float:
-        """Temporary compatibility alias; remove when Tasks 2, 5, and 7 migrate consumers."""
+        """Flat alias for a grouped field; a live caller still reads this name.
+
+        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
+        7) are complete, so this shim is no longer scheduled for an
+        unfinished task — it is scheduled for the callers named below.
+
+        Read by: `app/services/audio_effects/filters.py:106`.
+
+        """
         return self.audio.static_level
 
     @property
     def log_level(self) -> str:
-        """Temporary compatibility alias; remove when Tasks 2, 5, and 7 migrate consumers."""
+        """Flat alias for a grouped field; a live caller still reads this name.
+
+        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
+        7) are complete, so this shim is no longer scheduled for an
+        unfinished task — it is scheduled for the callers named below.
+
+        Read by: `app/main.py:291`.
+
+        """
         return self.trace.log_level
 
     @property

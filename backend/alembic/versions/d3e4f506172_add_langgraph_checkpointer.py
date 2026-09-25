@@ -1,8 +1,13 @@
 """Add LangGraph Postgres checkpointer tables.
 
 The checkpointer schema is sourced from the installed
-``langgraph-checkpoint-postgres==3.0.5`` package rather than copied into this
-migration.
+``langgraph-checkpoint-postgres`` package rather than copied into this
+migration, so this file is only correct for the version actually resolved at
+install time.  ``pyproject.toml`` declares ``langgraph-checkpoint-postgres>=2.0.0``
+and ``uv.lock`` resolves that to ``3.0.5``; the statements executed below are
+whatever ``PostgresSaver.MIGRATIONS`` holds in the resolved version, not
+necessarily 3.0.5's.  Upgrading the package without re-reading its migrations is
+an unreviewed schema change.
 
 Revision ID: d3e4f506172
 Revises: c2d3e4f5061
@@ -25,7 +30,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    """Create the checkpointer schema from the pinned library migrations."""
+    """Create the checkpointer schema from the resolved library migrations."""
     # CREATE INDEX CONCURRENTLY in the library migrations cannot run inside
     # Alembic's transaction. Run the library statements independently, while
     # retaining the exact SQL supplied by the pinned package.

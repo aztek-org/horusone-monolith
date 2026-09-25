@@ -99,9 +99,55 @@ traceability, and the ability to run several backend processes.
 
 - A backend restart no longer destroys a live Session.
 - Multiple backend processes can serve the same Session.
-- Instructor override (HITL) becomes resumable and auditable.
 - Tests cross the same seam production uses: same interface, different checkpointer.
 - Citation and model provenance become queryable product data, not log scraping.
+- The instructor-override machinery exists, is checkpointed, and is covered by
+  tests — the hard part is done even though it is switched off.
+
+### Not yet exposed: instructor override (HITL)
+
+Instructor override is **built, well tested, and deliberately switched off.** It
+is not a capability of any running deployment, and this ADR previously listed it
+as a shipped Positive. See
+[#3](https://github.com/martinsgmx/horusone-mvp/issues/3) for the follow-up.
+
+What is real: `build_live_session_graph(..., interrupt_before_response=True)`
+compiles the live graph with `interrupt_before=["generate_atc_response",
+"emergency_handler"]`; `TrainingSessionModule.send()` detects the interrupt,
+persists `pending_instructor`, emits an `awaiting_instructor` event and returns
+`ExchangeResult(atc_response="", pending_instructor=True)`;
+`await_instructor(org_id, session_id, instructor_response=None)` releases the
+held exchange, recording `instructor_override` with `instructor_overridden=True`
+when text was supplied and `False` when the graph's own response was released;
+and the pending state is checkpointed, so it survives a backend restart.
+
+What is not real: **no route calls `await_instructor`** — `grep -rn
+await_instructor backend/app/api/` returns nothing — and **nothing sets the
+flag**. `interrupt_before_response` is a constructor argument of
+`TrainingSessionModule` (`app/services/training_sessions/session_module.py:61`)
+defaulting to `False`; the composition root `app/main.py:157-165` does not pass
+it, no `Settings` field sources it, and no `.env` template declares it.
+`ATCAgent` passes `False` explicitly. So in every deployment
+`instructor_overridden` is always `False` and the `awaiting_instructor` event is
+never emitted.
+
+**Turning it on is three pieces of work, not a flag flip:**
+
+1. a configuration field — a `Settings` key read at composition-root time and
+   passed as `interrupt_before_response`, guarded by the template/code-default
+   agreement test that ADR-009's "Shipped defaults are part of the contract"
+   requires for any new default;
+2. an authorized response route that calls `await_instructor`, behind the
+   existing active-seat check, the `instructor` seat role, and the tenant scoping
+   every other session route uses — today the method exists with no endpoint, so
+   a held exchange can never be released;
+3. a frontend pending state, because a held exchange returns an empty
+   `atc_response` and the pilot currently hears silence.
+
+Until all three land, do not describe HITL as available. Both failure directions
+are safety-relevant: a student pilot must never receive an AI response an
+instructor believed they had reviewed, and a session that stops responding with
+nothing to show for it is why the feature stays off.
 
 ### Negative
 
@@ -109,7 +155,9 @@ traceability, and the ability to run several backend processes.
 - The Session module is a larger interface surface than the current three
   orchestrator methods, and callers must learn `StartSessionCommand` /
   `SendTransmissionCommand` / `EndSessionCommand`.
-- HITL now has a real pending state, which the frontend must render.
+- HITL's pending state is the one part of this ADR the frontend has not been
+  asked to render, because HITL is switched off. That debt is deferred, not
+  paid.
 
 ### Neutral
 
