@@ -35,6 +35,10 @@ jobs:
 
   backend-test:
     name: Backend Tests
+    # Purpose: prove the default dependency set passes against a real, fully
+    # migrated database. Deliberately does NOT install the optional `otel`
+    # extra -- that is backend-test-otel's job. Keep the two jobs separate; see
+    # that job's comment before merging them.
     runs-on: ubuntu-latest
     needs: backend-lint
     defaults:
@@ -42,7 +46,11 @@ jobs:
         working-directory: backend
     services:
       postgres:
-        image: postgres:16-alpine
+        # Must be the pgvector build, not stock postgres. Alembic migration
+        # b1c2d3e4f506 runs `CREATE EXTENSION vector`, which fails with
+        # `ERROR: extension "vector" is not available` on a stock image. Keep
+        # this in step with backend/docker-compose.yml.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: horus
           POSTGRES_PASSWORD: horus
@@ -56,7 +64,18 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql+asyncpg://horus:horus@localhost:5432/horus_db
-      AUTH_ENABLED: "false"
+      # app.main's lifespan calls build_llm() at startup, so any test that boots
+      # the real app (e.g. the "shipped app produces a server span" test) raises
+      # `ValueError: Unknown LLM_PROVIDER ''` without these. The repo's .env is
+      # gitignored, so CI has to supply them explicitly.
+      LLM_PROVIDER: ollama
+      LLM_BASE_URL: http://localhost:11434
+      LLM_MODEL: llama3.2:3b
+      LLM_EMBEDDING_MODEL: nomic-embed-text
+      # Legacy alias. settings_loader._LEGACY_ENV still maps it to
+      # llm.base_url and it is applied after LLM_BASE_URL, so it wins on
+      # precedence -- both carry the same URL. Kept only because it was already
+      # here; prefer the canonical LLM_* names.
       OLLAMA_BASE_URL: http://localhost:11434
     steps:
       - uses: actions/checkout@v4
@@ -66,11 +85,82 @@ jobs:
       - name: Install uv
         run: pip install uv
       - name: Install dependencies
-        run: uv venv && uv pip install -e ".[dev]"
+        run: uv sync --extra dev
+      - name: Apply database migrations
+        # Must run before pytest. DATABASE_URL is set above, so the database
+        # tests execute rather than silently skip -- and they need
+        # content_documents, content_chunks, ingest_events and
+        # training_session_events, none of which exist without these migrations.
+        run: |
+          source .venv/bin/activate
+          alembic upgrade head
       - name: Run tests
         run: |
           source .venv/bin/activate
           pytest tests/ -v --tb=short
+
+  backend-test-otel:
+    name: Backend Tests (optional otel extra)
+    # Purpose: exercise the OTLP exporter path, which a default `uv sync` never
+    # installs. Without this job, test_otlp_endpoint_constructs_exporter_when_optional_extra_is_present
+    # is the suite's only skip and ADR-009:190-196's OTLP happy path is never
+    # executed anywhere.
+    #
+    # Deliberately NOT merged into backend-test. The two jobs assert opposite
+    # halves of the ADR-009 contract: this one proves traces CAN reach a
+    # collector when the extra is present, backend-test proves the app still
+    # works when it is absent. Folding them together would silently delete one
+    # half. Scoped to tests/unit/test_telemetry.py, which needs no database.
+    runs-on: ubuntu-latest
+    needs: backend-lint
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        # Same pgvector build as backend-test, for the same reason: the
+        # migrations this job applies include `CREATE EXTENSION vector`.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: horus
+          POSTGRES_PASSWORD: horus
+          POSTGRES_DB: horus_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # tests/unit/test_telemetry.py boots the real app, and app.main's lifespan
+      # builds a session factory, so DATABASE_URL must resolve to a real URL.
+      DATABASE_URL: postgresql+asyncpg://horus:horus@localhost:5432/horus_db
+      LLM_PROVIDER: ollama
+      LLM_BASE_URL: http://localhost:11434
+      LLM_MODEL: llama3.2:3b
+      LLM_EMBEDDING_MODEL: nomic-embed-text
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install uv
+        run: pip install uv
+      - name: Install dependencies with the optional otel extra
+        # `dev` is an extra, not a dependency-group, so it must be named
+        # explicitly or pytest never lands.
+        run: uv sync --extra dev --extra otel
+      - name: Apply database migrations
+        run: |
+          source .venv/bin/activate
+          alembic upgrade head
+      - name: Run telemetry tests
+        # Activate the venv rather than using `uv run`, which would re-sync to
+        # the default extras and uninstall the very package under test.
+        run: |
+          source .venv/bin/activate
+          pytest tests/unit/test_telemetry.py -v --tb=short
 
   frontend-lint:
     name: Frontend Lint
