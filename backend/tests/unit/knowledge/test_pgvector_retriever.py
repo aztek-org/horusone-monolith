@@ -1,3 +1,4 @@
+import re
 from types import SimpleNamespace
 from uuid import UUID
 
@@ -127,7 +128,12 @@ async def test_pgvector_retriever_applies_filters_and_combines_rrf_scores():
     assert results[1].score == pytest.approx(1 / 62)
     assert len(statements) == 2
     for statement in statements:
-        assert "content_chunks.org_id" in statement
-        assert "content_documents.is_published" in statement
-        assert "source_filename IN" in statement
-        assert "title IN" in statement
+        normalized_sql = " ".join(str(statement).split())
+        assert re.search(
+            r"content_chunks\.org_id = :[A-Za-z0-9_]+ OR "
+            r"content_chunks\.org_id IS NULL",
+            normalized_sql,
+        )
+        assert "content_documents.is_published IS true" in normalized_sql
+        assert "source_filename IN" in normalized_sql
+        assert "title IN" in normalized_sql
