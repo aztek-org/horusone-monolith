@@ -34,6 +34,14 @@ logs
 .fleet
 .idea
 
+# Isolated git worktrees (superpowers subagent-driven development)
+.worktrees/
+
+# Regenerable tool indexes
+.codegraph/
+graphify-out/cache/
+graphify-out/.rebuild.lock
+
 # Local env files
 .env
 .env.*
