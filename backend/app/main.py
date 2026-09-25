@@ -124,10 +124,29 @@ def _resolve_settings(application: FastAPI) -> Settings:
 
 
 def _build_scene_registry(app_settings: Settings) -> SceneRegistry:
-    """Load the Scene registry, preferring a configured path over the packaged Scene."""
-    if app_settings.scenes_path:
-        return load_scene_configs(app_settings.scenes_path)
-    return SceneRegistry({DEFAULT_SCENE.version: DEFAULT_SCENE})
+    """Load the Scene registry, preferring a configured path over the packaged Scene.
+
+    A configured ``SCENES_PATH`` is additive rather than exclusive: if it does
+    not define the packaged default's version, the packaged Scene is registered
+    too.  ``SceneRegistry.default()`` resolves to the packaged Scene in that case
+    either way, and the voice route hands whatever ``default()`` returns to
+    ``TrainingSessionModule.start``, which looks that version up in this same
+    registry — so a fallback to an unregistered Scene raised ``KeyError`` and
+    killed the socket (or left the session unrecorded).  Registering the default
+    makes the lookup succeed by construction and keeps the registry strict, so a
+    genuinely unknown ``scene_version`` is still a 404 rather than a silent
+    substitution.  It does mean such a deployment's ``GET /api/v1/scenes`` now
+    lists ``default-v1`` alongside its own Scenes.
+    """
+    if not app_settings.scenes_path:
+        return SceneRegistry({DEFAULT_SCENE.version: DEFAULT_SCENE})
+    registry = load_scene_configs(app_settings.scenes_path)
+    if any(scene.version == DEFAULT_SCENE.version for scene in registry.list_all()):
+        return registry
+    return SceneRegistry(
+        {scene.version: scene for scene in registry.list_all()}
+        | {DEFAULT_SCENE.version: DEFAULT_SCENE}
+    )
 
 
 @asynccontextmanager
