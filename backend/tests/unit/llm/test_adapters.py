@@ -199,13 +199,17 @@ async def test_ollama_embed_returns_provider_vectors() -> None:
 
 
 def test_groq_adapter_requires_api_key() -> None:
-    with pytest.raises(LLMUsageError, match="GROQ_API_KEY is required"):
+    with pytest.raises(LLMUsageError) as exc_info:
         GroqAdapter(_settings("groq", base_url="https://api.groq.test"))
+
+    assert str(exc_info.value) == "GROQ_API_KEY is required"
 
 
 def test_nvidia_nim_adapter_requires_its_api_key() -> None:
-    with pytest.raises(LLMUsageError, match="NVIDIA_NIM_API_KEY is required"):
+    with pytest.raises(LLMUsageError) as exc_info:
         NvidiaNIMAdapter(_settings("nvidia-nim", base_url="http://nim.test"))
+
+    assert str(exc_info.value) == "NVIDIA_NIM_API_KEY is required"
 
 
 @pytest.mark.asyncio
