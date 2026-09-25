@@ -320,18 +320,18 @@ def test_existing_provider_receives_the_scrubber_before_its_exporter() -> None:
 
 
 def test_scrubber_installation_order_is_observable_at_export_time() -> None:
-    """Pin the property that makes prepending load-bearing, through the real installer.
+    """Pin that the real installer lands the scrubber ahead of an existing exporter.
 
-    ``InMemorySpanExporter`` retains the live ``ReadableSpan`` and serialises it
-    later, so an in-place mutation by a processor that ran *after* it is
-    invisible and prepending could silently regress to appending without any
-    test noticing. An exporter that serialises during ``export`` is what makes
-    the order visible; the test below proves it can see the difference.
+    The chain already holds the serialising exporter when the installer runs, so
+    prepending and appending produce different tuples and the test can fail if
+    the order regresses. ``InMemorySpanExporter`` cannot do this: it retains the
+    live ``ReadableSpan`` and serialises it later, so an in-place mutation by a
+    processor that ran after it is invisible.
     """
     exporter = _SerialisingExporter()
     provider = TracerProvider()
-    telemetry._install_scrubber_before_exporters(provider)
     provider.add_span_processor(SimpleSpanProcessor(exporter))
+    telemetry._install_scrubber_before_exporters(provider)
 
     with provider.get_tracer("test.ordering").start_as_current_span("probe") as span:
         span.set_attribute("http.url", "https://example.test/search?q=ORDERLEAK")
@@ -603,6 +603,10 @@ def test_server_span_drops_query_string_when_the_url_cannot_be_parsed() -> None:
         ("evil.test?q=HOSTLEAK", "HOSTLEAK", "evil.test"),
         ("evil.test#HOSTFRAG", "HOSTFRAG", "evil.test"),
         ("evil.test%3Fq=HOSTENC", "HOSTENC", "evil.test"),
+        # A doubly encoded boundary ahead of a literal one. Truncating at the
+        # "?" and stopping would export "evil.test%253Fq=HOSTDOUBLE", which
+        # still becomes a query after one more decode.
+        ("evil.test%253Fq=HOSTDOUBLE?tail=HOSTTAIL", "HOSTDOUBLE", "evil.test"),
     ],
 )
 def test_server_span_drops_query_and_fragment_text_from_the_host_header(
@@ -636,7 +640,19 @@ def test_server_span_drops_query_and_fragment_text_from_the_host_header(
     assert "LEAKME" not in serialised
 
 
-def test_server_span_drops_query_text_from_the_user_agent_header() -> None:
+@pytest.mark.parametrize(
+    ("user_agent", "expected"),
+    [
+        ("curl/8.0?q=UALEAK", "curl/8.0"),
+        # The double-encoded "?" sits ahead of a literal "#". Cutting at the "#"
+        # alone would export "curl/8%253Fq=UALEAK", whose next decode pass
+        # reveals the query the cut was meant to remove.
+        ("curl/8%253Fq=UALEAK#z", "curl/8"),
+    ],
+)
+def test_server_span_drops_query_text_from_the_user_agent_header(
+    user_agent: str, expected: str
+) -> None:
     """``User-Agent`` is caller-controlled text copied verbatim onto the span."""
     application = FastAPI()
 
@@ -648,16 +664,14 @@ def test_server_span_drops_query_text_from_the_user_agent_header() -> None:
     collector = _collect_spans()
 
     with TestClient(application) as client:
-        response = client.get(
-            "/search?q=LEAKME", headers={"User-Agent": "curl/8.0?q=UALEAK"}
-        )
+        response = client.get("/search?q=LEAKME", headers={"User-Agent": user_agent})
         assert response.status_code == 200
 
     server_span = next(
         span for span in collector.get_finished_spans() if span.kind == trace.SpanKind.SERVER
     )
     serialised = json.dumps(server_span.to_json())
-    assert _carrier_attributes(server_span)["http.user_agent"] == "curl/8.0"
+    assert _carrier_attributes(server_span)["http.user_agent"] == expected
     assert "UALEAK" not in serialised
     assert "q=" not in serialised
     assert "LEAKME" not in serialised
@@ -848,11 +862,53 @@ def test_url_attribute_mixed_and_empty_lists_are_safe(
 
 
 def test_url_attribute_drops_non_string_non_sequence_value() -> None:
-    attributes, serialised = _url_attribute_json(42)
+    """A shape with no strings in it to inspect is dropped, not guessed at.
+
+    Numbers are the one exemption and have their own test: a mapping is what
+    the SDK can be handed by an instrumentor that this control cannot read.
+    """
+    attributes, serialised = _url_attribute_json(
+        {"url": "https://example.test/search?q=clearance-denied"}
+    )
 
     assert "http.url" not in attributes
     assert "q=" not in serialised
-    assert "#private-fragment" not in serialised
+    assert "clearance-denied" not in serialised
+
+
+def test_numeric_port_attributes_survive_while_string_hosts_are_scrubbed() -> None:
+    """The value-shape exemption that keeps ``net.host.port`` and its siblings.
+
+    ``net.host.port``, ``server.port`` and ``client.port`` match the same
+    host/server/client terms as the attributes that do carry caller text, but
+    their value is a number and a number cannot spell a delimiter. The
+    exemption is by shape, so the string carriers are asserted in the same
+    breath: ``http.host``, ``http.server_name`` and ``http.user_agent`` are all
+    still cut at the delimiter, and no caller can make one of them arrive as a
+    number.
+    """
+    configure_telemetry(_settings(), environment="development")
+    collector = _collect_spans()
+
+    with trace.get_tracer("test.scrubber").start_as_current_span("probe") as span:
+        span.set_attribute("net.host.port", 8080)
+        span.set_attribute("server.port", 8000)
+        span.set_attribute("client.port", 54321)
+        span.set_attribute("http.host", "evil.test?q=PORTLEAK")
+        span.set_attribute("http.server_name", "evil.test?q=PORTLEAK")
+        span.set_attribute("http.user_agent", "curl/8.0?q=PORTLEAK")
+
+    exported = collector.get_finished_spans()[0]
+    attributes = _carrier_attributes(exported)
+    serialised = json.dumps(exported.to_json())
+    assert attributes["net.host.port"] == 8080
+    assert attributes["server.port"] == 8000
+    assert attributes["client.port"] == 54321
+    assert attributes["http.host"] == "evil.test"
+    assert attributes["http.server_name"] == "evil.test"
+    assert attributes["http.user_agent"] == "curl/8.0"
+    assert "PORTLEAK" not in serialised
+    assert "q=" not in serialised
 
 
 def test_future_url_attribute_names_are_scrubbed_by_pattern() -> None:
@@ -916,9 +972,10 @@ def test_previously_verified_string_shapes_remain_safe(
 @pytest.mark.parametrize(
     "value",
     [
+        # A bare 42 used to be here. A number is exempt by shape now, and has
+        # the port-attribute test above instead.
         [["https://example.test/search?q=clearance-denied"]],
         {"url": "https://example.test/search?q=clearance-denied"},
-        42,
         None,
     ],
 )
@@ -929,9 +986,65 @@ def test_previously_verified_unsupported_shapes_are_removed(value: Any) -> None:
     assert "clearance-denied" not in serialised
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        # A doubly encoded delimiter ahead of a literal one: the prefix the
+        # first cut leaves behind still has to be examined, which is the
+        # regression these pin.
+        ("curl/8%253Fq=UALEAK#z", "curl/8"),
+        ("evil.test%253Fq=HOSTDOUBLE?tail", "evil.test"),
+        ("/search%2523private-fragment", "/search"),
+        ("%2525253Fq=nested", ""),
+        # Previously clean shapes, unchanged by the extra pass.
+        ("https://example.test/s?q=x", "https://example.test/s"),
+        ("session.exchange", "session.exchange"),
+        ("http://[bad/search", "http://[bad/search"),
+        ("", ""),
+        ("?", ""),
+    ],
+)
+def test_double_encoded_boundaries_are_cut_and_the_prefix_re_examined(
+    value: str, expected: str
+) -> None:
+    """Cutting at a boundary is not the end of the work; the prefix is re-read.
+
+    A ``%253F`` that needs one more decode pass to resolve can sit before a
+    literal ``?`` or ``#``. Stopping at the first boundary found would return a
+    prefix that still decodes into a query, so the loop continues on what it
+    kept, and the shapes that were already clean stay untouched.
+    """
+    assert telemetry._without_query_or_fragment(value) == expected
+
+
 # ---------------------------------------------------------------------------
 # Privacy: the carriers outside ``span.attributes``
 # ---------------------------------------------------------------------------
+
+
+def test_exception_text_removal_is_reported_once_in_the_deploy_log(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The cost of the policy is stated at configuration, not left to be found.
+
+    Removing exception messages and stacktraces is a real observability loss, and
+    an engineer on call has to read it in the deployment's own log rather than
+    infer it from a trace that stopped being useful. Once per configured process
+    is the point: repeated lifespans must not turn it into noise that gets
+    filtered out.
+    """
+    with caplog.at_level("WARNING", logger=telemetry.__name__):
+        configure_telemetry(_settings(), environment="testing")
+        configure_telemetry(_settings(), environment="testing")
+
+    notices = [
+        record.getMessage()
+        for record in caplog.records
+        if "exception.stacktrace" in record.getMessage()
+    ]
+    assert len(notices) == 1, f"expected one notice, got {notices!r}"
+    assert "exception.message" in notices[0]
+    assert "exception.type" in notices[0]
 
 
 def test_exception_text_carrying_caller_text_is_removed_from_span_events() -> None:
@@ -939,9 +1052,12 @@ def test_exception_text_carrying_caller_text_is_removed_from_span_events() -> No
 
     A handler that interpolates the query into its error message puts that text
     on the span twice over: once in ``exception.message`` and again on the final
-    ``ValueError: ...`` line of ``exception.stacktrace``. The message carries no
-    query delimiter to truncate at, so the only safe policy is to remove the
-    runtime-formatted text and keep the exception *type*.
+    ``ValueError: ...`` line of ``exception.stacktrace``. The message is
+    runtime-formatted free text, so the policy removes it and keeps the
+    exception *type*; a message built from constants and the exception type
+    would not carry the leak and is the product-code convention that would let
+    this change. The cost of the interim is reported by
+    :func:`app.observability.telemetry.configure_telemetry`.
     """
     application = FastAPI()
 

@@ -76,11 +76,20 @@ def _without_query_or_fragment(value: str) -> str:
     mismatch without parsing the URL. Repeated percent-decoding handles double
     encoded input; the original value is retained if decoding never reveals a
     delimiter.
+
+    Cutting at a boundary is not the end of the work. A value can hold a doubly
+    encoded ``%253F`` that only a further decode pass resolves, sitting *before*
+    a literal ``?`` or ``#`` later in the same value: returning the truncated
+    prefix would leave that earlier one intact, and the prefix would still carry
+    a query once decoded. So a cut is followed by another pass over what is left.
+    The loop terminates because each pass either shortens the value (a cut, or a
+    decode that resolved at least one escape) or leaves it unchanged and returns.
     """
     while True:
         boundary = _QUERY_OR_FRAGMENT_BOUNDARY.search(value)
         if boundary is not None:
-            return value[: boundary.start()]
+            value = value[: boundary.start()]
+            continue
         decoded = unquote(value)
         if decoded == value:
             return value
@@ -121,31 +130,45 @@ class _QueryStringScrubber(SpanProcessor):
     that writes a forwarded authority into the ASGI scope puts the same text in
     ``http.host``, ``server.address`` and ``client.address``; and ``query``,
     ``fragment``, ``message``, ``stacktrace`` and ``traceback`` for text that is
-    wholly the caller's. Covering the host carriers costs ``net.host.port``,
-    whose value is numeric and never caller text.
+    wholly the caller's.
 
     **Values** follow from the classification. An attribute whose name is wholly
-    caller text is deleted, because it is free text with no URL prefix to keep --
-    an exception message that interpolates a query has no delimiter to truncate
-    at. Any other matched value keeps only the prefix before a literal or
-    percent-encoded query/fragment delimiter. A matched value in any other shape,
-    or a sequence containing a non-string, is deleted because this control cannot
-    confidently inspect it. Deleting malformed telemetry is safer than exporting a
-    possible bypass. A matched value that is already free of a delimiter is left
-    exactly as it is, so ordinary telemetry is not disturbed.
+    caller text is deleted: it is free text with no URL prefix to keep, and the
+    usual case -- a runtime-formatted exception message -- has no delimiter to
+    truncate at. That is a blunt instrument while product code still interpolates
+    request text into its errors, which is why
+    :func:`configure_telemetry` says so in the deploy log; an exception message
+    built from constants and the exception type could be kept instead. Any other
+    matched value keeps only the prefix before a literal or percent-encoded
+    query/fragment delimiter. A numeric matched value is left alone, because a
+    number cannot contain a delimiter: that is what keeps ``net.host.port``,
+    ``server.port`` and ``client.port`` in the span, and the three host attributes
+    that really do carry caller text -- ``http.host``, ``http.server_name`` and
+    ``http.user_agent`` -- are strings, so they stay fully covered. A matched
+    value in any other shape, or a sequence containing a non-string, is deleted
+    because this control cannot confidently inspect it. Deleting malformed
+    telemetry is safer than exporting a possible bypass. A matched value that is
+    already free of a delimiter is left exactly as it is, so ordinary telemetry
+    is not disturbed.
 
-    **Carriers** are all of them: span attributes, span events (name and
-    attributes), span links (attributes), the span name, and the status
-    description. Exception text reaches a span twice -- once as
-    ``exception.message`` and again on the final line of
+    **Carriers** are every field ``ReadableSpan.to_json`` serialises: span
+    attributes, span events (name and attributes), span links (attributes), the
+    span name, and the status description. Exception text reaches a span twice --
+    once as ``exception.message`` and again on the final line of
     ``exception.stacktrace`` -- so leaving either alone would leave the leak.
     ``http.route`` is the matched route template, never caller text, and matches
-    no term, so it is left alone.
+    no term, so it is left alone. Two things an exported span also carries sit
+    outside this control: the resource attributes and the instrumentation scope
+    name, which it is not given and does not rewrite.
 
     Every step here is total: a missing attribute mapping, an absent event
     collection, a non-string description, and an unset status are all handled as
-    ordinary cases. ``on_end`` therefore cannot raise into ``Span.end()`` and
-    from there into a request.
+    ordinary cases. Through the SDK's own types that leaves nothing to raise on,
+    so a request does not see a failure from here. It is a property of those
+    types rather than a guarantee of this control: it runs inside
+    ``SynchronousMultiSpanProcessor.on_end``, which has no exception guard of its
+    own, so a value outside them -- a ``None`` span name, say -- would propagate
+    into ``Span.end()``.
     """
 
     _URL_BEARING_TERMS = frozenset(
@@ -176,6 +199,12 @@ class _QueryStringScrubber(SpanProcessor):
     @classmethod
     def _scrub_url_value(cls, value: Any) -> Any:
         """Scrub a scalar or homogeneous string sequence, or return ``None`` to drop it."""
+        # A number cannot spell a delimiter: the type is the proof, so the
+        # port attributes (``net.host.port`` and friends) are matched by name
+        # and still exported. A caller cannot turn a host attribute into a
+        # number, and a number is not free text.
+        if isinstance(value, (int, float, bool)):
+            return value
         if isinstance(value, str):
             return _without_query_or_fragment(value)
         if not isinstance(value, (list, tuple)):
@@ -410,6 +439,23 @@ def _install_configured_exporter(
     )
 
 
+def _warn_exception_text_is_removed() -> None:
+    """Say out loud, at deploy time, that spans carry no exception text.
+
+    The removal is a real observability cost, and an engineer has to learn it
+    from the log of the deployment they are looking at -- never from the trace
+    that stopped being useful during an incident.
+    """
+    logger.warning(
+        "telemetry privacy policy: exception.message and exception.stacktrace are "
+        "removed from every exported span, because either can carry request text "
+        "interpolated at runtime. Spans keep exception.type, the span status and "
+        "the HTTP status, but no exception message and no stack trace. Exception "
+        "messages built from constants and the exception type only could be kept "
+        "instead; until product code is written that way, this is the cost."
+    )
+
+
 def configure_telemetry(
     settings: TraceSettings, *, environment: str, app: FastAPI | None = None
 ) -> None:
@@ -418,7 +464,8 @@ def configure_telemetry(
     Provider and asyncpg installation are process-wide and guarded for
     idempotency. FastAPI instrumentation is per application, so each new app
     handed to this function is instrumented even when the provider already
-    exists.
+    exists. The first successful configuration also reports, once, that exception
+    text is being removed from spans; see :func:`_warn_exception_text_is_removed`.
     """
     global _configured
     if not _configured:
@@ -465,6 +512,7 @@ def configure_telemetry(
             )
             return
         _configured = True
+        _warn_exception_text_is_removed()
     else:
         logger.debug("Telemetry already configured; leaving the installed pipeline alone.")
 
