@@ -201,7 +201,10 @@ def build_live_session_graph(
 
     compile_kwargs: dict[str, Any] = {}
     if interrupt_before_response:
-        compile_kwargs["interrupt_before"] = ["generate_atc_response"]
+        compile_kwargs["interrupt_before"] = [
+            "generate_atc_response",
+            "emergency_handler",
+        ]
 
     compiled = graph.compile(**compile_kwargs)
     logger.info(

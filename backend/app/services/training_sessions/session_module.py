@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import Callable
 from dataclasses import asdict
 from typing import Any
 
 from sqlalchemy import update
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.llm.types import LLMModule
 from app.models.training_session import TrainingSession
@@ -22,7 +21,7 @@ from app.services.llm.graphs.validation_graph import (
 )
 from app.services.llm.scenes.registry import SceneConfig, SceneRegistry
 from app.services.llm.state import HorusState, SessionPhase
-from app.services.training_sessions.session_store import SessionStore
+from app.services.training_sessions.session_store import SessionStore, StoredState
 from app.services.training_sessions.trace import TraceRecorder
 from app.services.training_sessions.types import (
     Debrief,
@@ -58,7 +57,7 @@ class TrainingSessionModule:
         trace: TraceRecorder,
         scenes: SceneRegistry,
         llm: LLMModule,
-        db_session_factory: Callable[[], AsyncSession],
+        db_session_factory: async_sessionmaker[AsyncSession],
         knowledge: KnowledgeRetriever | None = None,
         interrupt_before_response: bool = False,
         require_org: bool = True,
@@ -72,11 +71,11 @@ class TrainingSessionModule:
         self._validation_graph = build_validation_graph(knowledge)
         self._scoring_graph = build_scoring_graph()
         self._interrupt_before_response = interrupt_before_response
-        self._live_graphs: dict[str, Any] = {}
+        self._live_graphs: dict[tuple[str, bool], Any] = {}
 
     async def start(self, command: StartSessionCommand) -> SessionSnapshot:
         """Validate a flight plan, persist initial state, and snapshot its Scene."""
-        storage_org_id = self._start_storage_org_id(command.org_id)
+        storage_org_id = self._storage_org_id(command.org_id)
         scene = self._scenes.get(command.scene_version)
         initial_state: HorusState = {
             "messages": [],
@@ -114,7 +113,7 @@ class TrainingSessionModule:
         result = dict(await self._validation_graph.ainvoke(initial_state))
         result["pending_instructor"] = False
         await self._store.save(storage_org_id, command.session_id, result, False)
-        await self._write_scene_snapshot(command.session_id, scene)
+        await self._write_scene_snapshot(command.session_id, command.org_id, scene)
         await self._emit(
             command.session_id,
             "session_started",
@@ -131,13 +130,10 @@ class TrainingSessionModule:
 
     async def send(self, command: SendTransmissionCommand) -> ExchangeResult:
         """Process one pilot transmission against persisted graph state."""
-        org_id = self._required_org_id(command.org_id)
-        stored = await self._load(org_id, command.session_id)
+        storage_org_id = self._storage_org_id(command.org_id)
+        stored = await self._load(storage_org_id, command.session_id)
+        self._raise_if_pending(stored, command.session_id)
         state = stored.values
-        if stored.pending_instructor or state.get("pending_instructor", False):
-            raise SessionPendingInstructorError(
-                f"Session {command.session_id} is awaiting instructor review"
-            )
 
         state["pilot_message"] = command.pilot_message
         state["phase"] = SessionPhase.ACTIVE.value
@@ -147,7 +143,9 @@ class TrainingSessionModule:
         }
         result, interrupted = await self._run_live_graph(state)
         result["pending_instructor"] = interrupted
-        await self._store.save(org_id, command.session_id, result, interrupted)
+        await self._store.save(
+            storage_org_id, command.session_id, result, interrupted
+        )
 
         if interrupted:
             await self._emit(
@@ -156,9 +154,9 @@ class TrainingSessionModule:
                 self._event_provenance(
                     result,
                     graph="live",
-                    node="generate_atc_response",
+                    node=self._response_node(result),
                 ),
-                org_id,
+                command.org_id,
                 self._state_user_id(result),
             )
             return self._exchange_result(result, atc_response="", pending=True)
@@ -169,52 +167,71 @@ class TrainingSessionModule:
             self._event_provenance(
                 result,
                 graph="live",
-                node="generate_atc_response",
+                node=self._response_node(result),
                 provider=str(result.get("llm_provider") or ""),
                 model=str(result.get("llm_model") or ""),
                 fallback_used=bool(result.get("llm_fallback_used", False)),
                 retrieved_chunk_ids=list(result.get("retrieved_chunk_ids") or []),
                 instructor_overridden=False,
             ),
-            org_id,
+            command.org_id,
             self._state_user_id(result),
         )
         return self._exchange_result(result)
 
     async def await_instructor(
-        self, org_id: uuid.UUID, session_id: int
+        self,
+        org_id: uuid.UUID,
+        session_id: int,
+        instructor_response: str | None = None,
     ) -> ExchangeResult | None:
-        """Release a pending session and record the instructor's ATC response."""
-        required_org_id = self._required_org_id(org_id)
-        stored = await self._load(required_org_id, session_id)
+        """Complete a reviewed exchange with instructor or graph-owned text."""
+        storage_org_id = self._storage_org_id(org_id)
+        stored = await self._load(storage_org_id, session_id)
         if not stored.pending_instructor and not stored.values.get(
             "pending_instructor", False
         ):
             return None
 
         state = stored.values
-        state["pending_instructor"] = False
-        await self._store.save(required_org_id, session_id, state, False)
-        atc_response = str(state.get("atc_response") or "")
+        instructor_overridden = instructor_response is not None
+        if instructor_overridden:
+            result = self._complete_instructor_exchange(
+                state, str(instructor_response)
+            )
+        else:
+            result, interrupted = await self._run_live_graph(
+                state, interrupt_before_response=False
+            )
+            if interrupted:
+                raise RuntimeError("Non-interrupting live graph unexpectedly paused")
+            result["performance_notes"] = list(
+                dict.fromkeys(result.get("performance_notes") or [])
+            )
+            result["pending_instructor"] = False
+
+        await self._store.save(storage_org_id, session_id, result, False)
+        atc_response = str(result.get("atc_response") or "")
         await self._emit(
             session_id,
             "instructor_override",
             self._event_provenance(
-                state,
+                result,
                 graph="live",
-                node="generate_atc_response",
+                node=self._response_node(result),
                 atc_response=atc_response,
-                instructor_overridden=True,
+                instructor_overridden=instructor_overridden,
             ),
-            required_org_id,
-            self._state_user_id(state),
+            org_id,
+            self._state_user_id(result),
         )
-        return self._exchange_result(state, pending=False)
+        return self._exchange_result(result, pending=False)
 
     async def end(self, command: EndSessionCommand) -> Debrief:
         """Run deterministic scoring, persist the debrief, and emit completion."""
-        org_id = self._required_org_id(command.org_id)
-        stored = await self._load(org_id, command.session_id)
+        storage_org_id = self._storage_org_id(command.org_id)
+        stored = await self._load(storage_org_id, command.session_id)
+        self._raise_if_pending(stored, command.session_id)
         state = stored.values
         state["phase"] = SessionPhase.POST_FLIGHT.value
         state["context"] = {
@@ -224,7 +241,9 @@ class TrainingSessionModule:
 
         result = dict(await self._scoring_graph.ainvoke(state))
         result["pending_instructor"] = False
-        await self._store.save(org_id, command.session_id, result, False)
+        await self._store.save(
+            storage_org_id, command.session_id, result, False
+        )
         scoring = dict(result.get("scoring") or {})
         badges_earned = list(result.get("badges_earned") or [])
         await self._emit(
@@ -237,7 +256,7 @@ class TrainingSessionModule:
                 scoring_summary=scoring,
                 badges_earned=badges_earned,
             ),
-            org_id,
+            command.org_id,
             self._state_user_id(result),
         )
         return Debrief(
@@ -250,11 +269,10 @@ class TrainingSessionModule:
         self, org_id: uuid.UUID | None, session_id: int
     ) -> SessionSnapshot:
         """Return the phase, exchange count, and full state from the store."""
-        storage_org_id = (
-            self._required_org_id(org_id)
-            if org_id is not None or self._require_org
-            else _INTERNAL_TENANT_ID
-        )
+        if org_id is None:
+            storage_org_id = self._storage_org_id(None)
+        else:
+            storage_org_id = org_id
         stored = await self._load(storage_org_id, session_id)
         return self._snapshot_from_state(session_id, stored.values)
 
@@ -267,18 +285,27 @@ class TrainingSessionModule:
         return stored
 
     async def _run_live_graph(
-        self, state: dict[str, Any]
+        self,
+        state: dict[str, Any],
+        *,
+        interrupt_before_response: bool | None = None,
     ) -> tuple[dict[str, Any], bool]:
         """Run the graph and detect LangGraph's streamed static interrupt event."""
         scene_version = str(state["scene_version"])
-        graph = self._live_graphs.get(scene_version)
+        interrupts = (
+            self._interrupt_before_response
+            if interrupt_before_response is None
+            else interrupt_before_response
+        )
+        graph_key = (scene_version, interrupts)
+        graph = self._live_graphs.get(graph_key)
         if graph is None:
             graph = build_live_session_graph(
                 self._llm,
                 self._scenes.get(scene_version),
-                self._interrupt_before_response,
+                interrupts,
             )
-            self._live_graphs[scene_version] = graph
+            self._live_graphs[graph_key] = graph
 
         result = dict(state)
         interrupted = False
@@ -290,6 +317,41 @@ class TrainingSessionModule:
             elif mode == "updates" and "__interrupt__" in chunk:
                 interrupted = True
         return result, interrupted
+
+    @staticmethod
+    def _raise_if_pending(stored: StoredState, session_id: int) -> None:
+        if stored.pending_instructor or stored.values.get(
+            "pending_instructor", False
+        ):
+            raise SessionPendingInstructorError(
+                f"Session {session_id} is awaiting instructor review"
+            )
+
+    @staticmethod
+    def _complete_instructor_exchange(
+        state: dict[str, Any], instructor_response: str
+    ) -> dict[str, Any]:
+        exchange_count = int(state.get("exchange_count", 0)) + 1
+        session_phase = str(state.get("session_phase_detail") or "cruise")
+        if session_phase == "briefing":
+            session_phase = "taxi"
+        return {
+            **state,
+            "atc_response": instructor_response,
+            "exchange_count": exchange_count,
+            "session_phase_detail": session_phase,
+            "phase": SessionPhase.ACTIVE.value,
+            "llm_provider": "instructor",
+            "llm_model": "instructor",
+            "llm_fallback_used": False,
+            "pending_instructor": False,
+        }
+
+    @staticmethod
+    def _response_node(state: dict[str, Any]) -> str:
+        if state.get("is_emergency", False):
+            return "emergency_handler"
+        return "generate_atc_response"
 
     def _exchange_result(
         self,
@@ -367,14 +429,22 @@ class TrainingSessionModule:
             await db.commit()
 
     async def _write_scene_snapshot(
-        self, session_id: int, scene: SceneConfig
+        self,
+        session_id: int,
+        org_id: uuid.UUID | None,
+        scene: SceneConfig,
     ) -> None:
         """Write provenance columns when the deferred migration is installed."""
+        org_filter = (
+            TrainingSession.org_id == org_id
+            if org_id is not None
+            else TrainingSession.org_id.is_(None)
+        )
         async with self._db_session_factory() as db:
             try:
                 await db.execute(
                     update(TrainingSession)
-                    .where(TrainingSession.id == session_id)
+                    .where(TrainingSession.id == session_id, org_filter)
                     .values(
                         scene_version=scene.version,
                         scene_snapshot=asdict(scene),
@@ -390,14 +460,9 @@ class TrainingSessionModule:
                     "deferred migration must add scene_version and scene_snapshot"
                 )
 
-    def _required_org_id(self, org_id: uuid.UUID | None) -> uuid.UUID:
-        if org_id is None:
-            raise MissingOrgError("org_id is required for this session operation")
-        return org_id
-
-    def _start_storage_org_id(self, org_id: uuid.UUID | None) -> uuid.UUID:
+    def _storage_org_id(self, org_id: uuid.UUID | None) -> uuid.UUID:
         if org_id is not None:
             return org_id
         if self._require_org:
-            raise MissingOrgError("org_id is required to start a training session")
+            raise MissingOrgError("org_id is required for this session operation")
         return _INTERNAL_TENANT_ID

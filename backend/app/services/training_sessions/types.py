@@ -81,7 +81,10 @@ class SessionModule(Protocol):
     async def send(self, command: SendTransmissionCommand) -> ExchangeResult: ...
 
     async def await_instructor(
-        self, org_id: uuid.UUID, session_id: int
+        self,
+        org_id: uuid.UUID,
+        session_id: int,
+        instructor_response: str | None = None,
     ) -> ExchangeResult | None: ...
 
     async def end(self, command: EndSessionCommand) -> Debrief: ...

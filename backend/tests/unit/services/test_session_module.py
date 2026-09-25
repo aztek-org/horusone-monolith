@@ -44,6 +44,8 @@ def _module(
     *,
     store: InMemorySessionStore | None = None,
     trace: InMemoryTraceRecorder | None = None,
+    db_session_factory: type[_NoDb] = _NoDb,
+    require_org: bool = True,
     **kwargs: object,
 ) -> TrainingSessionModule:
     return TrainingSessionModule(
@@ -51,15 +53,15 @@ def _module(
         trace or InMemoryTraceRecorder(),
         SceneRegistry({DEFAULT_SCENE.version: DEFAULT_SCENE}),
         FakeAdapter(),
-        db_session_factory=_NoDb,
-        require_org=True,
+        db_session_factory=db_session_factory,
+        require_org=require_org,
         **kwargs,
     )
 
 
 async def _start(
     module: TrainingSessionModule,
-    org_id: uuid.UUID,
+    org_id: uuid.UUID | None,
     session_id: int = 1,
 ) -> None:
     await module.start(
@@ -130,6 +132,116 @@ async def test_second_send_while_pending_instructor_raises() -> None:
     released = await module.await_instructor(org_id, 1)
     assert released is not None
     assert released.pending_instructor is False
+    assert released.exchange_count == 1
+
+
+@pytest.mark.asyncio
+async def test_instructor_override_records_actual_text_and_completes_exchange() -> None:
+    store = InMemorySessionStore()
+    trace = InMemoryTraceRecorder()
+    org_id = uuid.uuid4()
+    normal_module = _module(store=store, trace=trace)
+    await _start(normal_module, org_id)
+    previous = await normal_module.send(
+        SendTransmissionCommand(org_id, 1, "Tower, request taxi")
+    )
+
+    review_module = _module(
+        store=store,
+        trace=trace,
+        interrupt_before_response=True,
+    )
+    interrupted = await review_module.send(
+        SendTransmissionCommand(org_id, 1, "Tower, ready for departure")
+    )
+    released = await review_module.await_instructor(
+        org_id,
+        1,
+        "Tower, taxi via Alpha, hold short runway 27.",
+    )
+
+    assert previous.atc_response == "Say again, transmission unclear."
+    assert interrupted.pending_instructor is True
+    assert released is not None
+    assert released.atc_response == "Tower, taxi via Alpha, hold short runway 27."
+    assert released.exchange_count == 2
+    snapshot = await review_module.snapshot(org_id, 1)
+    assert snapshot.state["pilot_message"] == "Tower, ready for departure"
+    assert snapshot.state["atc_response"] == (
+        "Tower, taxi via Alpha, hold short runway 27."
+    )
+    _, event_type, payload = trace.events[-1]
+    assert event_type == "instructor_override"
+    assert payload["atc_response"] == (
+        "Tower, taxi via Alpha, hold short runway 27."
+    )
+    assert payload["instructor_overridden"] is True
+
+
+@pytest.mark.asyncio
+async def test_instructor_release_uses_graph_response_without_override() -> None:
+    trace = InMemoryTraceRecorder()
+    module = _module(trace=trace, interrupt_before_response=True)
+    org_id = uuid.uuid4()
+    await _start(module, org_id)
+    await module.send(SendTransmissionCommand(org_id, 1, "Request clearance"))
+
+    released = await module.await_instructor(org_id, 1)
+
+    assert released is not None
+    assert released.atc_response == "Say again, transmission unclear."
+    assert released.exchange_count == 1
+    assert released.provider == "fake"
+    _, event_type, payload = trace.events[-1]
+    assert event_type == "instructor_override"
+    assert payload["atc_response"] == "Say again, transmission unclear."
+    assert payload["instructor_overridden"] is False
+
+
+@pytest.mark.asyncio
+async def test_end_rejects_session_pending_instructor() -> None:
+    module = _module(interrupt_before_response=True)
+    org_id = uuid.uuid4()
+    await _start(module, org_id)
+    await module.send(SendTransmissionCommand(org_id, 1, "Request clearance"))
+
+    with pytest.raises(SessionPendingInstructorError):
+        await module.end(EndSessionCommand(org_id, 1))
+
+
+@pytest.mark.asyncio
+async def test_emergency_transmission_pauses_for_instructor_review() -> None:
+    module = _module(interrupt_before_response=True)
+    org_id = uuid.uuid4()
+    await _start(module, org_id)
+
+    result = await module.send(
+        SendTransmissionCommand(org_id, 1, "MAYDAY MAYDAY engine failure")
+    )
+
+    assert result.pending_instructor is True
+    assert result.atc_response == ""
+    assert result.is_emergency is True
+    assert result.exchange_count == 0
+
+
+@pytest.mark.asyncio
+async def test_require_org_false_completes_full_session_without_tenant() -> None:
+    module = _module(require_org=False, interrupt_before_response=True)
+
+    await _start(module, None)
+    interrupted = await module.send(
+        SendTransmissionCommand(None, 1, "Tower, request taxi")
+    )
+    released = await module.await_instructor(None, 1)
+    snapshot = await module.snapshot(None, 1)
+    debrief = await module.end(EndSessionCommand(None, 1))
+
+    assert interrupted.pending_instructor is True
+    assert released is not None
+    assert released.exchange_count == 1
+    assert snapshot.exchange_count == 1
+    assert debrief.scoring["overall_score"] > 0
 
 
 @pytest.mark.asyncio
@@ -205,6 +317,29 @@ async def test_end_scores_session_and_emits_completion_provenance() -> None:
     assert payload["node"] == "generate_report"
     assert payload["scene_version"] == DEFAULT_SCENE.version
     assert payload["prompt_version"] == DEFAULT_SCENE.version
+
+
+@pytest.mark.asyncio
+async def test_scene_snapshot_update_is_scoped_to_organization() -> None:
+    class RecordingDb(_NoDb):
+        instances: list["RecordingDb"] = []
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.statements: list[object] = []
+            RecordingDb.instances.append(self)
+
+        async def execute(self, statement: object) -> None:
+            self.statements.append(statement)
+
+    org_id = uuid.uuid4()
+    module = _module(db_session_factory=RecordingDb)
+    await _start(module, org_id)
+
+    update = RecordingDb.instances[0].statements[0]
+    compiled = update.compile()
+    assert "training_sessions.org_id" in str(compiled)
+    assert org_id in compiled.params.values()
 
 
 @pytest.mark.asyncio
