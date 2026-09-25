@@ -59,6 +59,10 @@ class SceneRegistry:
         """Return the requested Scene, raising ``KeyError`` when absent."""
         return self._configs[version]
 
+    def list_all(self) -> list[SceneConfig]:
+        """Return every registered Scene in insertion order."""
+        return list(self._configs.values())
+
     def default(self) -> SceneConfig:
         """Return the loaded default Scene, or the built-in default."""
         from app.services.llm.scenes.default_scene import DEFAULT_SCENE

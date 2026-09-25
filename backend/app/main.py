@@ -25,6 +25,7 @@ from app.api.v1 import (
     modules,
     preferences,
     scenarios,
+    scenes,
     sessions,
     stats,
     waypoints,
@@ -212,6 +213,7 @@ app.include_router(auth.router, prefix=api_v1_prefix)
 app.include_router(modules.router, prefix=api_v1_prefix)
 app.include_router(preferences.router, prefix=api_v1_prefix)
 app.include_router(scenarios.router, prefix=api_v1_prefix)
+app.include_router(scenes.router, prefix=api_v1_prefix)
 app.include_router(sessions.router, prefix=api_v1_prefix)
 app.include_router(admin.router, prefix=api_v1_prefix)
 app.include_router(analytics.router, prefix=api_v1_prefix)
