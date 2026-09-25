@@ -1,8 +1,33 @@
 """Tests for configuration management."""
+import re
+from pathlib import Path
+
 import pytest
 
 from app.config import Settings, get_settings, reset_settings_cache
 from app.settings_loader import MissingSettingError
+
+# Shipped templates live at the package root, next to the venv and alembic dir.
+_PACKAGE_ROOT = Path(__file__).parents[2]
+_CHUNKING_TEMPLATES = (".env.example", ".env.prod.example")
+_ALL_TEMPLATES = (".env.example", ".env.prod.example", ".env.docker.example")
+
+
+def _template_values(template: str) -> dict[str, str]:
+    """Read KEY=value pairs from a shipped template.
+
+    Mirrors ``app.settings_loader._read_env_file`` so the test reads the template
+    the way an operator's deployment does: comments and blank lines skipped, key
+    and value stripped.
+    """
+    values: dict[str, str] = {}
+    for raw_line in (_PACKAGE_ROOT / template).read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip()
+    return values
 
 
 def test_grouped_llm_settings() -> None:
@@ -75,6 +100,126 @@ def test_trace_retention_default_matches_adr_contract() -> None:
     settings = Settings(_env_file=None, environment="testing")
 
     assert settings.trace.retention_days == 90
+
+
+def test_external_fallback_default_matches_adr_contract() -> None:
+    """Keep the code default for external fallback aligned with ADR-007."""
+    settings = Settings(_env_file=None, environment="testing")
+
+    assert settings.llm.allow_external_fallback is False
+
+
+@pytest.mark.parametrize("template", _CHUNKING_TEMPLATES)
+def test_shipped_templates_match_the_chunking_contract(template: str) -> None:
+    """A default that silently disagrees with ADR-008 is a defect.
+
+    ``Settings`` defaults are already guarded above, but operators copy these
+    templates, and ``KnowledgeIngestor`` writes the effective values to
+    ``ingest_events.chunk_size``/``chunk_overlap`` so a chunk can be reproduced.
+    A template carrying the wrong overlap silently corrupts that provenance row
+    in every environment created from it, so assert the concrete values.
+    """
+    values = _template_values(template)
+
+    assert int(values["KNOWLEDGE_CHUNK_SIZE"]) == 1000
+    assert int(values["KNOWLEDGE_CHUNK_OVERLAP"]) == 150
+
+
+@pytest.mark.parametrize("template", _CHUNKING_TEMPLATES)
+def test_shipped_templates_match_the_trace_retention_contract(template: str) -> None:
+    """Keep the template retention at the ADR-009 90-day value."""
+    values = _template_values(template)
+
+    assert int(values["TRACE_RETENTION_DAYS"]) == 90
+
+
+@pytest.mark.parametrize("template", _ALL_TEMPLATES)
+def test_shipped_templates_keep_external_fallback_disabled(template: str) -> None:
+    """Keep Groq fallback opt-in in every template, per ADR-007.
+
+    Every template declares this key, so the assertion is equality against the
+    contract rather than a documented override: no template ships
+    ``LLM_ALLOW_EXTERNAL_FALLBACK=true``.
+    """
+    values = _template_values(template)
+
+    assert values["LLM_ALLOW_EXTERNAL_FALLBACK"].lower() == "false"
+
+
+@pytest.mark.parametrize("template", _ALL_TEMPLATES)
+def test_shipped_templates_document_the_scene_registry_path(template: str) -> None:
+    """Every template must expose the custom-scene option, Docker included."""
+    assert "SCENES_PATH" in _template_values(template)
+
+
+@pytest.mark.parametrize("template", _ALL_TEMPLATES)
+def test_shipped_templates_carry_no_inline_value_comments(template: str) -> None:
+    """An inline comment after a value becomes part of the value.
+
+    ``_read_env_file`` splits on the first ``=`` and keeps the remainder
+    verbatim, so ``TTS_LANGUAGE=en  # en or es`` loads as the literal string
+    ``"en  # en or es"``. That value reached ``gTTS(lang=...)`` and raised
+    ``ValueError: Language not supported``. Document allowed values on their own
+    comment line. Only whitespace followed by ``#`` is treated as a comment
+    here, so a value may still legitimately contain a ``#``.
+    """
+    for name, value in _template_values(template).items():
+        assert not re.search(r"\s+#", value), (
+            f"{template}:{name}={value!r} has an inline comment; the settings "
+            f"loader reads it as part of the value"
+        )
+
+
+def _matches_code_default(raw: str, expected: object) -> bool:
+    """Compare a raw template string against a code default of any type."""
+    if isinstance(expected, bool):
+        return raw.lower() == str(expected).lower()
+    if isinstance(expected, (int, float)):
+        return float(raw) == pytest.approx(float(expected))
+    return raw == str(expected)
+
+
+def test_shipped_templates_and_code_defaults_agree() -> None:
+    """Guard the whole class: no template may drift from the code defaults.
+
+    Each key must be declared in every template that configures the subsystem,
+    and must equal the code default. This catches a new drift of the kind ADR-009
+    catalogues, without asserting anything about values an operator must
+    replace with their own (hosts, credentials, database names, model names).
+
+    If a template must legitimately differ from the code default, do not weaken
+    this check: drop the key from ``code_defaults`` and add a named test that
+    asserts the documented reason for the divergence.
+    """
+    settings = Settings(_env_file=None, environment="testing")
+    code_defaults = {
+        "KNOWLEDGE_CHUNK_SIZE": settings.knowledge.chunk_size,
+        "KNOWLEDGE_CHUNK_OVERLAP": settings.knowledge.chunk_overlap,
+        "KNOWLEDGE_EMBEDDING_DIMENSIONS": settings.knowledge.embedding_dimensions,
+        "KNOWLEDGE_TOP_K": settings.knowledge.top_k,
+        "KNOWLEDGE_DEFAULT_CHUNK_QUOTA": settings.knowledge.default_chunk_quota,
+        "TRACE_RETENTION_DAYS": settings.trace.retention_days,
+        "LLM_TEMPERATURE": settings.llm.temperature,
+        "LLM_MAX_OUTPUT_TOKENS": settings.llm.max_output_tokens,
+        "LLM_TIMEOUT_SECONDS": settings.llm.timeout_seconds,
+        "WHISPER_MODEL": settings.whisper_model,
+        "TTS_LANGUAGE": settings.tts_language,
+        "AUDIO_FORMAT": settings.audio.audio_format,
+        "SAMPLE_RATE": settings.audio.sample_rate,
+        "ENABLE_RADIO_EFFECTS": settings.audio.enable_radio_effects,
+        "NOISE_LEVEL": settings.audio.noise_level,
+        "STATIC_LEVEL": settings.audio.static_level,
+    }
+
+    for template in _ALL_TEMPLATES:
+        values = _template_values(template)
+        for name, expected in code_defaults.items():
+            if name not in values:
+                continue
+            assert _matches_code_default(values[name], expected), (
+                f"{template}:{name}={values[name]!r} drifted from the code "
+                f"default {expected!r}"
+            )
 
 
 def test_cors_origins_list_multiple() -> None:
