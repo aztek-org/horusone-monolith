@@ -53,10 +53,12 @@ Thumbs.db
 logs/
 
 # Models (downloaded at runtime)
+# NOTE: anchored with a leading slash. An unanchored `models/` also matched
+# backend/app/models/, which silently hid new ORM model files from git.
 *.pt
 *.pth
 *.ckpt
-models/
+/models/
 
 # Audio files (temporary)
 *.wav
