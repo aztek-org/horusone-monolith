@@ -34,12 +34,15 @@ from __future__ import annotations
 
 import logging
 import uuid
+from dataclasses import replace
 from typing import Any
 
 from app.config import get_settings
+from app.llm import build_llm
 from app.services.llm.graphs.live_session_graph import build_live_session_graph
 from app.services.llm.graphs.scoring_graph import build_scoring_graph
 from app.services.llm.graphs.validation_graph import build_validation_graph
+from app.services.llm.scenes.default_scene import DEFAULT_SCENE
 from app.services.llm.state import HorusState, SessionPhase
 
 logger = logging.getLogger(__name__)
@@ -70,16 +73,23 @@ class HorusOrchestrator:
         enable_hitl: bool = False,
     ) -> None:
         settings = get_settings()
-        self._base_url = ollama_base_url or settings.ollama_base_url
-        self._model = model_name or settings.ollama_llm_model
+        llm_settings = settings.llm
+        if ollama_base_url or model_name:
+            llm_settings = replace(
+                llm_settings,
+                base_url=ollama_base_url or llm_settings.base_url,
+                model=model_name or llm_settings.model,
+            )
+            settings = settings.model_copy(update={"llm": llm_settings})
+        self._base_url = llm_settings.base_url
+        self._model = llm_settings.model
 
         # Build sub-graphs
         self.validation_graph = build_validation_graph()
         self.live_session_graph = build_live_session_graph(
-            ollama_base_url=self._base_url,
-            ollama_model=self._model,
-            temperature=0.3,
-            interrupt_before_response=enable_hitl,
+            build_llm(settings),
+            DEFAULT_SCENE,
+            enable_hitl,
         )
         self.scoring_graph = build_scoring_graph()
 

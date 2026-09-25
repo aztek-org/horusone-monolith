@@ -25,7 +25,8 @@ The final ``check_all_passed`` conditional node inspects all
 from __future__ import annotations
 
 import logging
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, Protocol
 
 from langgraph.graph import END, StateGraph
 
@@ -38,6 +39,40 @@ from app.services.llm.agents.weather_agent import analyze_weather
 from app.services.llm.state import HorusState, SessionPhase, Severity
 
 logger = logging.getLogger(__name__)
+
+
+class KnowledgeRetriever(Protocol):
+    """Structural knowledge-search dependency consumed by the graph."""
+
+    async def search(self, query: Any) -> list[Any]: ...
+
+
+def _weather_node_factory(knowledge: KnowledgeRetriever | None):
+    """Add provenance retrieval to the deterministic weather analysis."""
+    if knowledge is None:
+        return analyze_weather
+
+    async def weather_node(state: HorusState) -> dict[str, Any]:
+        result = analyze_weather(state)
+        flight_plan = state.get("flight_plan") or {}
+        query = SimpleNamespace(
+            query=(
+                f"departure_icao {flight_plan.get('departure_icao', '')} "
+                f"arrival_icao {flight_plan.get('arrival_icao', '')} "
+                f"flight_rules {flight_plan.get('flight_rules', 'VFR')}"
+            ),
+            org_id=None,
+            top_k=5,
+            knowledge_refs=[],
+            mode="hybrid",
+        )
+        chunks = await knowledge.search(query)
+        return {
+            **result,
+            "retrieved_chunk_ids": [str(getattr(chunk, "chunk_id", chunk)) for chunk in chunks],
+        }
+
+    return weather_node
 
 
 def _check_all_passed(state: HorusState) -> dict[str, Any]:
@@ -68,17 +103,17 @@ def _check_all_passed(state: HorusState) -> dict[str, Any]:
     }
 
 
-def build_validation_graph() -> StateGraph:
+def build_validation_graph(knowledge: KnowledgeRetriever | None = None) -> StateGraph:
     """Build and compile the validation sub-graph.
 
-    Returns:
-        Compiled LangGraph ``StateGraph`` ready for ``.ainvoke()``.
+    Args:
+        knowledge: Optional retriever used to record weather citation IDs.
     """
     graph = StateGraph(HorusState)
 
     # ── Add nodes ─────────────────────────────────────────────────
     graph.add_node("gatekeeper", validate_flight_plan)
-    graph.add_node("weather_agent", analyze_weather)
+    graph.add_node("weather_agent", _weather_node_factory(knowledge))
     graph.add_node("fuel_agent", calculate_fuel)
     graph.add_node("route_agent", optimize_route)
     graph.add_node("airspace_agent", check_airspace_restrictions)

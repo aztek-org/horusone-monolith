@@ -9,10 +9,9 @@ the orchestrator keeps everything in one place.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Optional, TypedDict
+from typing import Annotated, TypedDict
 
 from langgraph.graph.message import add_messages
-
 
 # ── Enumerations ──────────────────────────────────────────────────────
 
@@ -60,7 +59,7 @@ class FlightPlanState(TypedDict, total=False):
 
     departure_icao: str
     arrival_icao: str
-    alternate_icao: Optional[str]
+    alternate_icao: str | None
     route: list[dict]           # waypoints with lat, lng, name, constraints
     aircraft_type: str
     fuel_on_board: float        # gallons
@@ -76,11 +75,11 @@ class FlightPlanState(TypedDict, total=False):
 class WeatherState(TypedDict, total=False):
     """Weather data produced by the weather agent."""
 
-    departure_metar: Optional[str]
-    arrival_metar: Optional[str]
-    alternate_metar: Optional[str]
-    departure_taf: Optional[str]
-    arrival_taf: Optional[str]
+    departure_metar: str | None
+    arrival_metar: str | None
+    alternate_metar: str | None
+    departure_taf: str | None
+    arrival_taf: str | None
     flight_category: str        # VFR / MVFR / IFR / LIFR
     hazards: list[str]
     recommendations: list[str]
@@ -118,7 +117,7 @@ class AircraftPerformance(TypedDict, total=False):
     """Performance analysis from the performance agent."""
 
     v_speeds: dict              # Vs, Vx, Vy, Vno, Vne, etc.
-    density_altitude: Optional[int]
+    density_altitude: int | None
     climb_rate_fpm: int
     descent_rate_fpm: int
     service_ceiling: int
@@ -133,7 +132,7 @@ class ValidationResult(TypedDict):
     passed: bool
     severity: str               # info / warning / critical
     message: str
-    details: Optional[dict]
+    details: dict | None
 
 
 class ScoringResult(TypedDict, total=False):
@@ -161,23 +160,23 @@ class HorusState(TypedDict, total=False):
 
     # ── Core identifiers
     messages: Annotated[list, add_messages]
-    session_id: Optional[str]
-    user_id: Optional[str]
+    session_id: str | None
+    user_id: str | None
     phase: str                  # SessionPhase value
 
     # ── Flight plan & validation
-    flight_plan: Optional[FlightPlanState]
-    weather: Optional[WeatherState]
-    fuel_state: Optional[FuelState]
-    route_info: Optional[RouteInfo]
-    airspace_info: Optional[AirspaceInfo]
-    aircraft_performance: Optional[AircraftPerformance]
+    flight_plan: FlightPlanState | None
+    weather: WeatherState | None
+    fuel_state: FuelState | None
+    route_info: RouteInfo | None
+    airspace_info: AirspaceInfo | None
+    aircraft_performance: AircraftPerformance | None
     validation_results: list[ValidationResult]
     validation_passed: bool
 
     # ── Live session
-    pilot_message: Optional[str]
-    atc_response: Optional[str]
+    pilot_message: str | None
+    atc_response: str | None
     exchange_count: int
     current_waypoint_index: int
     session_phase_detail: str   # briefing / taxi / takeoff / cruise / approach / landing
@@ -185,9 +184,16 @@ class HorusState(TypedDict, total=False):
     is_emergency: bool
 
     # ── Scoring & gamification
-    scoring: Optional[ScoringResult]
+    scoring: ScoringResult | None
     badges_earned: list[str]
 
-    # ── Context
+    # ── Context and provenance
     language: str               # "en" or "es"
     context: dict               # flight context (callsign, altitude, etc.)
+    scene_version: str
+    prompt_version: str
+    retrieved_chunk_ids: list[str]
+    llm_provider: str
+    llm_model: str
+    llm_fallback_used: bool
+    pending_instructor: bool

@@ -6,8 +6,10 @@ from dataclasses import dataclass
 
 import soundfile as sf
 
+from app.llm import LLMModule
 from app.services.audio_effects.filters import RadioEffectsProcessor
 from app.services.llm.atc_agent import ATCAgent
+from app.services.llm.scenes.registry import SceneConfig
 from app.services.stt.whisper_service import WhisperSTTService
 from app.services.tts.tts_service import TTSService
 
@@ -34,12 +36,12 @@ class PipelineResult:
 class AudioPipeline:
     """End-to-end audio processing pipeline for ATC communication."""
 
-    def __init__(self) -> None:
-        """Initialize all pipeline components."""
+    def __init__(self, llm: LLMModule, scene: SceneConfig) -> None:
+        """Initialize all pipeline components with injected LLM dependencies."""
         logger.info("Initializing audio pipeline...")
 
         self.stt_service = WhisperSTTService()
-        self.atc_agent = ATCAgent()
+        self.atc_agent = ATCAgent(llm, scene)
         self.tts_service = TTSService()
         self.effects_processor = RadioEffectsProcessor()
 
