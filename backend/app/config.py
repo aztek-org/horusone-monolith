@@ -63,7 +63,7 @@ class KnowledgeSettings:
 class TraceSettings:
     """Configuration for tracing, retention, and trace log level."""
 
-    retention_days: int = 30
+    retention_days: int = 90
     otel_endpoint: str | None = None
     log_level: str = "INFO"
 

@@ -108,6 +108,16 @@ def test_replay_includes_real_and_legacy_event_provenance(
             },
             created_at=created_at.replace(microsecond=1),
         ),
+        SimpleNamespace(
+            event_type="completed",
+            event_payload={
+                "grade": "A",
+                "overall_score": 92,
+                "badges_earned": [],
+                "already_completed": False,
+            },
+            created_at=created_at.replace(microsecond=2),
+        ),
     ]
     db_session = _DummySession(training_session, events)
     _override_auth(local_user_id)
@@ -152,6 +162,19 @@ def test_replay_includes_real_and_legacy_event_provenance(
             "llm_fallback_used": True,
             "retrieved_chunk_ids": ["chunk-a", "chunk-b"],
             "instructor_overridden": False,
+        },
+        {
+            "event_type": "completed",
+            "created_at": "2026-09-25T12:00:00.000002Z",
+            "graph": None,
+            "node": None,
+            "scene_version": None,
+            "prompt_version": None,
+            "llm_provider": None,
+            "llm_model": None,
+            "llm_fallback_used": None,
+            "retrieved_chunk_ids": [],
+            "instructor_overridden": None,
         },
     ]
 

@@ -70,6 +70,13 @@ def test_knowledge_chunking_defaults_are_stable() -> None:
     assert settings.knowledge.chunk_overlap == 150
 
 
+def test_trace_retention_default_matches_adr_contract() -> None:
+    """Keep shipped provenance retention aligned with ADR-009."""
+    settings = Settings(_env_file=None, environment="testing")
+
+    assert settings.trace.retention_days == 90
+
+
 def test_cors_origins_list_multiple() -> None:
     """Test CORS origins are correctly parsed from a comma-separated string."""
     settings = Settings(cors_origins="http://localhost:3000,https://example.com")
