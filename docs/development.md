@@ -792,7 +792,7 @@ with six public methods:
 | Method | Purpose |
 |---|---|
 | `start(StartSessionCommand)` | Run validation, persist state, return a `SessionSnapshot` |
-| `validate(user_id, flight_plan, language)` | Run pre-flight validation for a flight plan with no session and nothing persisted |
+| `validate(*, user_id, flight_plan, language, org_id)` | Run pre-flight validation for a flight plan with no session and nothing persisted. `org_id` is optional; a `None` tenant makes retrieval fail-closed to platform-wide chunks only |
 | `send(SendTransmissionCommand)` | Run one pilot → ATC exchange |
 | `await_instructor(org_id, session_id, instructor_response)` | Complete a held exchange — with the instructor's text if given, otherwise by resuming the graph non-interrupting |
 | `end(EndSessionCommand)` | Run scoring, return a `Debrief` |
