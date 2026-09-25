@@ -21,6 +21,7 @@ from app.api.v1 import (
     flight_plans,
     gamification,
     instructors,
+    knowledge,
     modules,
     preferences,
     scenarios,
@@ -29,6 +30,7 @@ from app.api.v1 import (
     waypoints,
 )
 from app.config import Settings, get_settings
+from app.knowledge.retrieval import build_retriever
 from app.llm.routing import build_llm
 from app.services.llm.scenes.default_scene import DEFAULT_SCENE
 from app.services.llm.scenes.registry import SceneRegistry, load_scene_configs
@@ -124,15 +126,6 @@ def _build_scene_registry(app_settings: Settings) -> SceneRegistry:
     return SceneRegistry({DEFAULT_SCENE.version: DEFAULT_SCENE})
 
 
-def _build_retriever(_settings: Settings) -> None:
-    """Return the knowledge retriever the validation graph will use.
-
-    No retriever exists yet; this returns ``None`` and is replaced in Task 8
-    with ``build_retriever(settings, get_session_factory, llm)``.
-    """
-    return None
-
-
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     """Build every long-lived collaborator once and publish it on ``app.state``."""
@@ -148,7 +141,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     else:
         store = InMemorySessionStore()
     scenes = _build_scene_registry(app_settings)
-    retriever = _build_retriever(app_settings)
+    retriever = build_retriever(app_settings, get_session_factory, llm)
     trace = SqlAlchemyTraceRecorder()
 
     application.state.settings = app_settings
@@ -229,6 +222,7 @@ app.include_router(flight_plans.router, prefix=api_v1_prefix)
 app.include_router(instructors.router, prefix=api_v1_prefix)
 app.include_router(gamification.router, prefix=api_v1_prefix)
 app.include_router(assessments.router, prefix=api_v1_prefix)
+app.include_router(knowledge.router, prefix=api_v1_prefix)
 
 
 @app.get("/")
@@ -257,6 +251,7 @@ async def root() -> dict:
                 "instructors": "/api/v1/instructors",
                 "gamification": "/api/v1/gamification",
                 "assessments": "/api/v1/assessments",
+                "knowledge": "/api/v1/knowledge",
                 "admin": "/api/v1/admin",
                 "analytics": "/api/v1/analytics",
             },

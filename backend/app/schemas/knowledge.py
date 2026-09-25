@@ -1,10 +1,18 @@
-"""Knowledge citation schemas exposed by training sessions."""
+"""Pydantic schemas for knowledge upload and retrieval responses."""
 
 from __future__ import annotations
 
 import uuid
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+
+class IngestStatusResponse(BaseModel):
+    """Result returned after staging a document ingestion."""
+
+    document_id: uuid.UUID
+    chunk_count: int
+    status: str
 
 
 class RetrievedChunk(BaseModel):
@@ -22,6 +30,12 @@ class RetrievedChunk(BaseModel):
     char_end: int
 
 
+class RetrievedChunkRead(RetrievedChunk):
+    """Citation metadata and content returned for a retrieved chunk."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class Citation(BaseModel):
     """Source attribution for knowledge used in an ATC response."""
 
@@ -31,3 +45,9 @@ class Citation(BaseModel):
     page: int | None = None
     section: str | None = None
     snippet: str
+
+
+class KnowledgeSearchResponse(BaseModel):
+    """A list of retrieved chunks."""
+
+    results: list[RetrievedChunkRead]

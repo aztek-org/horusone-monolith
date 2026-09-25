@@ -75,7 +75,7 @@ def test_composition_root_builds_session_module(client: TestClient) -> None:
     assert state.scene_registry.get(DEFAULT_SCENE.version).version == DEFAULT_SCENE.version
     assert state.session_store is not None
     assert state.trace_recorder is not None
-    assert state.retriever is None
+    assert state.retriever is not None
     assert state.settings.environment == "testing"
 
 
