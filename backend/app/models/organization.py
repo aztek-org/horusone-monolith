@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Integer, String, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -37,6 +37,11 @@ class Organization(Base):
     billing_plan: Mapped[str] = mapped_column(String(32), nullable=False, default="starter")
     billing_status: Mapped[str] = mapped_column(String(32), nullable=False, default="trial")
     billing_cycle: Mapped[str] = mapped_column(String(16), nullable=False, default="monthly")
+    enabled_features: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False,
+        default=lambda: ["hangar", "squawk", "tower"],
+        server_default="'[\"hangar\",\"squawk\",\"tower\"]'",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

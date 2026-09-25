@@ -171,6 +171,20 @@ class FlightPlanRepository:
         logger.info("Flight plan %s status → %s", plan.id, new_status)
         return plan
 
+    async def delete_flight_plan(
+        self,
+        db: AsyncSession,
+        plan_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> bool:
+        plan = await self.get_flight_plan(db, plan_id, user_id)
+        if plan is None:
+            return False
+        await db.delete(plan)
+        await db.flush()
+        logger.info("Deleted flight plan %s", plan_id)
+        return True
+
     # ── Legs ───────────────────────────────────────────────────────
 
     async def add_leg(

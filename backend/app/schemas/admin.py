@@ -105,3 +105,20 @@ class AdminStats(BaseModel):
     total_users: int
     total_sessions: int
     total_scenarios: int
+    active_sessions: int
+
+
+class OrganizationFeaturesUpdate(BaseModel):
+    """Request to enable/disable platform features for an organization."""
+
+    enabled_features: list[str] = Field(
+        min_length=1,
+        max_length=20,
+    )
+
+
+class OrganizationFeaturesResponse(BaseModel):
+    """Response with organization features."""
+
+    org_id: uuid.UUID
+    enabled_features: list[str]

@@ -89,15 +89,15 @@ export function useInstructor() {
   // ── Profile ────────────────────────────────────────────────────────────
 
   function getMyProfile(): Promise<InstructorProfile> {
-    return api.get<InstructorProfile>('/api/v1/instructor/profile')
+    return api.get<InstructorProfile>('/api/v1/instructors/me/profile')
   }
 
   function updateMyProfile(data: InstructorProfileUpdate): Promise<InstructorProfile> {
-    return api.put<InstructorProfile>('/api/v1/instructor/profile', data)
+    return api.put<InstructorProfile>('/api/v1/instructors/me/profile', data)
   }
 
   function getInstructorProfile(userId: string): Promise<InstructorProfile> {
-    return api.get<InstructorProfile>(`/api/v1/instructor/profiles/${userId}`)
+    return api.get<InstructorProfile>(`/api/v1/instructors/${userId}/profile`)
   }
 
   function searchInstructors(
@@ -112,28 +112,28 @@ export function useInstructor() {
     if (limit !== undefined) params.set('limit', String(limit))
     if (offset !== undefined) params.set('offset', String(offset))
     const query = params.toString() ? `?${params.toString()}` : ''
-    return api.get<InstructorProfile[]>(`/api/v1/instructor/profiles${query}`)
+    return api.get<InstructorProfile[]>(`/api/v1/instructors/${query}`)
   }
 
   // ── Students ───────────────────────────────────────────────────────────
 
   function getMyStudents(): Promise<InstructorStudent[]> {
-    return api.get<InstructorStudent[]>('/api/v1/instructor/students')
+    return api.get<InstructorStudent[]>('/api/v1/instructors/students')
   }
 
   function getStudentDetail(studentId: string): Promise<InstructorStudent> {
-    return api.get<InstructorStudent>(`/api/v1/instructor/students/${studentId}`)
+    return api.get<InstructorStudent>(`/api/v1/instructors/students/${studentId}`)
   }
 
   // ── Stats & Sessions ──────────────────────────────────────────────────
 
   function getMyStats(): Promise<InstructorStats> {
-    return api.get<InstructorStats>('/api/v1/instructor/stats')
+    return api.get<InstructorStats>('/api/v1/instructors/stats')
   }
 
   function getRecentSessions(limit?: number): Promise<RecentSession[]> {
     const query = limit ? `?limit=${limit}` : ''
-    return api.get<RecentSession[]>(`/api/v1/instructor/sessions/recent${query}`)
+    return api.get<RecentSession[]>(`/api/v1/instructors/sessions/recent${query}`)
   }
 
   return {

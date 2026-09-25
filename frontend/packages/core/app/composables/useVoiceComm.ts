@@ -14,7 +14,6 @@ export interface VoiceCommStatus {
 }
 
 export const useVoiceComm = () => {
-  // State
   const status = ref<VoiceCommStatus>({
     connected: false,
     recording: false,
@@ -23,30 +22,30 @@ export const useVoiceComm = () => {
     error: null,
   })
 
-  // WebSocket connection
   let ws: WebSocket | null = null
   let mediaRecorder: MediaRecorder | null = null
   let audioContext: AudioContext | null = null
   let audioChunks: Blob[] = []
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  let reconnectAttempts = 0
+  let isConnecting = false
+  const MAX_RECONNECT_ATTEMPTS = 5
 
-  // WebSocket URL from runtime config (set via NUXT_PUBLIC_WS_URL env var)
   const config = useRuntimeConfig()
   const wsUrl = config.public.wsUrl as string
 
-  // Auth for token-based WS authentication
   const { accessToken, isAuthenticated } = useAuth()
 
-  /**
-   * Connect to the WebSocket server
-   */
   const connect = async (): Promise<void> => {
+    if (isConnecting) return
     if (!isAuthenticated.value || !accessToken.value) {
       status.value.error = 'Authentication required'
       return
     }
 
+    isConnecting = true
     try {
-      // Pass JWT token as query parameter for WS auth
       const url = new URL(wsUrl, window.location.origin)
       url.searchParams.set('token', accessToken.value)
       ws = new WebSocket(url.toString())
@@ -55,15 +54,16 @@ export const useVoiceComm = () => {
         console.log('Voice communication connected')
         status.value.connected = true
         status.value.error = null
+        reconnectAttempts = 0
+        isConnecting = false
+        _startHeartbeat()
       }
 
       ws.onmessage = async (event) => {
-        // Handle binary audio data
         if (event.data instanceof Blob) {
           console.log('Received audio response')
           await playAudio(event.data)
         }
-        // Handle JSON messages
         else if (typeof event.data === 'string') {
           try {
             const message = JSON.parse(event.data)
@@ -74,31 +74,77 @@ export const useVoiceComm = () => {
         }
       }
 
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error)
+      ws.onerror = () => {
+        console.error('WebSocket error')
         status.value.error = 'Connection error'
         status.value.connected = false
+        isConnecting = false
       }
 
       ws.onclose = () => {
         console.log('Voice communication disconnected')
         status.value.connected = false
+        isConnecting = false
+        _stopHeartbeat()
+        _tryReconnect()
       }
     } catch (error) {
       console.error('Failed to connect:', error)
       status.value.error = 'Failed to connect to server'
+      isConnecting = false
     }
   }
 
-  /**
-   * Disconnect from WebSocket
-   */
+  const _startHeartbeat = (): void => {
+    _stopHeartbeat()
+    heartbeatTimer = setInterval(() => {
+      sendHeartbeat()
+    }, 30000)
+  }
+
+  const _stopHeartbeat = (): void => {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer)
+      heartbeatTimer = null
+    }
+  }
+
+  const _tryReconnect = (): void => {
+    if (
+      !isAuthenticated.value ||
+      reconnectAttempts >= MAX_RECONNECT_ATTEMPTS ||
+      reconnectTimer
+    ) return
+
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000)
+    reconnectAttempts++
+    console.log(`Voice reconnecting in ${delay}ms (attempt ${reconnectAttempts})`)
+    status.value.error = `Reconnecting... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
+
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null
+      connect()
+    }, delay)
+  }
+
   const disconnect = (): void => {
+    _stopHeartbeat()
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer)
+      reconnectTimer = null
+    }
+    reconnectAttempts = MAX_RECONNECT_ATTEMPTS
     if (ws) {
       ws.close()
       ws = null
     }
     status.value.connected = false
+  }
+
+  const setLanguage = (lang: string): void => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'language_change', language: lang }))
+    }
   }
 
   /**
@@ -279,9 +325,14 @@ export const useVoiceComm = () => {
     status,
     connect,
     disconnect,
+    setLanguage,
     startRecording,
     stopRecording,
     resetConversation,
     sendHeartbeat,
   }
+}
+
+export function useVoiceCommStatus(): Ref<VoiceCommStatus> {
+  return useVoiceComm().status
 }

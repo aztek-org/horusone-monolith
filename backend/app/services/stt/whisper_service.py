@@ -23,56 +23,64 @@ class WhisperSTTService:
         logger.info(f"Loading Whisper model: {self.settings.whisper_model}")
         self.model = whisper.load_model(self.settings.whisper_model)
         logger.info("Whisper model loaded successfully")
+        self._ffmpeg_available: bool | None = None
 
-    async def transcribe(self, audio_data: bytes) -> tuple[str, str]:
+    async def transcribe(self, audio_data: bytes, language: str | None = None) -> tuple[str, str]:
         """Transcribe audio data to text.
 
         Args:
             audio_data: Raw audio bytes (WAV, WebM, or raw PCM format)
+            language: Optional language override (None uses config default)
 
         Returns:
             Tuple of (transcribed text, detected language code)
         """
         try:
             audio_array = None
-            sample_rate = 16000  # Default sample rate
+            sample_rate = 16000
+
+            # Detect audio format by magic bytes
+            is_webm = audio_data[:4] == b'\x1aE\xdf\xa3'
 
             # Try to read as a standard audio file (WAV, etc.)
             try:
                 audio_array, sample_rate = sf.read(io.BytesIO(audio_data))
                 logger.debug(f"Successfully read audio file: {sample_rate}Hz")
             except Exception as read_error:
-                logger.warning(f"Could not read as audio file: {read_error}")
+                logger.debug(f"Could not read as audio file: {read_error}")
 
-                # Try using pydub to handle various formats (WebM, Opus, etc.)
+                if is_webm:
+                    logger.info("Detected WebM/Opus format — converting via pydub+ffmpeg")
                 try:
                     from pydub import AudioSegment
 
-                    # Try to load with pydub
                     audio_segment = AudioSegment.from_file(io.BytesIO(audio_data))
 
-                    # Convert to numpy array
                     samples = np.array(audio_segment.get_array_of_samples())
                     sample_rate = audio_segment.frame_rate
 
-                    # Convert to float32 and normalize
-                    if audio_segment.sample_width == 2:  # 16-bit
+                    if audio_segment.sample_width == 2:
                         audio_array = samples.astype(np.float32) / 32768.0
-                    elif audio_segment.sample_width == 4:  # 32-bit
+                    elif audio_segment.sample_width == 4:
                         audio_array = samples.astype(np.float32) / 2147483648.0
                     else:
                         audio_array = samples.astype(np.float32)
 
-                    # Handle stereo
                     if audio_segment.channels == 2:
                         audio_array = audio_array.reshape((-1, 2)).mean(axis=1)
 
                     logger.info(f"Converted audio using pydub: {sample_rate}Hz")
 
                 except Exception as pydub_error:
+                    if is_webm and not self._check_ffmpeg():
+                        logger.error(
+                            "WebM/Opus audio received but ffmpeg is NOT installed — "
+                            "install ffmpeg to enable voice transcription"
+                        )
+                        return "", "en"
+
                     logger.error(f"Could not convert audio with pydub: {pydub_error}")
 
-                    # Last resort: assume raw PCM data at 16kHz mono
                     logger.warning("Attempting to treat as raw PCM data at 16kHz")
                     audio_array = (
                         np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
@@ -103,17 +111,14 @@ class WhisperSTTService:
                 tmp_path = Path(tmp_file.name)
 
             try:
-                # Transcribe using Whisper
-                # Use auto-detection if configured, otherwise use specified language
-                language_param = (
-                    None
-                    if self.settings.whisper_language == "auto"
+                effective_language = language or (
+                    None if self.settings.whisper_language == "auto"
                     else self.settings.whisper_language
                 )
 
                 result = self.model.transcribe(
                     str(tmp_path),
-                    language=language_param,
+                    language=effective_language or None,
                     task="transcribe",
                     fp16=False,
                 )
@@ -131,15 +136,26 @@ class WhisperSTTService:
             logger.error(f"Error transcribing audio: {e}", exc_info=True)
             return "", "en"
 
-    async def transcribe_stream(self, audio_chunks: list[bytes]) -> tuple[str, str]:
+    async def transcribe_stream(self, audio_chunks: list[bytes], language: str | None = None) -> tuple[str, str]:
         """Transcribe a stream of audio chunks.
 
         Args:
             audio_chunks: List of audio byte chunks
+            language: Optional language override
 
         Returns:
             Tuple of (transcribed text, detected language code)
         """
-        # Combine all chunks
         combined_audio = b"".join(audio_chunks)
-        return await self.transcribe(combined_audio)
+        return await self.transcribe(combined_audio, language=language)
+
+    def _check_ffmpeg(self) -> bool:
+        if self._ffmpeg_available is not None:
+            return self._ffmpeg_available
+        try:
+            import subprocess
+            subprocess.run(["ffmpeg", "-version"], capture_output=True, timeout=3)
+            self._ffmpeg_available = True
+        except Exception:
+            self._ffmpeg_available = False
+        return self._ffmpeg_available

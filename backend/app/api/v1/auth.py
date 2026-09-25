@@ -220,6 +220,19 @@ class UserProfile(BaseModel):
     organization_id: UUID | None = None
     has_active_seat: bool
     seats: list[SeatInfo]
+    enabled_features: list[str] = []
+
+
+async def _get_active_organization(
+    session: AsyncSession, local_user: User
+):
+    from app.models.organization import Organization
+
+    if local_user.seats:
+        for s in local_user.seats:
+            if s.is_active and s.organization:
+                return s.organization
+    return None
 
 
 @router.get("/me", response_model=UserProfile)
@@ -254,6 +267,9 @@ async def get_current_user_profile(
 
     has_active = any(s.is_active for s in seats) or "platform-admin" in user.roles
 
+    active_org = await _get_active_organization(session, local_user)
+    features = active_org.enabled_features if active_org else ["hangar", "squawk", "tower"]
+
     return UserProfile(
         id=local_user.id,
         keycloak_id=local_user.keycloak_id,
@@ -263,4 +279,5 @@ async def get_current_user_profile(
         organization_id=UUID(user.organization_id) if user.organization_id else None,
         has_active_seat=has_active,
         seats=seat_infos,
+        enabled_features=features,
     )

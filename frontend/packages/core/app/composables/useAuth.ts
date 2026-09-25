@@ -28,6 +28,7 @@ interface AuthState {
   hasActiveSeat: Ref<boolean>
   activeSeat: Ref<SeatInfo | null>
   seats: Ref<SeatInfo[]>
+  enabledFeatures: Ref<string[]>
 }
 
 interface AuthActions {
@@ -51,6 +52,7 @@ const error = ref<string | null>(null)
 const seats = ref<SeatInfo[]>([])
 const hasActiveSeat = ref(false)
 const activeSeat = ref<SeatInfo | null>(null)
+const enabledFeatures = ref<string[]>(['hangar', 'squawk', 'tower'])
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -213,7 +215,7 @@ export function useAuth(): AuthState & AuthActions {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${data.access_token}`,
           },
-          body: JSON.stringify({ user_agent: navigator.userAgent }),
+          body: JSON.stringify({ access_token: data.access_token }),
         })
       }
       catch {
@@ -409,6 +411,7 @@ export function useAuth(): AuthState & AuthActions {
         seats: seats.value,
         hasActiveSeat: hasActiveSeat.value,
         activeSeat: activeSeat.value,
+        enabledFeatures: enabledFeatures.value,
       }))
     }
     catch {
@@ -455,6 +458,7 @@ export function useAuth(): AuthState & AuthActions {
         isActive: s.is_active as boolean,
       }))
       activeSeat.value = seats.value.find(s => s.isActive) ?? null
+      enabledFeatures.value = profile.enabled_features ?? ['hangar', 'squawk', 'tower']
 
       // Update persisted auth with seat data
       _persistAuth()
@@ -475,9 +479,11 @@ export function useAuth(): AuthState & AuthActions {
           refreshTokenValue.value = data.refreshToken
           idTokenValue.value = data.idToken
           user.value = data.user
-          seats.value = data.seats ?? []
+      seats.value = data.seats ?? []
           hasActiveSeat.value = data.hasActiveSeat ?? false
           activeSeat.value = data.activeSeat ?? null
+          enabledFeatures.value = data.enabledFeatures ?? ['hangar', 'squawk', 'tower']
+      enabledFeatures.value = data.enabledFeatures ?? ['hangar', 'squawk', 'tower']
 
           // Schedule token refresh based on remaining lifetime
           if (accessToken.value) {
@@ -516,6 +522,7 @@ export function useAuth(): AuthState & AuthActions {
     hasActiveSeat,
     activeSeat,
     seats,
+    enabledFeatures,
     login,
     logout,
     handleCallback,

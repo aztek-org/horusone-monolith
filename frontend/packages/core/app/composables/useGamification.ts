@@ -68,15 +68,15 @@ export function useGamification() {
   }
 
   function getMyBadges(): Promise<UserBadge[]> {
-    return api.get<UserBadge[]>('/api/v1/gamification/badges/me')
+    return api.get<UserBadge[]>('/api/v1/gamification/me/badges')
   }
 
   function getBadgeProgress(): Promise<BadgeProgress[]> {
-    return api.get<BadgeProgress[]>('/api/v1/gamification/badges/me/progress')
+    return api.get<BadgeProgress[]>('/api/v1/gamification/me/badges/progress')
   }
 
-  function checkBadges(): Promise<void> {
-    return api.post<void>('/api/v1/gamification/badges/check')
+  function checkBadges(): Promise<UserBadge[]> {
+    return api.post<UserBadge[]>('/api/v1/gamification/check')
   }
 
   // ── Leaderboard ────────────────────────────────────────────────────────

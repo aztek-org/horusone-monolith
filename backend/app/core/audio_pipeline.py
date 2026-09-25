@@ -49,6 +49,7 @@ class AudioPipeline:
         self,
         audio_data: bytes,
         context: dict | None = None,
+        language: str | None = None,
     ) -> PipelineResult:
         """Process audio through the complete pipeline.
 
@@ -57,6 +58,7 @@ class AudioPipeline:
         Args:
             audio_data: Input audio from pilot (WAV bytes)
             context: Optional flight context
+            language: Optional language override for STT + TTS
 
         Returns:
             PipelineResult with processed audio and transcripts.
@@ -67,7 +69,9 @@ class AudioPipeline:
         try:
             # Step 1: Speech to Text (with language detection)
             logger.info("Step 1: Transcribing pilot audio...")
-            pilot_text, detected_language = await self.stt_service.transcribe(audio_data)
+            pilot_text, detected_language = await self.stt_service.transcribe(
+                audio_data, language=language
+            )
 
             if not pilot_text:
                 logger.warning("No transcription received, returning silence")

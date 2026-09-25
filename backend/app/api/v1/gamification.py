@@ -23,6 +23,7 @@ from app.middleware.org_context import RequireActiveSeat, get_authenticated_user
 from app.models.user import User
 from app.schemas.gamification import (
     BadgeCreate,
+    BadgeProgressRead,
     BadgeRead,
     LeaderboardSnapshotRead,
     UserBadgeRead,
@@ -160,6 +161,65 @@ async def check_badges(
         local_user.id, len(awarded),
     )
     return awarded  # type: ignore[return-value]
+
+
+# ── Badge progress ─────────────────────────────────────────────────
+
+
+@router.get("/me/badges/progress", response_model=list[BadgeProgressRead])
+async def get_badge_progress(
+    user: CurrentUser,
+    _seat: RequireActiveSeat,
+    local_user: User = Depends(get_authenticated_user),
+    org_id: uuid.UUID | None = Depends(get_org_id),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[BadgeProgressRead]:
+    """Get progress towards all active badges for the current user."""
+    from app.models.gamification import Badge
+    from app.models.student_stats import StudentStats
+
+    stats = await db.scalar(
+        select(StudentStats).where(StudentStats.user_id == local_user.id)
+    )
+
+    badges_result = await db.execute(
+        select(Badge).where(
+            Badge.is_active.is_(True),
+            (Badge.org_id == org_id) | (Badge.org_id.is_(None)),
+        ).order_by(Badge.sort_order)
+    )
+    badges = list(badges_result.scalars().all())
+
+    progress = []
+    for badge in badges:
+        criteria = badge.criteria or {}
+        criteria_type = criteria.get("type", "scenarios")
+        threshold = float(criteria.get("threshold", 1))
+
+        current = 0.0
+        if stats:
+            if criteria_type == "flight_hours":
+                current = float(stats.total_flight_hours or 0)
+            elif criteria_type == "scenarios":
+                current = float(stats.total_sessions or 0)
+            elif criteria_type == "assessments":
+                current = float(stats.assessments_passed or 0)
+            elif criteria_type == "score":
+                current = float(stats.average_score or 0)
+            elif criteria_type == "streak":
+                current = float(stats.current_streak or 0)
+
+        pct = min(round((current / threshold) * 100, 1) if threshold > 0 else 100.0, 100.0)
+        progress.append(BadgeProgressRead(
+            badge_id=str(badge.id),
+            badge_name=badge.name,
+            badge_tier=badge.tier,
+            current_value=current,
+            target_value=threshold,
+            progress_percent=pct,
+        ))
+
+    return progress
 
 
 def _slugify_badge_name(name: str) -> str:

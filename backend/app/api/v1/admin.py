@@ -28,6 +28,8 @@ from app.models.user import User
 from app.schemas.admin import (
     AdminStats,
     AdminUserUpdate,
+    OrganizationFeaturesResponse,
+    OrganizationFeaturesUpdate,
     OrganizationWithStats,
     SeatCreateRequest,
     SeatRoleUpdate,
@@ -536,12 +538,21 @@ async def get_platform_stats(
     total_users = await session.scalar(select(func.count(User.id))) or 0
     total_sessions = await session.scalar(select(func.count(TrainingSession.id))) or 0
     total_scenarios = await session.scalar(select(func.count(Scenario.id))) or 0
+    active_sessions = (
+        await session.scalar(
+            select(func.count(TrainingSession.id)).where(
+                TrainingSession.status == "active",
+            )
+        )
+        or 0
+    )
 
     return AdminStats(
         total_orgs=total_orgs,
         total_users=total_users,
         total_sessions=total_sessions,
         total_scenarios=total_scenarios,
+        active_sessions=active_sessions,
     )
 
 
@@ -582,3 +593,57 @@ async def _verify_user_in_org(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User is not a member of your organization",
         )
+
+
+# ── Feature flags ──────────────────────────────────────────────────
+
+
+@router.get(
+    "/organizations/{org_id}/features",
+    response_model=OrganizationFeaturesResponse,
+)
+async def get_organization_features(
+    org_id: uuid.UUID,
+    _user: RequireOrgAdmin,
+    session: AsyncSession = Depends(get_db_session),
+) -> OrganizationFeaturesResponse:
+    """Get enabled features for an organization."""
+    org = await org_repo.get_by_id(session, org_id)
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return OrganizationFeaturesResponse(
+        org_id=org.id,
+        enabled_features=org.enabled_features,
+    )
+
+
+@router.put(
+    "/organizations/{org_id}/features",
+    response_model=OrganizationFeaturesResponse,
+)
+async def update_organization_features(
+    org_id: uuid.UUID,
+    data: OrganizationFeaturesUpdate,
+    _user: RequireAdmin,
+    session: AsyncSession = Depends(get_db_session),
+) -> OrganizationFeaturesResponse:
+    """Enable or disable features for an organization (platform-admin only)."""
+    org = await org_repo.get_by_id(session, org_id)
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    valid = {"hangar", "squawk", "tower"}
+    sanitized = [f for f in data.enabled_features if f in valid]
+    if not sanitized:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one valid feature is required (hangar, squawk, tower)",
+        )
+    org.enabled_features = sanitized
+    session.add(org)
+    await session.flush()
+    await session.refresh(org)
+    logger.info("Updated features for org %s: %s", org.slug, sanitized)
+    return OrganizationFeaturesResponse(
+        org_id=org.id,
+        enabled_features=org.enabled_features,
+    )

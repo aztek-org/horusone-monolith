@@ -1,315 +1,175 @@
-# Horus MVP — NEXT.md Implementation Plan
+# Horus MVP — Optimization & Architecture Plan
 
 ## Problem Statement
 
-The core platform (auth, basic scenarios, voice pipeline, admin) works. NEXT.md defines the missing pieces to make Horus a **complete aviation training platform**: student stats, knowledge content, enriched scenarios with waypoints, flight plan planning with AI agents, instructor tools, gamification, and a full LangGraph multi-agent architecture.
+Full-stack analysis reveals that Horus works as an MVP but has **critical scalability bottlenecks**, **incorrect LangGraph usage**, **memory leak risks**, and **missing production patterns**. This plan addresses optimization across all 4 layers: LangGraph agents, backend API, frontend apps, and infrastructure — focusing on functional behavior (no test changes).
 
 ## Approach
 
-Build in **7 phases**, each independently deployable. Use the Copilot Fleet agents for domain-specific work. LangGraph is the orchestration backbone — every training flow runs through a state graph with specialized reasoning nodes.
+Organize into **5 phases** by severity. Each phase is independently committable. Work proceeds from critical architectural fixes (LangGraph, audio pipeline) through backend optimization, frontend hardening, and documentation.
 
 ---
 
-## Phase 1 — Data Layer Foundation
+## Phase 1 — LangGraph Architecture Fix (Critical)
 
-Expand the database to support all NEXT.md features. New models, migrations, and seed data.
+The LangGraph implementation has fundamental design flaws: `ATCAgent` wraps a linear 3-node chain in an unnecessary `StateGraph`, conversation history is duplicated across two systems, the audio pipeline bypasses the orchestrator entirely, and there's no state persistence.
 
-### 1.1 — Student Stats Models
-- **New models**: `StudentStats`, `FlightHourLog`, `ManeuverLog`, `KnowledgeAssessment`, `AssessmentResult`
-- `StudentStats`: user_id (FK), total_flight_hours, total_maneuvers, total_scenarios_completed, total_assessments, overall_score, updated_at
-- `FlightHourLog`: id, user_id, session_id, hours_logged, maneuvers_practiced (JSONB), phase, created_at
-- `KnowledgeAssessment`: id, title, description, module_id (FK), questions (JSONB), passing_score, created_by, org_id
-- `AssessmentResult`: id, user_id, assessment_id, score, answers (JSONB), passed, completed_at
-- **Agent**: `database-expert`
+### 1.1 — Remove ATCAgent StateGraph Wrapper
+- **File**: `backend/app/services/llm/atc_agent.py`
+- **Problem**: 3-node linear graph (`understand → respond → evaluate`) with no branches, no conditionals — doesn't need LangGraph at all. Graph state is thrown away after each `ainvoke()`, conversation stored externally in a list.
+- **Fix**: Replace with a simple async service class. Keep the `_understand`, `_respond`, `_evaluate` methods as plain async functions. Remove `StateGraph` import and compilation.
+- **Example**:
+  ```python
+  class ATCService:
+      async def generate_response(self, pilot_message, context, language):
+          notes = self._understand(pilot_message)
+          response = await self._respond(pilot_message, notes, context, language)
+          metrics = self._evaluate(pilot_message, response, context)
+          self.conversation_history.append({...})
+          return response
+  ```
 
-### 1.2 — Flight Training Content Models
-- **New models**: `ContentCategory`, `ContentArticle`
-- `ContentCategory`: id, name, slug, description, parent_id (self-referential), sort_order, icon
-- `ContentArticle`: id, category_id (FK), title, slug, content (TEXT — markdown), summary, difficulty_level, tags (JSONB), author_id, org_id (nullable = platform-wide), is_published, created_at, updated_at
-- Categories map to NEXT.md topics: Aviation Theory, Aircraft Systems, Aerodynamics, ATC Procedures, Regulations, Safety
-- **Agent**: `database-expert`
+### 1.2 — Unify Conversation History
+- **Files**: `backend/app/services/llm/atc_agent.py`, `backend/app/services/llm/state.py`, `backend/app/services/llm/graphs/live_session_graph.py`
+- **Problem**: Two independent conversation systems: `ATCAgent.conversation_history` (plain list) and `HorusState.messages` (LangGraph `add_messages` reducer). They never sync.
+- **Fix**: Use `HorusState.messages` as the single source of truth. The new `ATCService` should read/write through the orchestrator's session state. Remove the standalone `conversation_history` list.
 
-### 1.3 — Enhanced Scenarios & Waypoints Models
-- **New models**: `Waypoint`, `ScenarioWaypoint`, `SessionTrack`, `FlightInsight`
-- `Waypoint`: id, name, type (waypoint/airport/VOR/fix/NDB), lat, lng, frequency (nullable), elevation (nullable)
-- `ScenarioWaypoint`: scenario_id, waypoint_id, sequence_order, altitude_constraint, speed_constraint, notes
-- `SessionTrack`: id, session_id (FK), track_points (JSONB array of {lat, lng, alt, heading, speed, timestamp}), recorded_at
-- `FlightInsight`: id, session_id, type (deviation/performance/communication), severity, description, timestamp_in_session, metadata (JSONB)
-- Add to `Scenario` model: `scenario_type` (VFR/IFR/emergency/cross_country/night/weather), `waypoints` relationship, `flight_plan_template` (JSONB)
-- **Agent**: `database-expert`
+### 1.3 — Integrate Audio Pipeline with Orchestrator
+- **Files**: `backend/app/core/audio_pipeline.py`, `backend/app/api/routes/voice.py`
+- **Problem**: Voice pipeline creates its own `ATCAgent` instance (line 42), completely bypassing `HorusOrchestrator`. Flight plan validation results, scoring accumulation, HITL interrupts — none of these reach the voice path.
+- **Fix**: Inject `HorusOrchestrator` into `AudioPipeline`. Route all `generate_response()` calls through `orchestrator.process_message(session_id, pilot_text)`. WebSocket handler passes `session_id` context.
 
-### 1.4 — Flight Plan Models
-- **New models**: `FlightPlan`, `FlightPlanLeg`
-- `FlightPlan`: id, user_id, scenario_id (nullable), org_id (nullable), departure_icao, arrival_icao, alternate_icao, route_string, fuel_required, fuel_reserve, total_weight, max_weight, cg_position, weather_briefing (JSONB), airspace_restrictions (JSONB), notes (TEXT), source_type (form/ocr/text/image), status (draft/validated/approved/active/completed), created_at, updated_at
-- `FlightPlanLeg`: id, flight_plan_id (FK), sequence, from_waypoint_id, to_waypoint_id, distance_nm, heading, altitude, estimated_time_minutes, fuel_burn, wind (JSONB)
-- **Agent**: `database-expert`
+### 1.4 — Add LLM Retry Logic & Timeouts
+- **Files**: `backend/app/services/llm/graphs/live_session_graph.py`, `backend/app/core/audio_pipeline.py`
+- **Problem**: Single LLM call attempt (line 113-131), immediate fallback on any error. No timeout — if Ollama hangs, WebSocket hangs forever.
+- **Fix**: Add `tenacity` retry with exponential backoff (3 attempts, 2-10s wait). Wrap all LLM calls with `asyncio.wait_for(timeout=30)`. Add circuit breaker pattern for repeated failures.
 
-### 1.5 — Instructor & Gamification Models
-- **New models**: `InstructorProfile`, `Badge`, `UserBadge`, `LeaderboardSnapshot`
-- `InstructorProfile`: user_id (FK, unique), qualifications (JSONB), certifications (JSONB), bio, specializations (JSONB), availability (JSONB — schedule), rating (float)
-- `Badge`: id, name, slug, description, icon, criteria (JSONB), category (flight/communication/knowledge/streak), tier (bronze/silver/gold/platinum)
-- `UserBadge`: user_id, badge_id, earned_at, metadata (JSONB)
-- `LeaderboardSnapshot`: id, org_id, period (daily/weekly/monthly), data (JSONB), generated_at
-- **Agent**: `database-expert`
+### 1.5 — Parallelize Validation Graph
+- **File**: `backend/app/services/llm/graphs/validation_graph.py`
+- **Problem**: 6 validation agents run sequentially (`gatekeeper → weather → fuel → route → airspace → performance`) even though they're independent after the gatekeeper node. Currently ~60ms sequential; could be ~15ms parallel.
+- **Fix**: Fan-out pattern — gatekeeper feeds all 5 validators concurrently, all 5 feed into `check_all_passed`.
 
-### 1.6 — Alembic Migration & Seed Data
-- Single migration for all new models
-- Seed data: sample content articles (aviation theory basics), waypoints (major US airports, common VORs), badges (First Flight, 10 Hours, Phraseology Master, etc.), sample flight plan
-- **Agent**: `database-expert`
+### 1.6 — Add Session State Persistence
+- **File**: `backend/app/services/llm/orchestrator.py`
+- **Problem**: `self._sessions: dict[str, HorusState] = {}` — all session state lost on process restart. Can't scale horizontally.
+- **Fix**: Replace in-memory dict with LangGraph's `PostgresCheckpointer` or `AsyncPostgresSaver`. Compile graphs with `checkpointer=`. Pass `thread_id=session_id` in all `ainvoke()` calls.
 
----
-
-## Phase 2 — Backend API Layer
-
-New API endpoints, repositories, schemas, and services for all new models.
-
-### 2.1 — Student Stats API
-- `GET /api/v1/stats/me` — current user stats summary
-- `GET /api/v1/stats/{user_id}` — stats for specific user (instructor/admin only)
-- `GET /api/v1/stats/me/flight-hours` — flight hour log with filters
-- `GET /api/v1/stats/me/maneuvers` — maneuver history
-- `GET /api/v1/stats/me/assessments` — assessment results
-- `GET /api/v1/stats/me/transcript/{session_id}` — download session transcript (PDF/JSON)
-- Repository: `StudentStatsRepository` — auto-aggregation from session/voice_log data
-- **Agent**: `python-fastapi-expert`
-
-### 2.2 — Flight Training Content API
-- `GET /api/v1/content/categories` — tree of categories
-- `GET /api/v1/content/categories/{slug}` — category with articles
-- `GET /api/v1/content/articles/{slug}` — single article
-- `POST /api/v1/content/articles` — create article (instructor/admin)
-- `PUT /api/v1/content/articles/{id}` — update article
-- `GET /api/v1/content/search?q=` — full-text search across articles (pg_tsvector)
-- **Agent**: `python-fastapi-expert`
-
-### 2.3 — Enhanced Scenarios API
-- Extend `POST /api/v1/scenarios` with scenario_type, waypoints, flight_plan_template
-- `GET /api/v1/scenarios/{id}/waypoints` — ordered waypoints for scenario
-- `POST /api/v1/scenarios/{id}/waypoints` — add waypoints to scenario
-- `GET /api/v1/sessions/{id}/track` — session flight track for map replay
-- `GET /api/v1/sessions/{id}/insights` — AI-generated flight insights
-- `GET /api/v1/waypoints?type=&near_lat=&near_lng=&radius=` — search waypoints
-- **Agent**: `python-fastapi-expert`
-
-### 2.4 — Flight Plan API
-- `POST /api/v1/flight-plans` — create from form data
-- `POST /api/v1/flight-plans/from-text` — create from plain text (AI parses)
-- `POST /api/v1/flight-plans/from-image` — create from image/OCR (AI extracts)
-- `GET /api/v1/flight-plans` — list user's flight plans
-- `GET /api/v1/flight-plans/{id}` — full flight plan with legs
-- `PUT /api/v1/flight-plans/{id}` — update
-- `POST /api/v1/flight-plans/{id}/validate` — run validation (triggers Gatekeeper agent)
-- `POST /api/v1/flight-plans/{id}/activate` — activate for training session
-- **Agent**: `python-fastapi-expert`
-
-### 2.5 — Instructor & Gamification API
-- `GET /api/v1/instructors/{user_id}/profile` — instructor profile
-- `PUT /api/v1/instructors/me/profile` — update own profile
-- `GET /api/v1/instructors?org_id=&specialization=` — search instructors
-- `GET /api/v1/gamification/badges` — all available badges
-- `GET /api/v1/gamification/me/badges` — user's earned badges
-- `GET /api/v1/gamification/leaderboard?period=&org_id=` — leaderboard
-- `POST /api/v1/gamification/check` — trigger badge evaluation for user (internal)
-- **Agent**: `python-fastapi-expert`
-
-### 2.6 — Knowledge Assessment API
-- `GET /api/v1/assessments` — list assessments for user's modules
-- `GET /api/v1/assessments/{id}` — get assessment questions
-- `POST /api/v1/assessments/{id}/submit` — submit answers, get score
-- `POST /api/v1/assessments` — create assessment (instructor/admin)
-- **Agent**: `python-fastapi-expert`
+### 1.7 — Fix Module-Level LLM Global
+- **File**: `backend/app/services/llm/graphs/live_session_graph.py`
+- **Problem**: `_llm: Ollama | None = None` as module-level global (line 41-42). Not thread-safe if multiple workers access concurrently.
+- **Fix**: Pass LLM instance via LangGraph `RunnableConfig` or inject through `build_live_session_graph()` parameters.
 
 ---
 
-## Phase 3 — LangGraph Multi-Agent Architecture
+## Phase 2 — Backend Performance Optimization
 
-The core intelligence layer. Refactor the existing 3-node ATC agent into a full multi-agent graph with specialized reasoning nodes.
+### 2.1 — Increase DB Connection Pool
+- **File**: `backend/app/db/session.py`
+- **Problem**: `pool_size=10, max_overflow=20` (30 total). With WebSocket + REST serving 100+ users, pool exhausts fast.
+- **Fix**: `pool_size=30, max_overflow=50, pool_recycle=3600`.
 
-### 3.1 — Agent State & Graph Orchestrator
-- Refactor `AgentState` to support multi-agent routing
-- New state fields: `flight_plan`, `weather_data`, `fuel_state`, `airspace_info`, `validation_errors`, `scoring`, `phase` (ingestion/validation/evaluation/live/debrief/scoring)
-- Create `HorusOrchestrator` — top-level StateGraph that routes to sub-agents
-- Pipeline: Ingestion → Validation → Evaluation → Live → Evaluation → Scoring
-- Mermaid documentation for every graph
-- **Agent**: `llm-expert`
+### 2.2 — Add Missing Database Indexes
+- Alembic migration for `training_sessions(status)`, `training_sessions(scenario_id)`.
 
-### 3.2 — Gatekeeper Node
-- Validates flight plan consistency: route continuity, fuel sufficiency, weight limits, airspace compliance
-- Schema validation using Pydantic
-- Returns structured validation errors with severity levels
-- Runs before any live session starts
-- **Agent**: `llm-expert`
+### 2.3 — Optimize Stats Aggregate Query
+- **File**: `backend/app/db/repositories/student_stats_repository.py`
+- **Problem**: `update_aggregates()` fires 3 separate queries per session completion.
+- **Fix**: Combine into single query with `func.sum`, `func.count`, `func.avg`.
 
-### 3.3 — Reasoning Nodes (Weather, Fuel, Route, Airspace)
-- **WeatherAgent**: Fetch/analyze weather data (METAR/TAF), determine flight category (VFR/MVFR/IFR/LIFR), suggest alternates. External API stub with mock data for dev.
-- **FuelAgent**: Calculate fuel burn per leg, reserves, endurance. Factor wind, altitude, aircraft performance.
-- **RouteAgent**: Optimize route, suggest alternates, calculate ETAs per leg. Use waypoint database.
-- **AirspaceAgent**: Check route against airspace restrictions (Class A/B/C/D/E/G), TFRs, NOTAMs.
-- Each agent: standalone function callable from graph, returns typed result, documented with mermaid
-- **Agent**: `llm-expert`
+### 2.4 — Fix Blocking I/O in STT Service
+- **File**: `backend/app/services/stt/whisper_service.py`
+- **Problem**: `async def transcribe()` does blocking file writes and Whisper inference. Locks event loop.
+- **Fix**: Wrap in `loop.run_in_executor()`. Use `aiofiles` for temp file I/O.
 
-### 3.4 — Reasoning Nodes (Aircraft Performance, Emergency, ATC)
-- **AircraftPerformanceAgent**: V-speeds, climb/descent rates, service ceiling based on weight/altitude/temp
-- **EmergencyProceduresAgent**: Detect emergency keywords, provide procedural guidance, track emergency state
-- **ATCAgent**: Refactored from existing — now a sub-agent within orchestrator. Enhanced with conditional edges (readback verification, correction loops). Human-in-the-loop support.
-- **Agent**: `llm-expert`
+### 2.5 — Add Audio Pipeline Concurrency Control
+- **Files**: `backend/app/core/audio_pipeline.py`, `backend/app/api/routes/voice.py`
+- **Problem**: Single instance serves ALL users sequentially. 10 concurrent users = 10-minute queue.
+- **Fix**: `asyncio.Semaphore(5)` to gate concurrent processing.
 
-### 3.5 — Tier Nodes (Student Progression & Gamification)
-- **StudentTierNode**: Evaluate student performance, adjust difficulty, track progression metrics
-- **GamificationNode**: After each session — check badge criteria, update leaderboard, generate achievement notifications
-- Scoring rubric: communication accuracy, decision quality, procedure adherence, response time
-- **Agent**: `llm-expert`
+### 2.6 — Reduce TTS Format Conversions
+- **File**: `backend/app/services/tts/tts_service.py`
+- **Problem**: 4 format conversions per TTS call (gTTS→MP3→AudioSegment→WAV→numpy→WAV bytes).
+- **Fix**: Stream MP3 bytes from `gTTS.write_to_fp()`, single pydub conversion to WAV.
 
-### 3.6 — Session Pipeline (Ingestion → Scoring)
-- **Ingestion**: Parse flight plan (form, text, or OCR image), normalize data, create session
-- **Validation**: Run Gatekeeper + all reasoning agents on flight plan
-- **Pre-flight Evaluation**: Weather briefing, fuel check, weight & balance
-- **Live Stage**: Real-time ATC interaction with human-in-the-loop. Emulate flight phases, time lapse, waypoint progression. Rewind capability.
-- **Post-flight Evaluation**: Analyze transcript, generate insights, black box replay data
-- **Scoring & Feedback**: Aggregate scores, award badges, generate downloadable report
-- **Agent**: `llm-expert`
+### 2.7 — Cache Org Context per Request
+- **File**: `backend/app/middleware/org_context.py`
+- **Problem**: Every request does 2 DB calls (user lookup + seat lookup).
+- **Fix**: Store in `request.state` for request-scoped caching.
+
+### 2.8 — Add JWKS Cache TTL
+- **File**: `backend/app/middleware/auth.py`
+- **Problem**: `_jwks_cache` has no TTL. Stale keys after Keycloak rotation.
+- **Fix**: Add `fetched_at` timestamp, re-fetch after 1 hour.
+
+### 2.9 — Extract Duplicated Permission Logic
+- **Files**: `backend/app/api/v1/sessions.py`, `backend/app/api/v1/stats.py`
+- **Problem**: Same RBAC pattern duplicated across routes.
+- **Fix**: Create `get_access_scope()` dependency returning `AccessScope(scope, org_id, user_id)`.
 
 ---
 
-## Phase 4 — Frontend: Student Stats & Content
+## Phase 3 — Frontend Optimization
 
-### 4.1 — Student Stats Dashboard
-- New page: `/stats` — comprehensive student statistics
-- Flight hours chart (line/bar over time)
-- Maneuvers practiced breakdown (pie/donut)
-- Scenarios completed with difficulty distribution
-- Assessment scores timeline
-- Downloadable transcripts (link to PDF/JSON endpoint)
-- Progress tracking widgets
-- **Agent**: `nuxt-expert`
+### 3.1 — Fix useVoiceComm Memory Leaks
+- **File**: `frontend/packages/core/app/composables/useVoiceComm.ts`
+- **Problem**: `audioChunks` never cleared, `audioContext` no guaranteed cleanup, URL not revoked on error.
+- **Fix**: Clear chunks after Blob creation. Add `onUnmounted()` cleanup. try/finally for stream cleanup.
 
-### 4.2 — Flight Training Content (Knowledge Base)
-- New page: `/knowledge` — browsable knowledge base
-- Category tree sidebar navigation
-- Article viewer with markdown rendering
-- Search bar with full-text results
-- Difficulty badges on articles
-- Breadcrumb navigation
-- **Agent**: `nuxt-expert`
+### 3.2 — Add Request Timeout to useApi
+- **File**: `frontend/packages/core/app/composables/useApi.ts`
+- **Problem**: No timeout. Backend hang = frozen UI.
+- **Fix**: `AbortSignal.timeout(15000)` default on all fetch calls.
 
-### 4.3 — Knowledge Assessments UI
-- New page: `/assessments` — list available assessments
-- Assessment taking interface (question by question)
-- Results page with score, correct/incorrect breakdown
-- Link from knowledge articles to related assessments
-- **Agent**: `nuxt-expert`
+### 3.3 — Create useFetch Composable
+- **File**: Create `frontend/packages/core/app/composables/useFetch.ts`
+- **Problem**: Every page duplicates `isLoading/error/try-catch-finally` pattern.
+- **Fix**: `useFetch<T>(url)` returning `{ data, isLoading, error, refetch }`.
 
----
+### 3.4 — Extract Large Page Logic into Composables
+- **Files**: `assessments.vue` (877L), `stats.vue` (824L), `dashboard.vue` (569L)
+- **Problem**: Pages have too much business logic (13+ refs, inline API calls).
+- **Fix**: Extract to `useAssessmentSession.ts`, `useStatsData.ts`, `useDashboardData.ts`.
 
-## Phase 5 — Frontend: Enhanced Scenarios & Flight Plans
+### 3.5 — Split God Components
+- **Files**: `AppSettingsWorkspace.vue` (374L), `AppSidebar.vue` (370L), `StudentRoster.vue` (337L), `VoiceCommBubble.vue` (305L)
+- **Fix**: Split each into 2-3 focused sub-components.
 
-### 5.1 — Scenario Enhancement
-- Extend scenario creation: scenario type selector (VFR/IFR/emergency/etc.)
-- Waypoint editor on map (drag & drop)
-- Scenario preview with full waypoint route on map
-- Session history with track replay on map
-- Flight insights timeline alongside track replay
-- **Agent**: `nuxt-expert`
+### 3.6 — Fix useAuth Timer Cleanup
+- **File**: `frontend/packages/core/app/composables/useAuth.ts`
+- **Problem**: `refreshTimer` not cleared in all logout paths.
+- **Fix**: Clear in every logout/disconnect path. Guard callback with mounted check.
 
-### 5.2 — Flight Plan Builder
-- New page: `/flight-plan` — flight plan creation & management
-- Three input modes: Form (structured fields), Text (paste plain text), Image (upload & OCR)
-- Route visualization on map with legs
-- Fuel calculator panel
-- Weight & balance calculator (visual CG diagram)
-- Weather integration panel (METAR/TAF display)
-- Airspace overlay on map
-- Validation status panel (Gatekeeper results)
-- **Agent**: `nuxt-expert`
-
-### 5.3 — Session History & Replay
-- Enhance `/mission/[id]` for post-session review
-- Track replay on map (animated aircraft marker along track points)
-- Voice transcript timeline (synced with track)
-- Insights annotations on map and timeline
-- Scoring breakdown with radar chart
-- Export session report (PDF)
-- **Agent**: `nuxt-expert`
+### 3.7 — Centralize Shared TypeScript Types
+- **Create**: `frontend/packages/types/` package
+- **Problem**: Types duplicated in composables and pages.
+- **Fix**: Shared types package with all API response interfaces.
 
 ---
 
-## Phase 6 — Frontend: Instructor Tools & Gamification
+## Phase 4 — Infrastructure & DevOps
 
-### 6.1 — Instructor Dashboard
-- New page: `/instructor` — instructor-specific view
-- Student roster with progress overview
-- Scenario assignment interface
-- Performance comparison across students
-- Assessment creation wizard
-- Feedback/notes per student
-- **Agent**: `nuxt-expert`
-
-### 6.2 — Gamification UI
-- Badges gallery (all available badges with criteria)
-- User badge showcase (earned badges with dates)
-- Leaderboard page (daily/weekly/monthly, org-scoped)
-- Achievement notifications (toast on badge earn)
-- Progress bars toward next badge tier
-- **Agent**: `nuxt-expert`
-
-### 6.3 — Instructor Profile & Scheduling
-- Instructor profile page (qualifications, specializations, bio)
-- Availability calendar view
-- Student communication interface (basic messaging or notes)
-- **Agent**: `nuxt-expert`
+### 4.1 — Add Docker Resource Limits (all services)
+### 4.2 — Fix Database Health Check Race Condition (add `start_period: 15s`)
+### 4.3 — Deduplicate Keycloak Realm Files
+### 4.4 — Remove Committed .env from Git
 
 ---
 
-## Phase 7 — Integration, Documentation & Seed Data
+## Phase 5 — Documentation
 
-### 7.1 — End-to-End Integration
-- Wire all frontend pages to backend APIs
-- Ensure all LangGraph agents are callable from API endpoints
-- WebSocket enhancements: live waypoint progression events, real-time scoring updates
-- **Agent**: `python-fastapi-expert` + `nuxt-expert`
-
-### 7.2 — Seed Data & Examples
-- Comprehensive seed data: content articles for each category, sample waypoints (US major airports, VORs, fixes), sample flight plans, sample assessments, badges
-- First-time startup shows populated platform with examples of everything
-- **Agent**: `database-expert`
-
-### 7.3 — Documentation
-- ADR for LangGraph multi-agent architecture
-- ADR for flight plan pipeline
-- Mermaid diagrams for all LangGraph graphs
-- Update development.md with new endpoints and features
-- Update README.md with new features list
-- API documentation (docstrings on all endpoints)
-- **Agent**: `document-agent`
-
-### 7.4 — External Service Stubs
-- Weather API stub (mock METAR/TAF data for dev, interface ready for real API)
-- Airspace API stub (mock airspace boundaries, interface ready for real API)
-- OCR service stub (Tesseract or cloud OCR interface for flight plan images)
-- **Agent**: `python-fastapi-expert`
+### 5.1 — Update ADR-004 with actual LangGraph architecture
+### 5.2 — Create production deployment runbook (`docs/deployment.md`)
+### 5.3 — Add security documentation (`docs/security.md`)
+### 5.4 — Sync development guide with actual state
 
 ---
 
-## Agent Assignment Summary
+## Score Summary
 
-| Agent | Phases |
-|-------|--------|
-| `database-expert` | 1.1–1.6, 7.2 |
-| `python-fastapi-expert` | 2.1–2.6, 7.1, 7.4 |
-| `llm-expert` | 3.1–3.6 |
-| `nuxt-expert` | 4.1–4.3, 5.1–5.3, 6.1–6.3, 7.1 |
-| `document-agent` | 7.3 |
-| `security-expert` | Review after Phase 2 & 7 |
-
-## Execution Order
-
-Phase 1 → Phase 2 → Phase 3 (can parallel with Phase 2) → Phase 4 → Phase 5 → Phase 6 → Phase 7
-
-## Notes
-
-- **No tests during implementation** (per NEXT.md) — write test stubs but skip execution
-- **LangGraph best practices**: StateGraph, typed state, conditional edges, human-in-the-loop checkpoints
-- **Database**: Leverage pg_jsonb for flexible metadata, pg_tsvector for content search
-- **GraphQL**: Consider for complex dashboard queries only if REST becomes unwieldy
-- **External APIs**: Stub with mock data; design interfaces for real API plug-in later
-- **OCR**: Flight plan from image via Tesseract locally — keep behind interface
+| Layer | Current | After Plan | Key Blocker |
+|-------|---------|------------|-------------|
+| LangGraph | 40/100 | 80/100 | Persistence, orchestrator integration |
+| Backend | 65/100 | 85/100 | Audio pipeline bottleneck, blocking I/O |
+| Frontend | 70/100 | 85/100 | Memory leaks, page complexity |
+| Infra | 65/100 | 80/100 | Resource limits, health checks |
+| Docs | 60/100 | 80/100 | Deployment, security docs |

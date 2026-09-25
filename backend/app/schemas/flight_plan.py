@@ -182,3 +182,29 @@ class FlightPlanFromImage(BaseModel):
     )
     title: str | None = Field(default=None, max_length=255)
     org_id: uuid.UUID | None = None
+
+
+# ── Validation response ────────────────────────────────────────────
+
+
+class ValidationResult(BaseModel):
+    """A single validation check result from an agent."""
+
+    agent: str
+    passed: bool = False
+    severity: str = "info"
+    message: str
+
+
+class ValidationResponse(BaseModel):
+    """Response from the flight plan validation pipeline."""
+
+    plan_id: str
+    valid: bool
+    results: list[ValidationResult] = []
+    weather: dict[str, Any] | None = None
+    fuel_state: dict[str, Any] | None = None
+    route_info: dict[str, Any] | None = None
+    airspace_info: dict[str, Any] | None = None
+    aircraft_performance: dict[str, Any] | None = None
+    session_id: str | None = None

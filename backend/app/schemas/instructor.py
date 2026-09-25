@@ -45,3 +45,41 @@ class InstructorProfileUpdate(BaseModel):
     bio: str | None = None
     specializations: list[str] | None = None
     availability: dict[str, Any] | None = None
+
+
+class InstructorStudentRead(BaseModel):
+    """Schema for instructor-student view."""
+
+    id: str
+    user_id: str
+    display_name: str
+    email: str
+    flight_hours: float
+    scenarios_completed: int
+    overall_score: float
+    last_active: str | None = None
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    recent_sessions: list[dict] = []
+
+
+class InstructorStatsRead(BaseModel):
+    """Instructor dashboard statistics."""
+
+    total_students: int
+    active_sessions: int
+    average_student_score: float
+    assessments_created: int
+
+
+class RecentSessionRead(BaseModel):
+    """Recent session entry for instructor view."""
+
+    id: str
+    student_name: str
+    student_id: str | None = None
+    scenario_name: str
+    score: float
+    status: str
+    started_at: str | None = None
+    duration_minutes: int

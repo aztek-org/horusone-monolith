@@ -99,3 +99,14 @@ class LeaderboardSnapshotRead(BaseModel):
     generated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class BadgeProgressRead(BaseModel):
+    """Schema for badge progress towards earning."""
+
+    badge_id: str
+    badge_name: str
+    badge_tier: str
+    current_value: float
+    target_value: float
+    progress_percent: float

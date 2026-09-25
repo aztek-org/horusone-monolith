@@ -126,7 +126,7 @@ async def voice_communication(websocket: WebSocket) -> None:
     await manager.connect(websocket, client_id)
     logger.info(f"Voice communication started for client {client_id}")
 
-    # Create a TrainingSession in the DB (best-effort — voice still works if DB is down)
+    session_language = "auto"
     db_session_id: int | None = None
     try:
         session_factory = get_session_factory()
@@ -214,10 +214,8 @@ async def voice_communication(websocket: WebSocket) -> None:
                     continue
 
                 if message.get("type") == "audio_end":
-                    # Client finished sending audio, process it
                     logger.info(f"Processing {len(audio_chunks)} audio chunks")
 
-                    # Send processing status
                     await manager.send_json(
                         client_id,
                         {
@@ -226,7 +224,6 @@ async def voice_communication(websocket: WebSocket) -> None:
                         },
                     )
 
-                    # Combine audio chunks and process
                     if audio_chunks:
                         combined_audio = b"".join(audio_chunks)
                         audio_chunks = []
@@ -235,7 +232,9 @@ async def voice_communication(websocket: WebSocket) -> None:
                         logger.info(
                             f"Processing {len(combined_audio)} bytes of audio"
                         )
-                        result = await pipeline.process_audio(combined_audio)
+                        result = await pipeline.process_audio(
+                            combined_audio, language=session_language
+                        )
 
                         if result.audio:
                             # Persist voice exchange to DB (non-blocking, best-effort)
@@ -284,6 +283,20 @@ async def voice_communication(websocket: WebSocket) -> None:
                             "message": "Conversation reset",
                         },
                     )
+
+                elif message.get("type") == "language_change":
+                    new_lang = message.get("language", "auto")
+                    if new_lang in ("auto", "en", "es"):
+                        session_language = new_lang
+                        await manager.send_json(
+                            client_id,
+                            {
+                                "type": "language_changed",
+                                "language": session_language,
+                                "message": f"Language set to {session_language}",
+                            },
+                        )
+                        logger.info(f"Client {client_id} language changed to {session_language}")
 
                 elif message.get("type") == "ping":
                     await manager.send_json(client_id, {"type": "pong"})

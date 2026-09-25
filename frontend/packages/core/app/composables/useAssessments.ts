@@ -107,7 +107,7 @@ export function useAssessments() {
     offset = 0,
   ): Promise<PaginatedResponse<AssessmentResult>> {
     return api.get<PaginatedResponse<AssessmentResult>>(
-      `/api/v1/assessments/results/me?limit=${limit}&offset=${offset}`,
+      `/api/v1/assessments/me/results?limit=${limit}&offset=${offset}`,
     )
   }
 

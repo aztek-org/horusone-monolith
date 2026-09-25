@@ -30,6 +30,7 @@ from app.schemas.flight_plan import (
     FlightPlanFromText,
     FlightPlanRead,
     FlightPlanUpdate,
+    ValidationResponse,
 )
 from app.services.flight_plan_parser import FlightPlanParser
 
@@ -265,10 +266,30 @@ async def update_flight_plan(
     return plan  # type: ignore[return-value]
 
 
+# ── Delete ─────────────────────────────────────────────────────────
+
+
+@router.delete("/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_flight_plan(
+    plan_id: uuid.UUID,
+    user: CurrentUser,
+    _seat: RequireActiveSeat,
+    local_user: User = Depends(get_authenticated_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Delete a flight plan owned by the current user."""
+    deleted = await plan_repo.delete_flight_plan(db, plan_id, local_user.id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Flight plan {plan_id} not found",
+        )
+
+
 # ── Validation & activation ────────────────────────────────────────
 
 
-@router.post("/{plan_id}/validate")
+@router.post("/{plan_id}/validate", response_model=ValidationResponse)
 async def validate_flight_plan(
     plan_id: uuid.UUID,
     user: CurrentUser,
@@ -326,17 +347,17 @@ async def validate_flight_plan(
             "PASSED" if result.get("validation_passed") else "FAILED",
         )
 
-        return {
-            "plan_id": str(plan_id),
-            "valid": result.get("validation_passed", False),
-            "results": result.get("validation_results", []),
-            "weather": result.get("weather"),
-            "fuel_state": result.get("fuel_state"),
-            "route_info": result.get("route_info"),
-            "airspace_info": result.get("airspace_info"),
-            "aircraft_performance": result.get("aircraft_performance"),
-            "session_id": result.get("session_id"),
-        }
+        return ValidationResponse(
+            plan_id=str(plan_id),
+            valid=result.get("validation_passed", False),
+            results=result.get("validation_results", []),
+            weather=result.get("weather"),
+            fuel_state=result.get("fuel_state"),
+            route_info=result.get("route_info"),
+            airspace_info=result.get("airspace_info"),
+            aircraft_performance=result.get("aircraft_performance"),
+            session_id=result.get("session_id"),
+        )
 
     except Exception:
         logger.warning(
@@ -365,17 +386,17 @@ async def validate_flight_plan(
         if is_valid:
             await plan_repo.update_status(db, plan_id, "validated", local_user.id)
 
-        return {
-            "plan_id": str(plan_id),
-            "valid": is_valid,
-            "results": errors,
-            "weather": None,
-            "fuel_state": None,
-            "route_info": None,
-            "airspace_info": None,
-            "aircraft_performance": None,
-            "session_id": None,
-        }
+        return ValidationResponse(
+            plan_id=str(plan_id),
+            valid=is_valid,
+            results=errors,
+            weather=None,
+            fuel_state=None,
+            route_info=None,
+            airspace_info=None,
+            aircraft_performance=None,
+            session_id=None,
+        )
 
 
 @router.post("/{plan_id}/activate", response_model=FlightPlanRead)

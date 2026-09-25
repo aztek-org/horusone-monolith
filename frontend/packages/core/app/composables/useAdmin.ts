@@ -190,8 +190,8 @@ export function useAdmin() {
   }
 
   // ── Users ───────────────────────────────────────────────────────────────
-  function fetchUsers(email?: string): Promise<AdminUser[]> {
-    const query = email ? `?email=${encodeURIComponent(email)}` : ''
+  function fetchUsers(search?: string): Promise<AdminUser[]> {
+    const query = search ? `?search=${encodeURIComponent(search)}` : ''
     return api.get<AdminUser[]>(`/api/v1/admin/users/${query}`)
   }
 
@@ -204,12 +204,12 @@ export function useAdmin() {
   }
 
   // ── Analytics ───────────────────────────────────────────────────────────
-  function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
-    return api.get<LeaderboardEntry[]>('/api/v1/analytics/leaderboard')
+  function fetchLeaderboard(orgId: string): Promise<LeaderboardEntry[]> {
+    return api.get<LeaderboardEntry[]>(`/api/v1/analytics/leaderboard?org_id=${encodeURIComponent(orgId)}`)
   }
 
-  function fetchAnalyticsOverview(): Promise<AnalyticsOverview> {
-    return api.get<AnalyticsOverview>('/api/v1/analytics/overview')
+  function fetchAnalyticsOverview(orgId: string): Promise<AnalyticsOverview> {
+    return api.get<AnalyticsOverview>(`/api/v1/analytics/overview?org_id=${encodeURIComponent(orgId)}`)
   }
 
   // ── Modules ─────────────────────────────────────────────────────────────
