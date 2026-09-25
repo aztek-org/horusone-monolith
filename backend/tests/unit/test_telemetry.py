@@ -14,7 +14,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import (
     ConsoleSpanExporter,
     SimpleSpanProcessor,
@@ -67,6 +67,15 @@ def _collect_spans() -> InMemorySpanExporter:
     collector = InMemorySpanExporter()
     _installed_provider().add_span_processor(SimpleSpanProcessor(collector))
     return collector
+
+
+def _url_attributes(span: ReadableSpan) -> dict[str, Any]:
+    """A span's attributes as a plain dict.
+
+    ``ReadableSpan.attributes`` is a ``Mapping | None``, so reading an attribute
+    off it directly makes every privacy assertion below a ``None`` check.
+    """
+    return dict(span.attributes or {})
 
 
 class _ExplodingSampler(Sampler):
@@ -150,13 +159,24 @@ def test_no_endpoint_selects_the_console_exporter():
     assert isinstance(_installed_exporter(), ConsoleSpanExporter)
 
 
-def test_otlp_endpoint_falls_back_to_console_when_the_exporter_is_absent(caplog):
+def test_otlp_endpoint_falls_back_to_console_when_the_exporter_is_absent(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     """ADR-009 makes the exporter a deployment choice, never a hard dependency.
 
-    The OTLP exporter ships in its own distribution, which this backend does
-    not depend on, so a configured endpoint must degrade to the console with a
-    warning rather than take the process down or export nothing at all.
+    The OTLP exporter ships in its own distribution, so a configured endpoint
+    must degrade to the console with a warning rather than take the process down
+    or export nothing at all. The import is forced to fail rather than relying
+    on the extra being absent, so this covers the degradation path in an
+    environment installed with ``.[otel]`` too; the present-extra case is
+    covered by the test below.
     """
+    module_name = "opentelemetry.exporter.otlp.proto.http.trace_exporter"
+    # A ``None`` entry in sys.modules makes the import machinery raise
+    # ImportError for that name, which is exactly what an uninstalled
+    # distribution looks like to ``_build_exporter``.
+    monkeypatch.setitem(sys.modules, module_name, None)
+
     with caplog.at_level("WARNING", logger=telemetry.__name__):
         configure_telemetry(
             _settings(otel_endpoint="https://user:secret@collector.internal:4318"),
@@ -170,7 +190,7 @@ def test_otlp_endpoint_falls_back_to_console_when_the_exporter_is_absent(caplog)
     assert "secret" not in caplog.text
 
 
-def test_otlp_endpoint_constructs_exporter_when_optional_extra_is_present():
+def test_otlp_endpoint_constructs_exporter_when_optional_extra_is_present() -> None:
     exporter_module = pytest.importorskip(
         "opentelemetry.exporter.otlp.proto.http.trace_exporter"
     )
@@ -191,7 +211,7 @@ def test_resource_identifies_the_service_and_environment():
     assert attributes["deployment.environment"] == "production"
 
 
-def test_testing_environment_discards_spans_without_console_export():
+def test_testing_environment_discards_spans_without_console_export() -> None:
     configure_telemetry(_settings(), environment="testing")
 
     assert isinstance(_installed_exporter(), telemetry._NoopSpanExporter)
@@ -254,7 +274,7 @@ def test_fastapi_app_is_instrumented_once():
     assert [span.name for span in collector.get_finished_spans()].count("GET /probe") == 1
 
 
-def test_each_app_is_instrumented_after_provider_configuration():
+def test_each_app_is_instrumented_after_provider_configuration() -> None:
     first_app = FastAPI()
     second_app = FastAPI()
 
@@ -279,7 +299,7 @@ def test_each_app_is_instrumented_after_provider_configuration():
     assert span_names.count("GET /second") == 1
 
 
-def test_shipped_app_produces_a_server_span_when_instrumented_at_import():
+def test_shipped_app_produces_a_server_span_when_instrumented_at_import() -> None:
     """The shipped composition root must instrument before TestClient starts it."""
     script = """
 import json
@@ -312,7 +332,7 @@ print(json.dumps([span.name for span in collector.get_finished_spans()]))
     assert "GET /openapi.json" in json.loads(result.stdout)
 
 
-def test_server_span_drops_query_string_before_export():
+def test_server_span_drops_query_string_before_export() -> None:
     application = FastAPI()
 
     @application.get("/search")
@@ -327,10 +347,77 @@ def test_server_span_drops_query_string_before_export():
 
     server_span = next(span for span in collector.get_finished_spans() if span.name == "GET /search")
     serialised = json.dumps(server_span.to_json())
-    assert "q=" not in server_span.attributes.get("http.url", "")
-    assert "q=" not in server_span.attributes.get("url.full", "")
+    assert "q=" not in _url_attributes(server_span).get("http.url", "")
+    assert "q=" not in _url_attributes(server_span).get("url.full", "")
     assert "student radios" not in serialised
     assert "clearance" not in serialised
+
+
+def test_server_span_drops_query_string_when_the_url_cannot_be_parsed() -> None:
+    """A malformed, caller-controlled ``Host`` must not smuggle a query out.
+
+    ``Host`` reaches the instrumented URL verbatim, and a caller can pick a
+    value that makes ``urlsplit`` raise. A scrubber that gave up on a parse
+    error would hand the exporter the untouched URL, query and all, so this is
+    the bypass a fail-open scrubber leaves open.
+    """
+    application = FastAPI()
+
+    @application.get("/search")
+    async def search() -> dict[str, bool]:
+        return {"ok": True}
+
+    configure_telemetry(_settings(), environment="development", app=application)
+    collector = _collect_spans()
+
+    with TestClient(application) as client:
+        # "[" without a closing "]" is an invalid IPv6 literal, so urlsplit raises.
+        response = client.get("/search?q=clearance-denied", headers={"Host": "[bad"})
+        assert response.status_code == 200
+
+    server_span = next(span for span in collector.get_finished_spans() if span.name == "GET /search")
+    serialised = json.dumps(server_span.to_json())
+    # The scheme, netloc, and path are kept -- they are not sensitive -- and
+    # everything from the "?" on is gone.
+    assert _url_attributes(server_span)["http.url"] == "http://[bad/search"
+    assert "q=" not in _url_attributes(server_span).get("url.full", "")
+    assert "clearance-denied" not in serialised
+    assert "clearance" not in serialised
+
+
+def test_unparsable_url_attributes_lose_their_query_and_fragment() -> None:
+    """Both URL attributes are covered, not just the server-side one.
+
+    ``url.full`` is a client-side attribute and ``http.url`` a server-side one,
+    and the scrubber treats them as a pair, so the fail-closed path is asserted
+    for each of them directly rather than only through whichever one a
+    FastAPI server span happens to carry.
+
+    The fragment-without-a-query case is separate on purpose: truncating at the
+    "?" alone would leave a trailing fragment welded to the path, so both
+    markers have to be their own input.
+    """
+    configure_telemetry(_settings(), environment="development")
+    collector = _collect_spans()
+    cases = {
+        "http://[bad/search?q=clearance-denied#tail": "http://[bad/search",
+        "http://[bad/search#tail": "http://[bad/search",
+    }
+
+    for unparsable in cases:
+        with trace.get_tracer("test.scrubber").start_as_current_span("probe") as span:
+            span.set_attribute("http.url", unparsable)
+            span.set_attribute("url.full", unparsable)
+
+    exported = collector.get_finished_spans()
+    assert len(exported) == len(cases)
+    for exported_span, expected in zip(exported, cases.values()):
+        serialised = json.dumps(exported_span.to_json())
+        assert _url_attributes(exported_span)["http.url"] == expected
+        assert _url_attributes(exported_span)["url.full"] == expected
+        assert "clearance-denied" not in serialised
+        assert "q=" not in serialised
+        assert "#tail" not in serialised
 
 
 # ---------------------------------------------------------------------------

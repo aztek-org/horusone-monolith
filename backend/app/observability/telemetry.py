@@ -54,6 +54,23 @@ _configured = False
 _asyncpg_instrumentor = AsyncPGInstrumentor()
 
 
+def _without_query_or_fragment(value: str) -> str:
+    """Drop a URL's query and fragment without parsing it.
+
+    Used only on the unparsable-URL path. ``str.find`` cannot fail, so this is
+    the fail-closed guarantee: the query and fragment are caller-controlled free
+    text, and everything from the first ``?`` or ``#`` onwards is removed even
+    though the URL could not be split. The scheme, netloc, and path before that
+    point are kept verbatim, because they are not sensitive.
+    """
+    cut = len(value)
+    for marker in ("?", "#"):
+        index = value.find(marker)
+        if index != -1:
+            cut = min(cut, index)
+    return value[:cut]
+
+
 class _QueryStringScrubber(SpanProcessor):
     """Remove query strings from URL attributes before they reach an exporter.
 
@@ -62,6 +79,13 @@ class _QueryStringScrubber(SpanProcessor):
     this module's privacy contract. ``ReadableSpan`` exposes attributes through
     a read-only mapping, so the processor replaces its backing attributes after
     the span has ended and before the next processor exports it.
+
+    The scrubber fails **closed**: a URL that cannot be parsed still loses its
+    query and fragment. Callers control enough of the URL to force a parse
+    error on demand -- a malformed ``Host`` header makes the instrumented URL
+    an invalid IPv6 literal, for instance -- so leaving such a URL untouched
+    would be a caller-triggerable bypass of the privacy contract rather than a
+    degradation of telemetry quality.
     """
 
     _URL_ATTRIBUTES = ("http.url", "url.full")
@@ -79,6 +103,8 @@ class _QueryStringScrubber(SpanProcessor):
             try:
                 parsed = urlsplit(value)
             except ValueError:
+                scrubbed_attributes[attribute] = _without_query_or_fragment(value)
+                changed = True
                 continue
             if parsed.query or parsed.fragment:
                 scrubbed_attributes[attribute] = urlunsplit(
