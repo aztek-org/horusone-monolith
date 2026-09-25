@@ -33,6 +33,7 @@ from app.api.v1 import (
 from app.config import Settings, get_settings
 from app.knowledge.retrieval import build_retriever
 from app.llm.routing import build_llm
+from app.observability.telemetry import configure_telemetry
 from app.services.llm.scenes.default_scene import DEFAULT_SCENE
 from app.services.llm.scenes.registry import SceneRegistry, load_scene_configs
 from app.services.training_sessions.postgres_session_store import PostgresSessionStore
@@ -134,6 +135,10 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     from app.db.session import get_session_factory
 
     app_settings = _resolve_settings(application)
+    # Operational telemetry only; product provenance stays in PostgreSQL
+    # (ADR-009). Safe to call repeatedly and safe to fail: the backend must
+    # serve requests and training sessions with or without a collector.
+    configure_telemetry(app_settings.trace, application)
     llm = build_llm(app_settings)
     store: SessionStore
     if app_settings.environment == "production":
