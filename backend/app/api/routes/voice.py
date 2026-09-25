@@ -8,7 +8,6 @@ from dataclasses import dataclass
 
 from fastapi import APIRouter, FastAPI, WebSocket, WebSocketDisconnect
 
-from app.api.v1.sessions import discard_unstarted_session
 from app.core.audio_pipeline import AudioPipeline, PipelineResult
 from app.core.websocket_manager import manager
 from app.db.repositories.seat_repo import SeatRepository
@@ -18,7 +17,10 @@ from app.middleware.auth import TokenUser, get_current_user_ws
 from app.models.training_session import TrainingSession
 from app.models.user import User
 from app.schemas.voice_log import VoiceLogCreate
-from app.services.training_sessions.audit import record_session_created
+from app.services.training_sessions.audit import (
+    discard_unstarted_session,
+    record_session_created,
+)
 from app.services.training_sessions.session_module import MissingOrgError
 from app.services.training_sessions.types import (
     SendTransmissionCommand,
@@ -38,16 +40,37 @@ _voice_log_repo = VoiceLogRepository()
 _seat_repo = SeatRepository()
 
 
-def _org_id_from_token(token_user: TokenUser) -> uuid.UUID | None:
-    """Return the caller's organization as a UUID, or ``None`` when unscoped."""
+def _org_id_for(
+    token_user: TokenUser,
+    seat_org_id: uuid.UUID | None,
+) -> uuid.UUID | None:
+    """Resolve the caller's organization exactly as ``get_org_id`` does.
+
+    The HTTP path reads the ``organization_id`` claim first and then falls back to
+    the first active seat's organization, so a pilot whose token carries no claim
+    but who holds a seat is an ordinary supported caller.  Reading only the claim
+    made voice refuse such a pilot with "Your account is not associated with an
+    organization" while the seat the route had just resolved named one, so the
+    two paths disagreed about who is a supported caller.
+
+    Args:
+        token_user: The authenticated caller.
+        seat_org_id: The organization of the caller's first active seat, or
+            ``None`` when no seat was resolved (a platform admin, whose seat
+            check is bypassed).
+
+    Returns:
+        The caller's organization, or ``None`` when neither source yields one.
+    """
     raw = token_user.organization_id
-    if not raw:
-        return None
-    try:
-        return uuid.UUID(str(raw))
-    except ValueError:
-        logger.warning("Token carried a non-UUID organization_id; treating as unscoped")
-        return None
+    if raw:
+        try:
+            return uuid.UUID(str(raw))
+        except ValueError:
+            logger.warning(
+                "Token carried a non-UUID organization_id; falling back to the seat"
+            )
+    return seat_org_id
 
 
 async def _persist_voice_exchange(
@@ -207,8 +230,11 @@ async def voice_communication(websocket: WebSocket) -> None:
     # --- Verify active seat (platform-admins bypass) ---
     # The seat lookup is the only place a local User is resolved, so the pilot's
     # id is hoisted out of it: every session this connection creates must name
-    # the pilot who flew it, or they can neither list nor reopen it.
+    # the pilot who flew it, or they can neither list nor reopen it.  The seat's
+    # organization is hoisted for the same reason — it is the second half of the
+    # tenant resolution ``get_org_id`` performs, and it is already in hand here.
     local_user: User | None = None
+    seat_org_id: uuid.UUID | None = None
     if "platform-admin" not in token_user.roles:
         try:
             session_factory = get_session_factory()
@@ -225,6 +251,7 @@ async def voice_communication(websocket: WebSocket) -> None:
                     })
                     await websocket.close(code=4003, reason="No active seat")
                     return
+                seat_org_id = active_seats[0].organization_id
         except Exception as e:
             logger.error("Seat check failed during WS connect: %s", e)
             await websocket.accept()
@@ -237,7 +264,7 @@ async def voice_communication(websocket: WebSocket) -> None:
             return
 
     client_id = str(uuid.uuid4())
-    org_id = _org_id_from_token(token_user)
+    org_id = _org_id_for(token_user, seat_org_id)
     pilot_user_id = local_user.id if local_user is not None else None
     session_module = websocket.app.state.session_module
     # Voice clients do not choose a Scene, so the session runs the registry's
@@ -280,10 +307,11 @@ async def voice_communication(websocket: WebSocket) -> None:
             )
         )
     except MissingOrgError as e:
-        # A token carrying no tenant is a permanent, caller-attributable failure,
-        # not a transient outage.  Degrading open would hand the pilot live ATC
-        # audio with no session, no exchange event and no voice log, so the
-        # socket is refused exactly as a missing seat is refused.
+        # Neither the token claim nor the caller's seat named an organization, so
+        # this is a permanent, caller-attributable failure, not a transient outage.
+        # Degrading open would hand the pilot live ATC audio with no session, no
+        # exchange event and no voice log, so the socket is refused exactly as a
+        # missing seat is refused.
         logger.warning("Rejected voice connection %s: %s", client_id, e)
         if db_session_id is not None:
             await discard_unstarted_session(db_session_id)

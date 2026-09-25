@@ -454,30 +454,105 @@ def test_one_pilots_reset_does_not_clear_another_pilots_context(
 # ── A permanent tenant failure must not degrade into an unrecorded session ──
 
 
+class _TenantGuardedSessionModule(FakeSessionModule):
+    """A Session module that refuses a tenant-less start, as the real one does.
+
+    ``TrainingSessionModule._storage_org_id`` raises ``MissingOrgError`` when
+    ``org_id`` is ``None``, so this stand-in reproduces the guard instead of
+    hard-coding an error: a test using it then proves something about the tenant
+    the route resolved, not about a stub that always fails.
+    """
+
+    async def start(self, command: object) -> SimpleNamespace:
+        self.started.append(command)
+        if getattr(command, "org_id", None) is None:
+            raise MissingOrgError("org_id is required for this session operation")
+        return SimpleNamespace(session_id=0, phase="ingestion", exchange_count=0, state={})
+
+
 def test_missing_tenant_rejects_the_connection_instead_of_degrading(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A token with no organization is a permanent, caller-attributable failure.
+    """A caller with no organization anywhere is a permanent, attributable failure.
 
     Degrading open would hand the pilot live ATC audio with no session, no
-    exchange event and no voice log, after the socket was already accepted.
+    exchange event and no voice log, after the socket was already accepted.  A
+    platform admin is the one caller with no claim *and* no seat to fall back on,
+    so neither source yields a tenant and 4003 is the truthful answer.
     """
-    session_module = _install_session_module(
-        FakeSessionModule(
-            start_error=MissingOrgError("org_id is required for this session operation")
-        )
-    )
+    session_module = _install_session_module(_TenantGuardedSessionModule())
     fake_ws_user(monkeypatch, organization_id=None)
     fake_audio_services(monkeypatch)
 
-    with client.websocket_connect("/ws/voice") as websocket:
-        payload = websocket.receive_json()
-        assert payload["type"] == "error"
-        assert payload["code"] == "NO_ORGANIZATION"
-        closed = websocket.receive()
+    client_id = None
+    try:
+        with client.websocket_connect("/ws/voice") as websocket:
+            payload = websocket.receive_json()
+            assert payload["type"] == "error"
+            assert payload["code"] == "NO_ORGANIZATION"
+            closed = websocket.receive()
 
-    assert _closed_code(closed) == 4003
-    assert session_module.started != []
+        assert _closed_code(closed) == 4003
+        assert session_module.started != []
+    finally:
+        if client_id:
+            _delete_client_sessions(client_id)
+
+
+def test_a_seat_supplies_the_organization_the_token_did_not_carry(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Voice must resolve the tenant the same way ``get_org_id`` resolves it.
+
+    ``get_org_id`` reads the ``organization_id`` claim and then falls back to the
+    first active seat's organization, so a pilot whose token carries no claim but
+    who holds an active seat is an ordinary supported caller: ``POST /sessions``
+    and ``POST /flight-plans/{id}/validate`` both accept them.  Voice read only
+    the claim, so it refused them with "Your account is not associated with an
+    organization" — a statement the route's own data contradicted, since the seat
+    it had just resolved names an organization.  Refusing is still right when
+    *neither* source yields one (covered above); the seat's organization is the
+    fix.
+    """
+    org_id = _create_organization()
+    user_id = _create_user()
+    session_module = _install_session_module(_TenantGuardedSessionModule())
+    fake_ws_user(monkeypatch, roles=["student"], organization_id=None)
+    fake_audio_services(monkeypatch)
+
+    async def _sync_user(_db: object, _token_user: object) -> SimpleNamespace:
+        return SimpleNamespace(id=uuid.UUID(user_id))
+
+    async def _active_seats(*_args: object) -> list[SimpleNamespace]:
+        return [SimpleNamespace(is_active=True, organization_id=uuid.UUID(org_id))]
+
+    monkeypatch.setattr(voice_module, "sync_user_from_token", _sync_user)
+    monkeypatch.setattr(
+        voice_module, "_seat_repo", SimpleNamespace(get_user_seats=_active_seats)
+    )
+
+    client_id = None
+    try:
+        with client.websocket_connect("/ws/voice") as websocket:
+            payload = websocket.receive_json()
+            assert payload["type"] == "connected"
+            client_id = payload["client_id"]
+
+        assert [command.org_id for command in session_module.started] == [uuid.UUID(org_id)]
+
+        with _sync_db() as db:
+            row = db.execute(
+                "SELECT user_id, org_id FROM training_sessions WHERE client_id = %s",
+                (client_id,),
+            ).fetchone()
+        assert row is not None
+        assert row[0] is not None and str(row[0]) == user_id
+        assert row[1] is not None and str(row[1]) == org_id
+    finally:
+        if client_id:
+            _delete_client_sessions(client_id)
+        _delete_user(user_id)
+        _delete_organization(org_id)
 
 
 # ── Preserved WebSocket behaviour ─────────────────────────────────────
