@@ -1,6 +1,7 @@
 """Main FastAPI application for Horus ATC Voice Communication API."""
 
 import logging
+import os
 from collections.abc import Callable
 from typing import Any
 
@@ -39,6 +40,10 @@ logger = logging.getLogger(__name__)
 
 # Get settings
 settings = get_settings()
+if os.getenv("ENV_FILE"):
+    from app.settings_loader import load_settings
+
+    settings = load_settings(os.environ["ENV_FILE"])
 
 
 # ---------------------------------------------------------------------------

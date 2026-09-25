@@ -11,11 +11,14 @@ def test_settings() -> Settings:
     """Override settings for testing."""
     return Settings(
         environment="testing",
-        ollama_base_url="http://localhost:11434",
-        ollama_llm_model="test-model",
+        llm={
+            "provider": "ollama",
+            "base_url": "http://ollama:11434",
+            "model": "test-model",
+        },
+        audio={"enable_radio_effects": False},
         whisper_model="base",
         cors_origins="http://localhost:3000",
-        enable_radio_effects=False,
     )
 
 

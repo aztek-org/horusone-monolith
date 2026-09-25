@@ -1,7 +1,31 @@
 """Tests for configuration management."""
+from pathlib import Path
+
 import pytest
 
 from app.config import Settings
+
+
+def test_grouped_llm_settings() -> None:
+    settings = Settings(
+        environment="testing",
+        llm={
+            "provider": "ollama",
+            "base_url": "http://ollama:11434",
+            "model": "llama3.2:3b",
+            "embedding_model": "nomic-embed-text",
+            "temperature": 0.3,
+            "max_output_tokens": 150,
+        },
+    )
+    assert settings.llm.provider == "ollama"
+    assert settings.llm.temperature == 0.3
+    assert settings.knowledge.embedding_dimensions == 768
+
+
+def test_no_hostname_defaults() -> None:
+    src = Path("app/config.py").read_text()
+    assert "localhost" not in src and "0.0.0.0" not in src
 
 
 def test_settings_defaults() -> None:
