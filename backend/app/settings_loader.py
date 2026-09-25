@@ -7,22 +7,11 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from app.config import Settings
-
-
-class MissingSettingError(RuntimeError):
-    """Raised when production settings are incomplete or unsafe."""
-
-
-REQUIRED_IN_PRODUCTION = (
-    "DATABASE_URL",
-    "REDIS_URL",
-    "CORS_ORIGINS",
-    "KEYCLOAK_ISSUER_URL",
-    "LLM_PROVIDER",
-    "LLM_BASE_URL",
-    "LLM_MODEL",
-    "LLM_EMBEDDING_MODEL",
+from app.config import (
+    REQUIRED_IN_PRODUCTION,
+    MissingSettingError,
+    Settings,
+    _install_settings,
 )
 
 _TOP_LEVEL_ENV = {
@@ -139,8 +128,17 @@ def load_settings(env_file: str | Path) -> Settings:
             )
 
     try:
-        return Settings(**_settings_input(values))
+        settings = Settings(**_settings_input(values))
     except ValidationError as exc:
         if values.get("ENVIRONMENT") == "production":
             raise MissingSettingError(str(exc)) from exc
         raise
+
+    _install_settings(settings)
+    return settings
+
+
+def load_settings_from_environment() -> Settings:
+    """Load the canonical settings instance using ENV_FILE or the default .env."""
+    env_file = os.environ.get("ENV_FILE", ".env")
+    return load_settings(env_file)

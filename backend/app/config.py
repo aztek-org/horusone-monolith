@@ -9,15 +9,38 @@ from typing import Any, Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class MissingSettingError(RuntimeError):
+    """Raised when required or production-safe settings are missing."""
+
+
+REQUIRED_IN_PRODUCTION = (
+    "DATABASE_URL",
+    "REDIS_URL",
+    "CORS_ORIGINS",
+    "KEYCLOAK_ISSUER_URL",
+    "LLM_PROVIDER",
+    "LLM_BASE_URL",
+    "LLM_MODEL",
+    "LLM_EMBEDDING_MODEL",
+)
+
+_DEVELOPMENT_ISSUER_ALIASES = {
+    "http://localhost:8080/realms/horus",
+    "http://localhost:8180/realms/horus",
+    "http://auth.localhost/realms/horus",
+    "http://keycloak:8080/realms/horus",
+}
+
+
 @dataclass(frozen=True)
 class LLMSettings:
     """Configuration for the primary and optional fallback language model."""
 
-    provider: str = "ollama"
+    provider: str = ""
     fallback_provider: str | None = None
-    base_url: str = "http://example.invalid"
-    model: str = "llama3.2:3b"
-    embedding_model: str = "nomic-embed-text"
+    base_url: str = ""
+    model: str = ""
+    embedding_model: str = ""
     api_key: str | None = None
     temperature: float = 0.3
     max_output_tokens: int = 150
@@ -192,27 +215,70 @@ class Settings(BaseSettings):
     @property
     def accepted_keycloak_issuers(self) -> set[str]:
         """Get accepted issuer URLs for JWT validation."""
-        issuers = {self.keycloak_issuer_url.rstrip("/")}
-        aliases = [
-            alias.strip().rstrip("/")
-            for alias in self.keycloak_issuer_aliases.split(",")
-            if alias.strip()
-        ]
-        issuers.update(aliases)
+        issuers = (
+            {self.keycloak_issuer_url.rstrip("/")}
+            if self.keycloak_issuer_url
+            else set()
+        )
+        if self.environment in {"development", "testing"}:
+            issuers.update(_DEVELOPMENT_ISSUER_ALIASES)
+            issuers.update(
+                alias.strip().rstrip("/")
+                for alias in self.keycloak_issuer_aliases.split(",")
+                if alias.strip()
+            )
         return issuers
 
     def model_post_init(self, __context: Any) -> None:
-        """Reject configuration that could send prompts outside the VPS."""
-        if self.environment == "production" and self.llm.allow_external_fallback:
-            from app.settings_loader import MissingSettingError
+        """Require complete, production-safe configuration."""
+        if self.environment != "production":
+            return
 
+        configured_values = {
+            "DATABASE_URL": self.database_url,
+            "REDIS_URL": self.redis_url,
+            "CORS_ORIGINS": self.cors_origins,
+            "KEYCLOAK_ISSUER_URL": self.keycloak_issuer_url,
+            "LLM_PROVIDER": self.llm.provider,
+            "LLM_BASE_URL": self.llm.base_url,
+            "LLM_MODEL": self.llm.model,
+            "LLM_EMBEDDING_MODEL": self.llm.embedding_model,
+        }
+        missing = [key for key, value in configured_values.items() if not value]
+        if missing:
+            raise MissingSettingError(
+                f"Missing production settings: {', '.join(missing)}"
+            )
+        if self.llm.allow_external_fallback:
             raise MissingSettingError(
                 "external fallback is not allowed in production; "
                 "set LLM_ALLOW_EXTERNAL_FALLBACK=false"
             )
 
 
+_cached_settings: Settings | None = None
+
+
 @lru_cache
 def get_settings() -> Settings:
-    """Get cached settings instance."""
-    return Settings()
+    """Return the canonical settings instance for the process."""
+    if _cached_settings is not None:
+        return _cached_settings
+
+    from app.settings_loader import load_settings_from_environment
+
+    return load_settings_from_environment()
+
+
+def _install_settings(settings: Settings) -> None:
+    """Install an explicitly loaded settings instance as canonical."""
+    global _cached_settings
+    _cached_settings = settings
+    get_settings.cache_clear()
+
+
+def reset_settings_cache() -> None:
+    """Clear the process settings cache, primarily for isolated tests."""
+    global _cached_settings
+    _cached_settings = None
+    get_settings.cache_clear()

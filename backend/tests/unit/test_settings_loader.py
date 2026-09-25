@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from app.config import get_settings, reset_settings_cache
 from app.settings_loader import MissingSettingError, load_settings
 
 
@@ -49,3 +50,26 @@ def test_production_reports_all_missing_keys(tmp_path: Path) -> None:
     assert "LLM_BASE_URL" in message
     assert "LLM_MODEL" in message
     assert "LLM_EMBEDDING_MODEL" in message
+
+
+def test_load_settings_installs_canonical_cached_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ENVIRONMENT", "testing")
+    env_file = write_env(
+        tmp_path,
+        {
+            "LLM_PROVIDER": "ollama",
+            "LLM_BASE_URL": "https://llm.example/v1",
+            "LLM_MODEL": "loaded-model",
+        },
+    )
+    reset_settings_cache()
+
+    try:
+        loaded = load_settings(env_file)
+        cached = get_settings()
+        assert cached is loaded
+        assert cached.llm.model == "loaded-model"
+    finally:
+        reset_settings_cache()
