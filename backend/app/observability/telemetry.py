@@ -18,17 +18,19 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import ExitStack, contextmanager
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
 from fastapi import FastAPI
 from opentelemetry import trace
+from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import (
+    Event,
     ReadableSpan,
     SpanProcessor,
     SynchronousMultiSpanProcessor,
@@ -39,7 +41,7 @@ from opentelemetry.sdk.trace.export import (
     ConsoleSpanExporter,
     SpanExporter,
 )
-from opentelemetry.trace import Span
+from opentelemetry.trace import Link, Span, Status
 
 from app.config import TraceSettings
 
@@ -62,6 +64,9 @@ _asyncpg_instrumentor = AsyncPGInstrumentor()
 
 _QUERY_OR_FRAGMENT_BOUNDARY = re.compile(r"\?|#|%3f|%23", re.IGNORECASE)
 
+# Marks an attribute that must be removed rather than rewritten.
+_DELETED = object()
+
 
 def _without_query_or_fragment(value: str) -> str:
     """Drop literal or percent-encoded query and fragment delimiters.
@@ -82,39 +87,84 @@ def _without_query_or_fragment(value: str) -> str:
         value = decoded
 
 
+def _rebuild_bounded_attributes(attributes: dict[str, Any], original: Any) -> Any:
+    """Re-wrap scrubbed attributes in the container the SDK handed us.
+
+    ``BoundedAttributes`` enforces the span's attribute-count and value-length
+    limits when it is built, and a replacement built without them would export
+    values the SDK had already truncated. A container this control does not
+    recognise is passed through as a plain mapping rather than dropped, because
+    the values themselves are already scrubbed.
+    """
+    if isinstance(original, BoundedAttributes):
+        return BoundedAttributes(
+            maxlen=original.maxlen,
+            attributes=attributes,
+            immutable=True,
+            max_value_len=original.max_value_len,
+        )
+    return attributes
+
+
 class _QueryStringScrubber(SpanProcessor):
-    """Remove caller text from every URL-like attribute before export.
+    """Remove caller text from every span carrier, before export.
 
-    Attribute **names** are matched by token, rather than enumerated. Any name
-    containing a URL-bearing term (``url``, ``uri``, ``target``, ``path``,
-    ``query``, ``fragment``, ``referer``/``referrer``, ``location``, or
-    ``endpoint``) is covered, including names added by future instrumentation.
-    A name containing ``query`` or ``fragment`` denotes wholly caller-controlled
-    data, so that attribute is deleted. Other URL-like values retain only the
-    prefix before a literal or percent-encoded query/fragment delimiter.
+    One policy, applied wherever a value appears, in two steps.
 
-    This is deny-by-default for matched values and shapes. Unknown non-URL
-    attributes are left alone, but every matched string and string sequence is
-    scrubbed. A matched value in any other shape, or a sequence containing a
-    non-string, is deleted because this control cannot confidently inspect it.
-    Deleting malformed telemetry is safer than exporting a possible bypass.
+    **Names** are matched by token, never enumerated: a name is split across
+    dots, delimiters, snake case, and camel case, and any term in
+    ``_URL_BEARING_TERMS`` or ``_CALLER_TEXT_TERMS`` classifies it. The terms
+    are ``url``, ``uri``, ``target``, ``path``, ``referer``/``referrer``,
+    ``location`` and ``endpoint`` for a URL; ``host``, ``server``, ``client`` and
+    ``agent`` for the request-header carriers -- the ASGI instrumentation copies
+    the ``Host`` and ``User-Agent`` headers onto the span verbatim, and a proxy
+    that writes a forwarded authority into the ASGI scope puts the same text in
+    ``http.host``, ``server.address`` and ``client.address``; and ``query``,
+    ``fragment``, ``message``, ``stacktrace`` and ``traceback`` for text that is
+    wholly the caller's. Covering the host carriers costs ``net.host.port``,
+    whose value is numeric and never caller text.
+
+    **Values** follow from the classification. An attribute whose name is wholly
+    caller text is deleted, because it is free text with no URL prefix to keep --
+    an exception message that interpolates a query has no delimiter to truncate
+    at. Any other matched value keeps only the prefix before a literal or
+    percent-encoded query/fragment delimiter. A matched value in any other shape,
+    or a sequence containing a non-string, is deleted because this control cannot
+    confidently inspect it. Deleting malformed telemetry is safer than exporting a
+    possible bypass. A matched value that is already free of a delimiter is left
+    exactly as it is, so ordinary telemetry is not disturbed.
+
+    **Carriers** are all of them: span attributes, span events (name and
+    attributes), span links (attributes), the span name, and the status
+    description. Exception text reaches a span twice -- once as
+    ``exception.message`` and again on the final line of
+    ``exception.stacktrace`` -- so leaving either alone would leave the leak.
+    ``http.route`` is the matched route template, never caller text, and matches
+    no term, so it is left alone.
+
+    Every step here is total: a missing attribute mapping, an absent event
+    collection, a non-string description, and an unset status are all handled as
+    ordinary cases. ``on_end`` therefore cannot raise into ``Span.end()`` and
+    from there into a request.
     """
 
     _URL_BEARING_TERMS = frozenset(
         {
+            "agent",
+            "client",
             "endpoint",
-            "fragment",
+            "host",
             "location",
             "path",
-            "query",
             "referer",
             "referrer",
+            "server",
             "target",
             "uri",
             "url",
         }
     )
-    _QUERY_OR_FRAGMENT_TERMS = frozenset({"fragment", "query"})
+    _CALLER_TEXT_TERMS = frozenset({"fragment", "message", "query", "stacktrace", "traceback"})
 
     @classmethod
     def _attribute_tokens(cls, attribute: str) -> frozenset[str]:
@@ -134,32 +184,110 @@ class _QueryStringScrubber(SpanProcessor):
             return None
         return [_without_query_or_fragment(element) for element in value]
 
+    @classmethod
+    def _scrub_attributes(cls, attributes: Mapping[str, Any]) -> dict[str, Any] | None:
+        """Return rewritten attributes, or ``None`` when the name policy matched nothing."""
+        scrubbed: dict[str, Any] | None = None
+        for attribute, value in attributes.items():
+            tokens = cls._attribute_tokens(attribute)
+            if tokens.intersection(cls._CALLER_TEXT_TERMS):
+                replacement: Any = _DELETED
+            elif tokens.intersection(cls._URL_BEARING_TERMS):
+                replacement = cls._scrub_url_value(value)
+                if replacement is None:
+                    replacement = _DELETED
+            else:
+                continue
+            if scrubbed is None:
+                scrubbed = dict(attributes)
+            if replacement is _DELETED:
+                del scrubbed[attribute]
+            else:
+                scrubbed[attribute] = replacement
+        return scrubbed
+
     def on_end(self, span: ReadableSpan) -> None:
+        """Rewrite the finished span in place, before the next processor exports it.
+
+        ``ReadableSpan`` exposes immutable mappings, so each carrier's backing
+        field is replaced only after the span has ended. The live ``Span`` the
+        caller holds is a different object and is never touched.
+        """
+        self._scrub_span_attributes(span)
+        self._scrub_events(span)
+        self._scrub_links(span)
+        self._scrub_identity(span)
+
+    def _scrub_span_attributes(self, span: ReadableSpan) -> None:
         attributes = span.attributes
         if attributes is None:
             return
-        scrubbed_attributes = dict(attributes)
-        changed = False
-        for attribute, value in attributes.items():
-            tokens = self._attribute_tokens(attribute)
-            if not tokens.intersection(self._URL_BEARING_TERMS):
+        scrubbed = self._scrub_attributes(attributes)
+        if scrubbed is not None:
+            setattr(span, "_attributes", scrubbed)
+
+    def _scrub_events(self, span: ReadableSpan) -> None:
+        events = span.events
+        if not events:
+            return
+        scrubbed: list[Event] | None = None
+        for index, event in enumerate(events):
+            name = _without_query_or_fragment(event.name)
+            attributes = self._scrub_attributes(event.attributes or {})
+            if name == event.name and attributes is None:
                 continue
-            if tokens.intersection(self._QUERY_OR_FRAGMENT_TERMS):
-                del scrubbed_attributes[attribute]
-                changed = True
-                continue
-            scrubbed = self._scrub_url_value(value)
             if scrubbed is None:
-                del scrubbed_attributes[attribute]
-                changed = True
-            elif scrubbed != value:
-                scrubbed_attributes[attribute] = scrubbed
-                changed = True
-        if changed:
-            # ReadableSpan exposes an immutable mapping, so replace its backing
-            # attributes only after the span has ended and before the next
-            # processor exports it.
-            setattr(span, "_attributes", scrubbed_attributes)
+                scrubbed = list(events)
+            scrubbed[index] = Event(
+                name=name,
+                attributes=(
+                    _rebuild_bounded_attributes(attributes, event.attributes)
+                    if attributes is not None
+                    else event.attributes
+                ),
+                timestamp=event.timestamp,
+            )
+        if scrubbed is not None:
+            setattr(span, "_events", scrubbed)
+
+    def _scrub_links(self, span: ReadableSpan) -> None:
+        links = span.links
+        if not links:
+            return
+        scrubbed: list[Link] | None = None
+        for index, link in enumerate(links):
+            attributes = self._scrub_attributes(link.attributes or {})
+            if attributes is None:
+                continue
+            if scrubbed is None:
+                scrubbed = list(links)
+            scrubbed[index] = Link(
+                link.context, _rebuild_bounded_attributes(attributes, link.attributes)
+            )
+        if scrubbed is not None:
+            setattr(span, "_links", scrubbed)
+
+    def _scrub_identity(self, span: ReadableSpan) -> None:
+        """Truncate the span name and the status description at the delimiter.
+
+        A span name is normally a code-level constant, but a caller that builds
+        one from the request turns it into a carrier, and the rule for that is
+        the same as for any other value: keep the prefix, drop the query.
+        """
+        name = _without_query_or_fragment(span.name)
+        if name != span.name:
+            setattr(span, "_name", name)
+        status = span.status
+        description = status.description
+        if not isinstance(description, str):
+            return
+        scrubbed_description = _without_query_or_fragment(description)
+        if scrubbed_description == description:
+            return
+        # ``Status`` keeps a description only on an ERROR status, which is the
+        # only status that can hold one; an empty result is passed as ``None``
+        # so a fully-scrubbed description does not trip that guard.
+        setattr(span, "_status", Status(status.status_code, scrubbed_description or None))
 
     def shutdown(self) -> None:
         return None
@@ -222,8 +350,11 @@ def _install_scrubber_before_exporters(provider: TracerProvider) -> None:
     would therefore be too late: its exporter would receive the unfiltered span
     first. The SDK's synchronous processor stores an immutable tuple under a
     lock, so atomically replacing that tuple with the scrubber prepended is the
-    only ordering-safe installation point. Failure to recognize or mutate the
-    active processor is explicit and leaves telemetry unconfigured.
+    only ordering-safe installation point. The result is then read back, because a
+    provider whose chain is writable but no longer the one it iterates would
+    accept the write and quietly keep exporting unfiltered spans. Failure to
+    recognize, mutate, or confirm the active processor is explicit and leaves
+    telemetry unconfigured.
     """
     active_processor = provider._active_span_processor
     if not isinstance(active_processor, SynchronousMultiSpanProcessor):
@@ -232,8 +363,51 @@ def _install_scrubber_before_exporters(provider: TracerProvider) -> None:
         )
     with active_processor._lock:
         processors = active_processor._span_processors
-        if not any(isinstance(processor, _QueryStringScrubber) for processor in processors):
-            active_processor._span_processors = (_QueryStringScrubber(), *processors)
+        remaining = tuple(
+            processor
+            for processor in processors
+            if not isinstance(processor, _QueryStringScrubber)
+        )
+        active_processor._span_processors = (_QueryStringScrubber(), *remaining)
+        installed = active_processor._span_processors
+    if not installed or not isinstance(installed[0], _QueryStringScrubber):
+        raise RuntimeError(
+            "the active tracer provider discarded the privacy scrubber installation"
+        )
+
+
+def _install_configured_exporter(
+    provider: TracerProvider, settings: TraceSettings, *, environment: str
+) -> None:
+    """Attach the configured exporter unless the provider already exports spans.
+
+    ``set_tracer_provider`` is once-only, so a provider another component
+    installed is the one that will actually export. Its own exporter is left
+    alone -- adding a second one would export every span twice -- and the fact
+    that the deployment's exporter choice (console, OTLP, or the testing no-op)
+    is not applied to it is reported rather than left to be discovered from a
+    missing trace.
+    """
+    active_processor = provider._active_span_processor
+    if not isinstance(active_processor, SynchronousMultiSpanProcessor):
+        raise RuntimeError("the active tracer provider does not expose its processor chain")
+    with active_processor._lock:
+        already_exports = any(
+            getattr(processor, "span_exporter", None) is not None
+            for processor in active_processor._span_processors
+        )
+    if already_exports:
+        logger.warning(
+            "A tracer provider was installed before this application configured "
+            "telemetry and it already has a span exporter; that pipeline is left in "
+            "place, so the configured exporter is not attached and spans reach that "
+            "exporter instead of the one this deployment selected. The privacy "
+            "scrubber is installed ahead of it either way."
+        )
+        return
+    provider.add_span_processor(
+        BatchSpanProcessor(_build_exporter(settings, environment=environment))
+    )
 
 
 def configure_telemetry(
@@ -255,6 +429,9 @@ def configure_telemetry(
                 # SDK provider first, protect that provider rather than creating
                 # an inactive provider around the scrubber and marking success.
                 _install_scrubber_before_exporters(active_provider)
+                _install_configured_exporter(
+                    active_provider, settings, environment=environment
+                )
             else:
                 provider = TracerProvider(
                     resource=Resource.create(
@@ -265,17 +442,20 @@ def configure_telemetry(
                     )
                 )
                 _install_scrubber_before_exporters(provider)
-                provider.add_span_processor(
-                    BatchSpanProcessor(_build_exporter(settings, environment=environment))
-                )
+                _install_configured_exporter(provider, settings, environment=environment)
                 trace.set_tracer_provider(provider)
                 installed_provider = trace.get_tracer_provider()
                 if not isinstance(installed_provider, TracerProvider):
                     raise RuntimeError("the global tracer provider is not an SDK provider")
                 if installed_provider is not provider:
                     # A concurrent installer won the once-only global slot. Its
-                    # active processor still has to receive the scrubber first.
+                    # active processor still has to receive the scrubber first,
+                    # and it is the one that will really export, so the configured
+                    # exporter is attached to it too.
                     _install_scrubber_before_exporters(installed_provider)
+                    _install_configured_exporter(
+                        installed_provider, settings, environment=environment
+                    )
             _asyncpg_instrumentor.instrument()
         except Exception:
             logger.warning(

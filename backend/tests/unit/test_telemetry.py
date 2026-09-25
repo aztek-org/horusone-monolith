@@ -14,7 +14,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from opentelemetry import trace
-from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
+from opentelemetry.sdk.trace import SynchronousMultiSpanProcessor, TracerProvider
 from opentelemetry.sdk.trace.export import (
     ConsoleSpanExporter,
     SimpleSpanProcessor,
@@ -69,13 +69,14 @@ def _collect_spans() -> InMemorySpanExporter:
     return collector
 
 
-def _url_attributes(span: ReadableSpan) -> dict[str, Any]:
-    """A span's attributes as a plain dict.
+def _carrier_attributes(carrier: Any) -> dict[str, Any]:
+    """A span's, event's, or link's attributes as a plain dict.
 
-    ``ReadableSpan.attributes`` is a ``Mapping | None``, so reading an attribute
-    off it directly makes every privacy assertion below a ``None`` check.
+    The SDK types every one of these as a ``Mapping | None``, so reading
+    attributes off them directly makes each privacy assertion a ``None`` check
+    rather than a check on the value.
     """
-    return dict(span.attributes or {})
+    return dict(carrier.attributes or {})
 
 
 class _ExplodingSampler(Sampler):
@@ -100,6 +101,39 @@ class _ExplodingExporter(SpanExporter):
 
     def shutdown(self) -> None:
         return None
+
+
+class _SerialisingExporter(SpanExporter):
+    """Serialise each span *during* ``export``, and keep the text.
+
+    ``InMemorySpanExporter`` retains the live ``ReadableSpan`` and serialises it
+    later, so by the time a test reads it, an in-place mutation by a processor
+    that ran after the exporter is invisible. Recording the text at export time
+    is the only way to observe which processor saw the span first.
+    """
+
+    def __init__(self) -> None:
+        self.snapshots: list[str] = []
+
+    def export(self, spans: Any) -> Any:
+        self.snapshots.extend(json.dumps(span.to_json()) for span in spans)
+
+    def shutdown(self) -> None:
+        return None
+
+
+class _DiscardingProcessorChain(SynchronousMultiSpanProcessor):
+    """A chain that accepts a write to ``_span_processors`` and keeps the old value.
+
+    Stands in for a future SDK whose processor field stays writable but is no
+    longer the tuple the provider iterates, which is precisely the case the
+    read-back assertion exists to turn from a silent pass into a loud failure.
+    """
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "_span_processors" and "_span_processors" in self.__dict__:
+            return
+        super().__setattr__(name, value)
 
 
 @pytest.fixture(autouse=True)
@@ -285,6 +319,156 @@ def test_existing_provider_receives_the_scrubber_before_its_exporter() -> None:
     assert "clearance" not in serialised_attributes
 
 
+def test_scrubber_installation_order_is_observable_at_export_time() -> None:
+    """Pin the property that makes prepending load-bearing, through the real installer.
+
+    ``InMemorySpanExporter`` retains the live ``ReadableSpan`` and serialises it
+    later, so an in-place mutation by a processor that ran *after* it is
+    invisible and prepending could silently regress to appending without any
+    test noticing. An exporter that serialises during ``export`` is what makes
+    the order visible; the test below proves it can see the difference.
+    """
+    exporter = _SerialisingExporter()
+    provider = TracerProvider()
+    telemetry._install_scrubber_before_exporters(provider)
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+
+    with provider.get_tracer("test.ordering").start_as_current_span("probe") as span:
+        span.set_attribute("http.url", "https://example.test/search?q=ORDERLEAK")
+    provider.force_flush()
+
+    assert exporter.snapshots, "the exporter was never reached"
+    assert "ORDERLEAK" not in exporter.snapshots[0]
+
+
+def test_an_exporter_before_the_scrubber_serialises_the_unscrubbed_span() -> None:
+    """The witness for the test above: order really is visible at export time.
+
+    Same exporter, same span, the scrubber appended instead of prepended, so the
+    text is there to be seen. Without this, an exporter that never captured
+    anything would make the ordering assertion pass for the wrong reason.
+    """
+    exporter = _SerialisingExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    provider.add_span_processor(telemetry._QueryStringScrubber())
+
+    with provider.get_tracer("test.ordering").start_as_current_span("probe") as span:
+        span.set_attribute("http.url", "https://example.test/search?q=ORDERLEAK")
+    provider.force_flush()
+
+    assert exporter.snapshots, "the exporter was never reached"
+    assert "ORDERLEAK" in exporter.snapshots[0]
+
+
+def test_pre_installed_provider_with_its_own_exporter_is_left_alone_and_logged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A provider installed by someone else keeps its own pipeline, loudly.
+
+    Attaching the configured exporter as well would export every span twice; the
+    deployment choice is therefore not applied, and that is reported rather than
+    left to be discovered from a missing trace.
+    """
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    trace.set_tracer_provider(provider)
+
+    with caplog.at_level("WARNING", logger=telemetry.__name__):
+        configure_telemetry(_settings(), environment="testing")
+
+    processors = provider._active_span_processor._span_processors
+    assert telemetry._configured is True
+    assert len(processors) == 2
+    assert isinstance(processors[0], telemetry._QueryStringScrubber)
+    assert [p for p in processors if isinstance(p, SimpleSpanProcessor)] == [
+        processors[1]
+    ]
+    assert "span exporter" in caplog.text
+    assert "not attached" in caplog.text
+
+
+def test_pre_installed_provider_without_an_exporter_receives_the_configured_one() -> None:
+    """With nowhere else to go, the deployment's exporter choice still applies."""
+    provider = TracerProvider()
+    trace.set_tracer_provider(provider)
+
+    configure_telemetry(_settings(), environment="testing")
+
+    processors = provider._active_span_processor._span_processors
+    assert isinstance(processors[0], telemetry._QueryStringScrubber)
+    exporters = [p for p in processors if hasattr(p, "span_exporter")]
+    assert len(exporters) == 1
+    assert isinstance(exporters[0].span_exporter, telemetry._NoopSpanExporter)
+
+
+def test_concurrent_provider_installation_still_receives_the_scrubber(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The provider that wins the once-only global slot must be the protected one.
+
+    ``set_tracer_provider`` is once-only, so a provider installed between the
+    read and the write leaves our own provider inactive. The read-back below is
+    what notices, and the winner then gets the scrubber prepended.
+    """
+    winner = TracerProvider()
+
+    def lose_the_race(provider: TracerProvider) -> None:
+        """Simulate a concurrent installer taking the slot first."""
+        trace._TRACER_PROVIDER = winner
+        trace._TRACER_PROVIDER_SET_ONCE._done = True
+
+    monkeypatch.setattr(trace, "set_tracer_provider", lose_the_race)
+    configure_telemetry(_settings(), environment="testing")
+
+    processors = winner._active_span_processor._span_processors
+    assert telemetry._configured is True
+    assert isinstance(processors[0], telemetry._QueryStringScrubber)
+    assert [p for p in processors if isinstance(p, telemetry._QueryStringScrubber)] == [
+        processors[0]
+    ], "the scrubber must be installed exactly once, ahead of every exporter"
+
+
+def test_scrubber_installation_that_is_discarded_fails_closed(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A write the provider does not honour must not be reported as success."""
+    provider = TracerProvider()
+    chain = _DiscardingProcessorChain()
+    provider._active_span_processor = chain
+    trace.set_tracer_provider(provider)
+
+    try:
+        with caplog.at_level("WARNING", logger=telemetry.__name__):
+            configure_telemetry(_settings(), environment="testing")
+    finally:
+        # Leave a real chain behind so the isolation fixture can shut the
+        # provider down without tripping over the double.
+        provider._active_span_processor = SynchronousMultiSpanProcessor()
+
+    assert telemetry._configured is False
+    assert "privacy scrubber was not confirmed active" in caplog.text
+
+
+def test_non_prependable_processor_chain_fails_closed(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An unrecognised chain shape is a configuration failure, not a pass."""
+    provider = TracerProvider()
+    provider._active_span_processor = cast(SynchronousMultiSpanProcessor, object())
+    trace.set_tracer_provider(provider)
+
+    try:
+        with caplog.at_level("WARNING", logger=telemetry.__name__):
+            configure_telemetry(_settings(), environment="testing")
+    finally:
+        provider._active_span_processor = SynchronousMultiSpanProcessor()
+
+    assert telemetry._configured is False
+    assert "privacy scrubber was not confirmed active" in caplog.text
+
+
 def test_fastapi_app_is_instrumented_once():
     application = FastAPI()
 
@@ -376,8 +560,8 @@ def test_server_span_drops_query_string_before_export() -> None:
 
     server_span = next(span for span in collector.get_finished_spans() if span.name == "GET /search")
     serialised = json.dumps(server_span.to_json())
-    assert "q=" not in _url_attributes(server_span).get("http.url", "")
-    assert "q=" not in _url_attributes(server_span).get("url.full", "")
+    assert "q=" not in _carrier_attributes(server_span).get("http.url", "")
+    assert "q=" not in _carrier_attributes(server_span).get("url.full", "")
     assert "student radios" not in serialised
     assert "clearance" not in serialised
 
@@ -407,10 +591,140 @@ def test_server_span_drops_query_string_when_the_url_cannot_be_parsed() -> None:
     serialised = json.dumps(server_span.to_json())
     # The scheme, netloc, and path are kept -- they are not sensitive -- and
     # everything from the "?" on is gone.
-    assert _url_attributes(server_span)["http.url"] == "http://[bad/search"
-    assert "q=" not in _url_attributes(server_span).get("url.full", "")
+    assert _carrier_attributes(server_span)["http.url"] == "http://[bad/search"
+    assert "q=" not in _carrier_attributes(server_span).get("url.full", "")
     assert "clearance-denied" not in serialised
     assert "clearance" not in serialised
+
+
+@pytest.mark.parametrize(
+    ("host", "private_text", "expected"),
+    [
+        ("evil.test?q=HOSTLEAK", "HOSTLEAK", "evil.test"),
+        ("evil.test#HOSTFRAG", "HOSTFRAG", "evil.test"),
+        ("evil.test%3Fq=HOSTENC", "HOSTENC", "evil.test"),
+    ],
+)
+def test_server_span_drops_query_and_fragment_text_from_the_host_header(
+    host: str, private_text: str, expected: str
+) -> None:
+    """The ASGI instrumentation copies ``Host`` verbatim into ``http.server_name``.
+
+    An ordinary, well-formed request header is enough to carry free text out, so
+    the authority carrier needs the same treatment as ``http.url`` itself.
+    """
+    application = FastAPI()
+
+    @application.get("/search")
+    async def search() -> dict[str, bool]:
+        return {"ok": True}
+
+    configure_telemetry(_settings(), environment="testing", app=application)
+    collector = _collect_spans()
+
+    with TestClient(application) as client:
+        assert client.get("/search?q=LEAKME", headers={"Host": host}).status_code == 200
+
+    server_span = next(
+        span for span in collector.get_finished_spans() if span.kind == trace.SpanKind.SERVER
+    )
+    serialised = json.dumps(server_span.to_json())
+    assert _carrier_attributes(server_span)["http.server_name"] == expected
+    assert _carrier_attributes(server_span)["http.url"] == f"http://{expected}"
+    assert private_text not in serialised
+    assert "q=" not in serialised
+    assert "LEAKME" not in serialised
+
+
+def test_server_span_drops_query_text_from_the_user_agent_header() -> None:
+    """``User-Agent`` is caller-controlled text copied verbatim onto the span."""
+    application = FastAPI()
+
+    @application.get("/search")
+    async def search() -> dict[str, bool]:
+        return {"ok": True}
+
+    configure_telemetry(_settings(), environment="testing", app=application)
+    collector = _collect_spans()
+
+    with TestClient(application) as client:
+        response = client.get(
+            "/search?q=LEAKME", headers={"User-Agent": "curl/8.0?q=UALEAK"}
+        )
+        assert response.status_code == 200
+
+    server_span = next(
+        span for span in collector.get_finished_spans() if span.kind == trace.SpanKind.SERVER
+    )
+    serialised = json.dumps(server_span.to_json())
+    assert _carrier_attributes(server_span)["http.user_agent"] == "curl/8.0"
+    assert "UALEAK" not in serialised
+    assert "q=" not in serialised
+    assert "LEAKME" not in serialised
+
+
+@pytest.mark.parametrize(
+    ("attribute", "expected"),
+    [
+        ("http.server_name", "evil.test"),
+        ("http.host", "evil.test"),
+        ("server.address", "evil.test"),
+        ("client.address", "evil.test"),
+        ("http.user_agent", "curl/8.0"),
+        ("user_agent.original", "curl/8.0"),
+    ],
+)
+def test_request_header_attributes_are_scrubbed_by_pattern(
+    attribute: str, expected: str
+) -> None:
+    """The authority and user-agent carriers, by name pattern rather than by list.
+
+    ``server.address``/``client.address`` carry no caller text in this
+    deployment, but a proxy that writes the forwarded authority or
+    ``X-Forwarded-For`` into the ASGI scope turns both into carriers, so the
+    name policy covers them ahead of that deployment existing.
+    """
+    value = "curl/8.0?q=HEADERLEAK" if "agent" in attribute else "evil.test?q=HEADERLEAK"
+
+    attributes, serialised = _url_attribute_json(value, attribute=attribute)
+
+    assert attributes[attribute] == expected
+    assert "HEADERLEAK" not in serialised
+    assert "q=" not in serialised
+
+
+def test_route_template_and_caller_bearing_attributes_survive_scrubbing() -> None:
+    """Widening the name policy must not start deleting ordinary telemetry.
+
+    ``http.route`` is the matched route template, never caller text, and is
+    asserted to survive a request that carries free text in three other
+    attributes.
+    """
+    application = FastAPI()
+
+    @application.get("/search")
+    async def search() -> dict[str, bool]:
+        return {"ok": True}
+
+    configure_telemetry(_settings(), environment="testing", app=application)
+    collector = _collect_spans()
+
+    with TestClient(application) as client:
+        assert client.get("/search?q=LEAKME", headers={"Host": "evil.test?q=HOSTLEAK"}).status_code == 200
+
+    server_span = next(
+        span for span in collector.get_finished_spans() if span.kind == trace.SpanKind.SERVER
+    )
+    attributes = _carrier_attributes(server_span)
+    assert attributes["http.route"] == "/search"
+    assert attributes["http.method"] == "GET"
+    assert attributes["http.status_code"] == 200
+    assert attributes["http.scheme"] == "http"
+    # The decision itself, pinned: the matched route template is a code-level
+    # constant, so its name must not be classified as a carrier at all.
+    route_tokens = telemetry._QueryStringScrubber._attribute_tokens("http.route")
+    assert not route_tokens.intersection(telemetry._QueryStringScrubber._URL_BEARING_TERMS)
+    assert not route_tokens.intersection(telemetry._QueryStringScrubber._CALLER_TEXT_TERMS)
 
 
 @pytest.mark.parametrize(
@@ -465,8 +779,8 @@ def test_unparsable_url_attributes_lose_their_query_and_fragment() -> None:
     assert len(exported) == len(cases)
     for exported_span, expected in zip(exported, cases.values()):
         serialised = json.dumps(exported_span.to_json())
-        assert _url_attributes(exported_span)["http.url"] == expected
-        assert _url_attributes(exported_span)["url.full"] == expected
+        assert _carrier_attributes(exported_span)["http.url"] == expected
+        assert _carrier_attributes(exported_span)["url.full"] == expected
         assert "clearance-denied" not in serialised
         assert "q=" not in serialised
         assert "#tail" not in serialised
@@ -613,6 +927,121 @@ def test_previously_verified_unsupported_shapes_are_removed(value: Any) -> None:
 
     assert "http.url" not in attributes
     assert "clearance-denied" not in serialised
+
+
+# ---------------------------------------------------------------------------
+# Privacy: the carriers outside ``span.attributes``
+# ---------------------------------------------------------------------------
+
+
+def test_exception_text_carrying_caller_text_is_removed_from_span_events() -> None:
+    """Exception text is caller-influenced by construction.
+
+    A handler that interpolates the query into its error message puts that text
+    on the span twice over: once in ``exception.message`` and again on the final
+    ``ValueError: ...`` line of ``exception.stacktrace``. The message carries no
+    query delimiter to truncate at, so the only safe policy is to remove the
+    runtime-formatted text and keep the exception *type*.
+    """
+    application = FastAPI()
+
+    @application.get("/parse")
+    async def parse(q: str = "") -> dict[str, bool]:
+        raise ValueError(f"could not parse search text {q!r}")
+
+    configure_telemetry(_settings(), environment="testing", app=application)
+    collector = _collect_spans()
+
+    with TestClient(application, raise_server_exceptions=False) as client:
+        assert client.get("/parse?q=EXCLEAK").status_code == 500
+
+    server_span = next(
+        span for span in collector.get_finished_spans() if span.kind == trace.SpanKind.SERVER
+    )
+    exception_events = [event for event in server_span.events if event.name == "exception"]
+    assert len(exception_events) == 1
+    attributes = _carrier_attributes(exception_events[0])
+    serialised = json.dumps(server_span.to_json())
+    assert attributes["exception.type"] == "ValueError"
+    assert "exception.message" not in attributes
+    assert "exception.stacktrace" not in attributes
+    assert "EXCLEAK" not in serialised
+    assert "could not parse search text" not in serialised
+
+
+def test_url_bearing_event_attribute_is_scrubbed() -> None:
+    """Event attributes obey exactly the name policy span attributes do."""
+    configure_telemetry(_settings(), environment="development")
+    collector = _collect_spans()
+
+    with trace.get_tracer("test.scrubber").start_as_current_span("probe") as span:
+        span.add_event("attempt", {"http.target": "/search?q=EVENTLEAK"})
+
+    exported = collector.get_finished_spans()[0]
+    event_attributes = _carrier_attributes(exported.events[0])
+    assert event_attributes["http.target"] == "/search"
+    assert "EVENTLEAK" not in json.dumps(exported.to_json())
+
+
+def _linked_span_context() -> SpanContext:
+    """A valid context, so ``add_link`` keeps the link it is given."""
+    return SpanContext(
+        trace_id=0x000000000000000000000000DEADBEEF,
+        span_id=0x0000000000000BEEF,
+        is_remote=False,
+        trace_flags=trace.TraceFlags(trace.TraceFlags.SAMPLED),
+    )
+
+
+def test_event_names_and_link_attributes_are_scrubbed() -> None:
+    """An event name is caller-assembled text, and a link carries attributes."""
+    configure_telemetry(_settings(), environment="development")
+    collector = _collect_spans()
+
+    with trace.get_tracer("test.scrubber").start_as_current_span("probe") as span:
+        span.add_event("failed to parse /search?q=EVENTLEAK")
+        span.add_link(_linked_span_context(), {"url.full": "https://example.test/search?q=LINKLEAK"})
+
+    exported = collector.get_finished_spans()[0]
+    link_attributes = _carrier_attributes(exported.links[0])
+    serialised = json.dumps(exported.to_json())
+    assert exported.events[0].name == "failed to parse /search"
+    assert link_attributes["url.full"] == "https://example.test/search"
+    assert "EVENTLEAK" not in serialised
+    assert "LINKLEAK" not in serialised
+    assert "q=" not in serialised
+
+
+def test_span_name_and_status_description_lose_query_text() -> None:
+    """A caller-built span name is truncated at the delimiter, as any URL is."""
+    configure_telemetry(_settings(), environment="development")
+    collector = _collect_spans()
+
+    with trace.get_tracer("test.scrubber").start_as_current_span(
+        "GET /search?q=NAMELEAK"
+    ) as span:
+        span.set_status(trace.StatusCode.ERROR, "failed on /search?q=DESCREAK")
+
+    exported = collector.get_finished_spans()[0]
+    serialised = json.dumps(exported.to_json())
+    assert exported.name == "GET /search"
+    assert exported.status.status_code is trace.StatusCode.ERROR
+    assert "q=" not in exported.name
+    assert "NAMELEAK" not in serialised
+    assert "DESCREAK" not in serialised
+
+
+def test_span_name_without_a_delimiter_is_left_alone() -> None:
+    """Only the delimiter is the trigger; ordinary span names are untouched."""
+    configure_telemetry(_settings(), environment="development")
+    collector = _collect_spans()
+
+    with trace.get_tracer("test.scrubber").start_as_current_span("session.exchange") as span:
+        span.set_status(trace.StatusCode.OK)
+
+    exported = collector.get_finished_spans()[0]
+    assert exported.name == "session.exchange"
+    assert exported.status.description is None
 
 
 # ---------------------------------------------------------------------------
