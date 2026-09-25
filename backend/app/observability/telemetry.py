@@ -16,18 +16,24 @@ See ADR-009. Two rules shape this module:
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from collections.abc import Iterator
 from contextlib import ExitStack, contextmanager
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import unquote, urlsplit
 
 from fastapi import FastAPI
 from opentelemetry import trace
 from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, TracerProvider
+from opentelemetry.sdk.trace import (
+    ReadableSpan,
+    SpanProcessor,
+    SynchronousMultiSpanProcessor,
+    TracerProvider,
+)
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
     ConsoleSpanExporter,
@@ -54,47 +60,79 @@ _configured = False
 _asyncpg_instrumentor = AsyncPGInstrumentor()
 
 
-def _without_query_or_fragment(value: str) -> str:
-    """Drop a URL's query and fragment without parsing it.
+_QUERY_OR_FRAGMENT_BOUNDARY = re.compile(r"\?|#|%3f|%23", re.IGNORECASE)
 
-    Used only on the unparsable-URL path. ``str.find`` cannot fail, so this is
-    the fail-closed guarantee: the query and fragment are caller-controlled free
-    text, and everything from the first ``?`` or ``#`` onwards is removed even
-    though the URL could not be split. The scheme, netloc, and path before that
-    point are kept verbatim, because they are not sensitive.
+
+def _without_query_or_fragment(value: str) -> str:
+    """Drop literal or percent-encoded query and fragment delimiters.
+
+    ASGI instrumentation decodes request targets before recording them, while
+    full URLs can retain the original encoding. Checking both forms closes that
+    mismatch without parsing the URL. Repeated percent-decoding handles double
+    encoded input; the original value is retained if decoding never reveals a
+    delimiter.
     """
-    cut = len(value)
-    for marker in ("?", "#"):
-        index = value.find(marker)
-        if index != -1:
-            cut = min(cut, index)
-    return value[:cut]
+    while True:
+        boundary = _QUERY_OR_FRAGMENT_BOUNDARY.search(value)
+        if boundary is not None:
+            return value[: boundary.start()]
+        decoded = unquote(value)
+        if decoded == value:
+            return value
+        value = decoded
 
 
 class _QueryStringScrubber(SpanProcessor):
-    """Remove query strings from URL attributes before they reach an exporter.
+    """Remove caller text from every URL-like attribute before export.
 
-    FastAPI instrumentation records the request URL on server spans. Query
-    parameters are caller-controlled free text, so retaining them would violate
-    this module's privacy contract. ``ReadableSpan`` exposes attributes through
-    a read-only mapping, so the processor replaces its backing attributes after
-    the span has ended and before the next processor exports it.
+    Attribute **names** are matched by token, rather than enumerated. Any name
+    containing a URL-bearing term (``url``, ``uri``, ``target``, ``path``,
+    ``query``, ``fragment``, ``referer``/``referrer``, ``location``, or
+    ``endpoint``) is covered, including names added by future instrumentation.
+    A name containing ``query`` or ``fragment`` denotes wholly caller-controlled
+    data, so that attribute is deleted. Other URL-like values retain only the
+    prefix before a literal or percent-encoded query/fragment delimiter.
 
-    The scrubber fails **closed**: a URL that cannot be parsed still loses its
-    query and fragment. Callers control enough of the URL to force a parse
-    error on demand -- a malformed ``Host`` header makes the instrumented URL
-    an invalid IPv6 literal, for instance -- so leaving such a URL untouched
-    would be a caller-triggerable bypass of the privacy contract rather than a
-    degradation of telemetry quality.
-
-    OpenTelemetry attributes may also be string sequences, so every list or
-    tuple element is scrubbed independently. Any other shape, including a
-    sequence containing a non-string element, is dropped in full: the SDK may
-    serialize it even when this control cannot safely inspect it, and losing a
-    malformed URL attribute is safer than exporting caller-controlled text.
+    This is deny-by-default for matched values and shapes. Unknown non-URL
+    attributes are left alone, but every matched string and string sequence is
+    scrubbed. A matched value in any other shape, or a sequence containing a
+    non-string, is deleted because this control cannot confidently inspect it.
+    Deleting malformed telemetry is safer than exporting a possible bypass.
     """
 
-    _URL_ATTRIBUTES = ("http.url", "url.full")
+    _URL_BEARING_TERMS = frozenset(
+        {
+            "endpoint",
+            "fragment",
+            "location",
+            "path",
+            "query",
+            "referer",
+            "referrer",
+            "target",
+            "uri",
+            "url",
+        }
+    )
+    _QUERY_OR_FRAGMENT_TERMS = frozenset({"fragment", "query"})
+
+    @classmethod
+    def _attribute_tokens(cls, attribute: str) -> frozenset[str]:
+        """Split dotted, delimited, snake-case, and camel-case names into terms."""
+        separated = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", attribute)
+        separated = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", separated)
+        return frozenset(re.findall(r"[a-z0-9]+", separated.lower()))
+
+    @classmethod
+    def _scrub_url_value(cls, value: Any) -> Any:
+        """Scrub a scalar or homogeneous string sequence, or return ``None`` to drop it."""
+        if isinstance(value, str):
+            return _without_query_or_fragment(value)
+        if not isinstance(value, (list, tuple)):
+            return None
+        if not all(isinstance(element, str) for element in value):
+            return None
+        return [_without_query_or_fragment(element) for element in value]
 
     def on_end(self, span: ReadableSpan) -> None:
         attributes = span.attributes
@@ -102,53 +140,20 @@ class _QueryStringScrubber(SpanProcessor):
             return
         scrubbed_attributes = dict(attributes)
         changed = False
-        for attribute in self._URL_ATTRIBUTES:
-            if attribute not in scrubbed_attributes:
+        for attribute, value in attributes.items():
+            tokens = self._attribute_tokens(attribute)
+            if not tokens.intersection(self._URL_BEARING_TERMS):
                 continue
-            value = scrubbed_attributes[attribute]
-            if isinstance(value, str):
-                try:
-                    parsed = urlsplit(value)
-                except ValueError:
-                    scrubbed_attributes[attribute] = _without_query_or_fragment(value)
-                    changed = True
-                    continue
-                if parsed.query or parsed.fragment:
-                    scrubbed_attributes[attribute] = urlunsplit(
-                        (parsed.scheme, parsed.netloc, parsed.path, "", "")
-                    )
-                    changed = True
-            elif isinstance(value, (list, tuple)):
-                if not all(isinstance(element, str) for element in value):
-                    del scrubbed_attributes[attribute]
-                    changed = True
-                    continue
-                scrubbed_sequence: list[str] = []
-                for element in value:
-                    try:
-                        parsed_element = urlsplit(element)
-                    except ValueError:
-                        scrubbed_sequence.append(_without_query_or_fragment(element))
-                        continue
-                    if parsed_element.query or parsed_element.fragment:
-                        scrubbed_sequence.append(
-                            urlunsplit(
-                                (
-                                    parsed_element.scheme,
-                                    parsed_element.netloc,
-                                    parsed_element.path,
-                                    "",
-                                    "",
-                                )
-                            )
-                        )
-                    else:
-                        scrubbed_sequence.append(element)
-                if scrubbed_sequence != list(value):
-                    scrubbed_attributes[attribute] = scrubbed_sequence
-                    changed = True
-            else:
+            if tokens.intersection(self._QUERY_OR_FRAGMENT_TERMS):
                 del scrubbed_attributes[attribute]
+                changed = True
+                continue
+            scrubbed = self._scrub_url_value(value)
+            if scrubbed is None:
+                del scrubbed_attributes[attribute]
+                changed = True
+            elif scrubbed != value:
+                scrubbed_attributes[attribute] = scrubbed
                 changed = True
         if changed:
             # ReadableSpan exposes an immutable mapping, so replace its backing
@@ -209,6 +214,28 @@ def _build_exporter(settings: TraceSettings, *, environment: str) -> SpanExporte
     return OTLPSpanExporter(endpoint=endpoint)  # type: ignore[no-any-return]
 
 
+def _install_scrubber_before_exporters(provider: TracerProvider) -> None:
+    """Put the privacy processor first in an SDK provider's processor chain.
+
+    OpenTelemetry invokes processors in registration order and offers no public
+    prepend operation. Appending to a provider installed by another component
+    would therefore be too late: its exporter would receive the unfiltered span
+    first. The SDK's synchronous processor stores an immutable tuple under a
+    lock, so atomically replacing that tuple with the scrubber prepended is the
+    only ordering-safe installation point. Failure to recognize or mutate the
+    active processor is explicit and leaves telemetry unconfigured.
+    """
+    active_processor = provider._active_span_processor
+    if not isinstance(active_processor, SynchronousMultiSpanProcessor):
+        raise RuntimeError(
+            "the active tracer provider does not expose a prependable SDK processor chain"
+        )
+    with active_processor._lock:
+        processors = active_processor._span_processors
+        if not any(isinstance(processor, _QueryStringScrubber) for processor in processors):
+            active_processor._span_processors = (_QueryStringScrubber(), *processors)
+
+
 def configure_telemetry(
     settings: TraceSettings, *, environment: str, app: FastAPI | None = None
 ) -> None:
@@ -222,23 +249,38 @@ def configure_telemetry(
     global _configured
     if not _configured:
         try:
-            provider = TracerProvider(
-                resource=Resource.create(
-                    {
-                        "service.name": SERVICE_NAME,
-                        "deployment.environment": environment,
-                    }
+            active_provider = trace.get_tracer_provider()
+            if isinstance(active_provider, TracerProvider):
+                # The global API is once-only. If another component installed an
+                # SDK provider first, protect that provider rather than creating
+                # an inactive provider around the scrubber and marking success.
+                _install_scrubber_before_exporters(active_provider)
+            else:
+                provider = TracerProvider(
+                    resource=Resource.create(
+                        {
+                            "service.name": SERVICE_NAME,
+                            "deployment.environment": environment,
+                        }
+                    )
                 )
-            )
-            provider.add_span_processor(_QueryStringScrubber())
-            provider.add_span_processor(
-                BatchSpanProcessor(_build_exporter(settings, environment=environment))
-            )
-            trace.set_tracer_provider(provider)
+                _install_scrubber_before_exporters(provider)
+                provider.add_span_processor(
+                    BatchSpanProcessor(_build_exporter(settings, environment=environment))
+                )
+                trace.set_tracer_provider(provider)
+                installed_provider = trace.get_tracer_provider()
+                if not isinstance(installed_provider, TracerProvider):
+                    raise RuntimeError("the global tracer provider is not an SDK provider")
+                if installed_provider is not provider:
+                    # A concurrent installer won the once-only global slot. Its
+                    # active processor still has to receive the scrubber first.
+                    _install_scrubber_before_exporters(installed_provider)
             _asyncpg_instrumentor.instrument()
         except Exception:
             logger.warning(
-                "OpenTelemetry configuration failed; continuing without telemetry.",
+                "OpenTelemetry configuration failed; the privacy scrubber was not "
+                "confirmed active; continuing without telemetry.",
                 exc_info=True,
             )
             return

@@ -256,6 +256,35 @@ def test_repeated_configuration_installs_one_pipeline(caplog):
     assert _asyncpg_wrapper_depth() == 1
 
 
+def test_existing_provider_receives_the_scrubber_before_its_exporter() -> None:
+    """A refused global override must not leave the active pipeline unfiltered."""
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    trace.set_tracer_provider(provider)
+
+    application = FastAPI()
+
+    @application.get("/search")
+    async def search() -> dict[str, bool]:
+        return {"ok": True}
+
+    configure_telemetry(_settings(), environment="testing", app=application)
+
+    with TestClient(application) as client:
+        assert client.get("/search?q=student%20radios%20said%20clearance").status_code == 200
+
+    server_span = next(
+        span for span in exporter.get_finished_spans() if span.kind == trace.SpanKind.SERVER
+    )
+    serialised_attributes = json.dumps(json.loads(server_span.to_json())["attributes"])
+    assert telemetry._configured is True
+    assert trace.get_tracer_provider() is provider
+    assert "q=" not in serialised_attributes
+    assert "student radios" not in serialised_attributes
+    assert "clearance" not in serialised_attributes
+
+
 def test_fastapi_app_is_instrumented_once():
     application = FastAPI()
 
@@ -356,10 +385,9 @@ def test_server_span_drops_query_string_before_export() -> None:
 def test_server_span_drops_query_string_when_the_url_cannot_be_parsed() -> None:
     """A malformed, caller-controlled ``Host`` must not smuggle a query out.
 
-    ``Host`` reaches the instrumented URL verbatim, and a caller can pick a
-    value that makes ``urlsplit`` raise. A scrubber that gave up on a parse
-    error would hand the exporter the untouched URL, query and all, so this is
-    the bypass a fail-open scrubber leaves open.
+    ``Host`` reaches the instrumented URL verbatim, and a caller can make the
+    resulting netloc unparsable. Boundary-based scrubbing does not depend on
+    parsing, so malformed and well-formed URLs follow the same fail-closed path.
     """
     application = FastAPI()
 
@@ -385,17 +413,41 @@ def test_server_span_drops_query_string_when_the_url_cannot_be_parsed() -> None:
     assert "clearance" not in serialised
 
 
+@pytest.mark.parametrize(
+    ("path", "expected_target", "private_text"),
+    [
+        ("/missing%3Fq=LEAKME", "/missing", "LEAKME"),
+        ("/missing%23private-fragment", "/missing", "private-fragment"),
+    ],
+)
+def test_encoded_request_target_drops_query_and_fragment_text(
+    path: str, expected_target: str, private_text: str
+) -> None:
+    """Decoded ASGI targets must be filtered before any exporter sees them."""
+    application = FastAPI()
+    configure_telemetry(_settings(), environment="testing", app=application)
+    collector = _collect_spans()
+
+    with TestClient(application) as client:
+        assert client.get(path).status_code == 404
+
+    server_span = next(
+        span for span in collector.get_finished_spans() if span.kind == trace.SpanKind.SERVER
+    )
+    attributes = json.loads(server_span.to_json())["attributes"]
+    assert attributes["http.target"] == expected_target
+    assert private_text not in json.dumps(attributes)
+    assert "?" not in attributes["http.target"]
+    assert "#" not in attributes["http.target"]
+
+
 def test_unparsable_url_attributes_lose_their_query_and_fragment() -> None:
-    """Both URL attributes are covered, not just the server-side one.
+    """Malformed full URLs take the same boundary-based path as valid ones.
 
-    ``url.full`` is a client-side attribute and ``http.url`` a server-side one,
-    and the scrubber treats them as a pair, so the fail-closed path is asserted
-    for each of them directly rather than only through whichever one a
-    FastAPI server span happens to carry.
-
-    The fragment-without-a-query case is separate on purpose: truncating at the
-    "?" alone would leave a trailing fragment welded to the path, so both
-    markers have to be their own input.
+    ``url.full`` is client-side and ``http.url`` server-side, so both standard
+    names are asserted directly. The fragment-without-a-query case is separate
+    on purpose: truncating at the "?" alone would leave a trailing fragment
+    welded to the path, so both markers have to be their own input.
     """
     configure_telemetry(_settings(), environment="development")
     collector = _collect_spans()
@@ -420,13 +472,15 @@ def test_unparsable_url_attributes_lose_their_query_and_fragment() -> None:
         assert "#tail" not in serialised
 
 
-def _url_attribute_json(value: Any) -> tuple[dict[str, Any], str]:
-    """Export one real SDK span carrying ``http.url`` and return its JSON form."""
+def _url_attribute_json(
+    value: Any, *, attribute: str = "http.url"
+) -> tuple[dict[str, Any], str]:
+    """Export one real SDK span carrying a URL-like attribute and return its JSON."""
     configure_telemetry(_settings(), environment="development")
     collector = _collect_spans()
 
     with trace.get_tracer("test.scrubber").start_as_current_span("probe") as span:
-        span.set_attribute("http.url", value)
+        span.set_attribute(attribute, value)
 
     serialised = json.loads(collector.get_finished_spans()[0].to_json())
     assert isinstance(serialised, dict)
@@ -485,6 +539,80 @@ def test_url_attribute_drops_non_string_non_sequence_value() -> None:
     assert "http.url" not in attributes
     assert "q=" not in serialised
     assert "#private-fragment" not in serialised
+
+
+def test_future_url_attribute_names_are_scrubbed_by_pattern() -> None:
+    attributes, serialised = _url_attribute_json(
+        "https://example.test/search?q=clearance-denied", attribute="rpc.request_uri"
+    )
+
+    assert attributes["rpc.request_uri"] == "https://example.test/search"
+    assert "q=" not in serialised
+    assert "clearance-denied" not in serialised
+
+
+@pytest.mark.parametrize(
+    ("attribute", "value"),
+    [
+        ("url.query", "q=clearance-denied"),
+        ("url.fragment", "private-fragment"),
+    ],
+)
+def test_query_and_fragment_named_attributes_are_removed(
+    attribute: str, value: str
+) -> None:
+    """A query/fragment attribute is entirely caller text, not a URL prefix."""
+    attributes, serialised = _url_attribute_json(value, attribute=attribute)
+
+    assert attribute not in attributes
+    assert value not in serialised
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ([], []),
+        ([""], [""]),
+        (["?"], [""]),
+        (
+            ["https://example.test/search?q=" + "clearance-denied" * 1_000],
+            ["https://example.test/search"],
+        ),
+        (
+            ("https://example.test/search#private-fragment",),
+            ["https://example.test/search"],
+        ),
+        (
+            ["https://example.test/search?q=encoded%3Fquestion"],
+            ["https://example.test/search"],
+        ),
+    ],
+)
+def test_previously_verified_string_shapes_remain_safe(
+    value: Any, expected: list[str]
+) -> None:
+    attributes, serialised = _url_attribute_json(value)
+
+    assert attributes["http.url"] == expected
+    assert "clearance-denied" not in serialised
+    assert "private-fragment" not in serialised
+    assert "encoded%3Fquestion" not in serialised
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        [["https://example.test/search?q=clearance-denied"]],
+        {"url": "https://example.test/search?q=clearance-denied"},
+        42,
+        None,
+    ],
+)
+def test_previously_verified_unsupported_shapes_are_removed(value: Any) -> None:
+    attributes, serialised = _url_attribute_json(value)
+
+    assert "http.url" not in attributes
+    assert "clearance-denied" not in serialised
 
 
 # ---------------------------------------------------------------------------
