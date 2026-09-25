@@ -1,7 +1,9 @@
 """Main FastAPI application for Horus ATC Voice Communication API."""
 
 import logging
-from collections.abc import Callable
+import os
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -27,7 +29,14 @@ from app.api.v1 import (
     stats,
     waypoints,
 )
-from app.config import get_settings
+from app.config import Settings, get_settings
+from app.llm.routing import build_llm
+from app.services.llm.scenes.default_scene import DEFAULT_SCENE
+from app.services.llm.scenes.registry import SceneRegistry, load_scene_configs
+from app.services.training_sessions.postgres_session_store import PostgresSessionStore
+from app.services.training_sessions.session_module import TrainingSessionModule
+from app.services.training_sessions.session_store import InMemorySessionStore, SessionStore
+from app.services.training_sessions.trace import SqlAlchemyTraceRecorder
 
 # Configure logging
 logging.basicConfig(
@@ -94,6 +103,85 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# ---------------------------------------------------------------------------
+# Composition root
+# ---------------------------------------------------------------------------
+
+
+def _resolve_settings(application: FastAPI) -> Settings:
+    """Return the settings the application should be composed with.
+
+    Honours ``app.dependency_overrides`` so the composition root and the routes
+    it serves always agree on one settings instance.
+    """
+    override = application.dependency_overrides.get(get_settings)
+    return override() if override is not None else get_settings()
+
+
+def _build_scene_registry() -> SceneRegistry:
+    """Load the Scene registry, preferring ``SCENES_PATH`` over the packaged Scene."""
+    override = os.getenv("SCENES_PATH")
+    if override:
+        return load_scene_configs(override)
+    return SceneRegistry({DEFAULT_SCENE.version: DEFAULT_SCENE})
+
+
+def _build_retriever(_settings: Settings) -> None:
+    """Return the knowledge retriever the validation graph will use.
+
+    No retriever exists yet; this returns ``None`` and is replaced in Task 8
+    with ``build_retriever(settings, get_session_factory, llm)``.
+    """
+    return None
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    """Build every long-lived collaborator once and publish it on ``app.state``."""
+    from app.core.redis import close_redis
+    from app.db.session import get_session_factory
+
+    app_settings = _resolve_settings(application)
+    llm = build_llm(app_settings)
+    store: SessionStore
+    if app_settings.environment == "production":
+        store = PostgresSessionStore(app_settings.database_url)
+        await store.setup()
+    else:
+        store = InMemorySessionStore()
+    scenes = _build_scene_registry()
+    retriever = _build_retriever(app_settings)
+    trace = SqlAlchemyTraceRecorder()
+
+    application.state.settings = app_settings
+    application.state.llm = llm
+    application.state.session_store = store
+    application.state.scene_registry = scenes
+    application.state.retriever = retriever
+    application.state.trace_recorder = trace
+    application.state.session_module = TrainingSessionModule(
+        store,
+        trace,
+        scenes,
+        llm,
+        db_session_factory=get_session_factory(),
+        knowledge=retriever,
+        require_org=app_settings.environment == "production",
+    )
+
+    logger.info(
+        "Horus ATC API started (environment=%s, llm=%s, store=%s)",
+        app_settings.environment,
+        llm.provider,
+        type(store).__name__,
+    )
+    try:
+        yield
+    finally:
+        logger.info("Shutting down Horus ATC API...")
+        await close_redis()
+
+
 # Create FastAPI app
 app = FastAPI(
     title="Horus ATC Voice Communication API",
@@ -101,6 +189,7 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # Middleware stack (last added = outermost).
@@ -142,27 +231,6 @@ app.include_router(flight_plans.router, prefix=api_v1_prefix)
 app.include_router(instructors.router, prefix=api_v1_prefix)
 app.include_router(gamification.router, prefix=api_v1_prefix)
 app.include_router(assessments.router, prefix=api_v1_prefix)
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Initialize services on startup."""
-    logger.info("Starting Horus ATC API...")
-    logger.info(f"Environment: {settings.environment}")
-    logger.info(f"Ollama URL: {settings.ollama_base_url}")
-    logger.info(f"LLM Model: {settings.ollama_llm_model}")
-    logger.info(f"Whisper Model: {settings.whisper_model}")
-    logger.info(f"CORS Origins: {settings.cors_origins_list}")
-    logger.info("API started successfully")
-
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    """Cleanup on shutdown."""
-    from app.core.redis import close_redis
-
-    logger.info("Shutting down Horus ATC API...")
-    await close_redis()
 
 
 @app.get("/")

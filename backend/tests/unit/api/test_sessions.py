@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -14,6 +14,9 @@ from app.middleware.auth import TokenUser
 from app.models.training_session import TrainingSession
 from app.models.training_session_event import TrainingSessionEvent
 from app.schemas.training_session import TrainingSessionCreate
+from app.services.llm.scenes.default_scene import DEFAULT_SCENE
+from app.services.training_sessions.types import Debrief
+from tests.conftest import FakeSessionModule
 
 
 class _SessionResult:
@@ -49,9 +52,14 @@ def _build_student(org_id: uuid.UUID) -> TokenUser:
     )
 
 
+def _fake_request(session_module: FakeSessionModule) -> SimpleNamespace:
+    """Stand in for a request whose app has the composition root installed."""
+    return SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(session_module=session_module)))
+
+
 @pytest.mark.asyncio
 async def test_create_session_records_created_event() -> None:
-    """Creating a session should append a created audit event."""
+    """Creating a session should append a created audit event and start the module."""
     org_id = uuid.uuid4()
     local_user_id = uuid.uuid4()
     session = AsyncMock()
@@ -63,8 +71,10 @@ async def test_create_session_records_created_event() -> None:
 
     session.refresh = AsyncMock(side_effect=_refresh)
 
-    await sessions.create_session(
+    session_module = FakeSessionModule()
+    response = await sessions.create_session(
         data=TrainingSessionCreate(scenario_id=3, language="en"),
+        request=_fake_request(session_module),
         user=_build_student(org_id),
         _seat=object(),
         org_id=org_id,
@@ -78,6 +88,49 @@ async def test_create_session_records_created_event() -> None:
     assert created_event.session_id == 77
     assert created_event.user_id == local_user_id
     assert created_event.org_id == org_id
+    assert created_event.event_payload["scene_version"] == DEFAULT_SCENE.version
+    assert response.scene_version == DEFAULT_SCENE.version
+
+    assert len(session_module.started) == 1
+    start_command = session_module.started[0]
+    assert start_command.org_id == org_id
+    assert start_command.user_id == local_user_id
+    assert start_command.session_id == 77
+    assert start_command.scene_version == DEFAULT_SCENE.version
+    assert start_command.language == "en"
+    assert start_command.flight_plan == {}
+
+
+@pytest.mark.asyncio
+async def test_create_session_passes_requested_scene_version() -> None:
+    """An explicit Scene version reaches both the row and the Session module."""
+    session = AsyncMock()
+    session.add = Mock()
+
+    async def _refresh(instance: object) -> None:
+        if isinstance(instance, TrainingSession):
+            instance.id = 5
+
+    session.refresh = AsyncMock(side_effect=_refresh)
+
+    session_module = FakeSessionModule()
+    await sessions.create_session(
+        data=TrainingSessionCreate(
+            language="es",
+            scene_version="storm-v2",
+            flight_plan={"departure_icao": "KLAX"},
+        ),
+        request=_fake_request(session_module),
+        user=_build_student(uuid.uuid4()),
+        _seat=object(),
+        org_id=None,
+        local_user=SimpleNamespace(id=uuid.uuid4()),
+        session=session,
+    )
+
+    assert session_module.started[0].scene_version == "storm-v2"
+    assert session_module.started[0].language == "es"
+    assert session_module.started[0].flight_plan == {"departure_icao": "KLAX"}
 
 
 @pytest.mark.asyncio
@@ -100,34 +153,37 @@ async def test_complete_session_records_completed_event() -> None:
     session.add = Mock()
     session.execute = AsyncMock(return_value=_SessionResult(training_session))
 
-    scoring_payload = {
-        "scoring": {
-            "communication_score": 90,
-            "decision_score": 88,
-            "procedure_score": 92,
-            "overall_score": 90,
-            "grade": "A",
-            "strengths": [],
-            "improvements": [],
-            "summary": "Great run",
-        },
-        "badges_earned": ["clean-ops"],
-        "report": "Session complete",
-    }
-
-    with patch("app.api.v1.sessions._run_scoring", new=AsyncMock(return_value=scoring_payload)):
-        await sessions.complete_session(
-            session_id=42,
-            user=_build_student(org_id),
-            local_user=SimpleNamespace(id=local_user_id),
-            session=session,
+    session_module = FakeSessionModule(
+        Debrief(
+            scoring={
+                "communication_score": 90,
+                "decision_score": 88,
+                "procedure_score": 92,
+                "overall_score": 90,
+                "grade": "A",
+                "strengths": [],
+                "improvements": [],
+                "summary": "Great run",
+            },
+            badges_earned=["clean-ops"],
+            report="Session complete",
         )
+    )
+
+    await sessions.complete_session(
+        session_id=42,
+        request=_fake_request(session_module),
+        user=_build_student(org_id),
+        local_user=SimpleNamespace(id=local_user_id),
+        session=session,
+    )
 
     added = [call.args[0] for call in session.add.call_args_list]
     completed_event = next(item for item in added if isinstance(item, TrainingSessionEvent))
     assert completed_event.event_type == "completed"
     assert completed_event.event_payload["grade"] == "A"
     assert completed_event.event_payload["overall_score"] == 90.0
+    assert [command.session_id for command in session_module.ended] == [42]
 
 
 @pytest.mark.asyncio

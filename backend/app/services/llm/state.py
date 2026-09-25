@@ -1,9 +1,9 @@
 """Shared state definitions for the Horus multi-agent LangGraph system.
 
-All agents in the orchestrator share a single ``HorusState`` TypedDict that
+All agents in a training session share a single ``HorusState`` TypedDict that
 flows through the graph.  Sub-states (flight plan, weather, fuel, …) are
 nested TypedDicts so each agent can read/write only the slice it owns while
-the orchestrator keeps everything in one place.
+the training Session module keeps everything in one place.
 """
 
 from __future__ import annotations
@@ -151,7 +151,7 @@ class ScoringResult(TypedDict, total=False):
 # ── Master State ──────────────────────────────────────────────────────
 
 class HorusState(TypedDict, total=False):
-    """Master state for the Horus orchestrator graph.
+    """Master state shared by the Horus validation, live, and scoring graphs.
 
     Every node in every sub-graph reads from and writes to a subset of
     these keys.  The ``messages`` list uses LangGraph's ``add_messages``

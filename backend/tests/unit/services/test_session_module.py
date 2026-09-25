@@ -365,3 +365,38 @@ async def test_every_event_contains_required_provenance() -> None:
         "instructor_override",
     ]
     assert all(required <= payload.keys() for _, _, payload in trace.events)
+
+
+@pytest.mark.asyncio
+async def test_validate_runs_the_graph_without_persisting_state() -> None:
+    """``validate`` returns a snapshot of a flight-plan check and stores nothing."""
+    store = InMemorySessionStore()
+    trace = InMemoryTraceRecorder()
+    module = _module(store=store, trace=trace)
+    user_id = uuid.uuid4()
+
+    snapshot = await module.validate(
+        user_id=user_id,
+        flight_plan={
+            "departure_icao": "KLAX",
+            "arrival_icao": "KSFO",
+            "flight_rules": "VFR",
+            "aircraft_type": "C172",
+            "fuel_on_board": 30.0,
+            "fuel_reserve": 5.0,
+            "total_weight": 2000.0,
+            "max_weight": 2450.0,
+            "cruise_altitude": 3500,
+            "route": [
+                {"name": "KLAX", "lat": 33.94, "lng": -118.40},
+                {"name": "KSFO", "lat": 37.62, "lng": -122.38},
+            ],
+        },
+    )
+
+    assert snapshot.session_id == 0
+    assert snapshot.state["user_id"] == str(user_id)
+    assert snapshot.state["validation_results"]
+    assert "validation_passed" in snapshot.state
+    assert await store.load(uuid.UUID(int=0), 0) is None
+    assert trace.events == []

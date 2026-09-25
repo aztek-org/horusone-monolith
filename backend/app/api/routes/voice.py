@@ -6,15 +6,20 @@ import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from app.core.audio_pipeline import AudioPipeline
+from app.core.audio_pipeline import AudioPipeline, PipelineResult
 from app.core.websocket_manager import manager
 from app.db.repositories.seat_repo import SeatRepository
-from app.db.repositories.session_repo import TrainingSessionRepository
 from app.db.repositories.voice_log_repo import VoiceLogRepository
 from app.db.session import get_session_factory
-from app.middleware.auth import get_current_user_ws
-from app.schemas.training_session import TrainingSessionCreate
+from app.middleware.auth import TokenUser, get_current_user_ws
+from app.models.training_session import TrainingSession
 from app.schemas.voice_log import VoiceLogCreate
+from app.services.llm.scenes.default_scene import DEFAULT_SCENE
+from app.services.training_sessions.types import (
+    SendTransmissionCommand,
+    SessionModule,
+    StartSessionCommand,
+)
 from app.services.user_sync import sync_user_from_token
 
 logger = logging.getLogger(__name__)
@@ -24,19 +29,20 @@ router = APIRouter()
 MAX_AUDIO_CHUNK_BYTES = 2 * 1024 * 1024
 MAX_AUDIO_MESSAGE_BYTES = 10 * 1024 * 1024
 
-# Global audio pipeline instance (lazy-initialized)
-audio_pipeline: AudioPipeline | None = None
-_session_repo = TrainingSessionRepository()
 _voice_log_repo = VoiceLogRepository()
 _seat_repo = SeatRepository()
 
 
-def get_audio_pipeline() -> AudioPipeline:
-    """Get or create the audio pipeline instance."""
-    global audio_pipeline
-    if audio_pipeline is None:
-        audio_pipeline = AudioPipeline()
-    return audio_pipeline
+def _org_id_from_token(token_user: TokenUser) -> uuid.UUID | None:
+    """Return the caller's organization as a UUID, or ``None`` when unscoped."""
+    raw = token_user.organization_id
+    if not raw:
+        return None
+    try:
+        return uuid.UUID(str(raw))
+    except ValueError:
+        logger.warning("Token carried a non-UUID organization_id; treating as unscoped")
+        return None
 
 
 async def _persist_voice_exchange(
@@ -67,6 +73,59 @@ async def _persist_voice_exchange(
             await db.commit()
     except Exception as e:
         logger.warning(f"Could not persist voice logs (DB unavailable?): {e}")
+
+
+async def _process_exchange(
+    pipeline: AudioPipeline,
+    session_module: SessionModule,
+    org_id: uuid.UUID | None,
+    db_session_id: int,
+    audio: bytes,
+    language: str | None,
+) -> PipelineResult:
+    """Answer one pilot transmission through the persisted training Session.
+
+    The pilot transmission is transcribed, handed to the Session module that
+    owns the session's graph state, and the returned ATC response is spoken
+    back.  Any citations the module returns are logged here; the module records
+    the same provenance as a trace event against the session.
+    """
+    pilot_transcript, detected_language = await pipeline.transcribe(audio, language=language)
+    if not pilot_transcript:
+        logger.warning("No transcription received, returning silence")
+        return PipelineResult(
+            audio=b"", pilot_transcript="", atc_response="", language=detected_language or "en"
+        )
+
+    exchange = await session_module.send(
+        SendTransmissionCommand(
+            org_id=org_id,
+            session_id=db_session_id,
+            pilot_message=pilot_transcript,
+        )
+    )
+    if exchange.pending_instructor:
+        logger.info("Exchange for session %s is awaiting instructor review", db_session_id)
+        return PipelineResult(
+            audio=b"",
+            pilot_transcript=pilot_transcript,
+            atc_response="",
+            language=detected_language,
+        )
+    if exchange.citations:
+        logger.info(
+            "Session %s exchange cited %d knowledge chunk(s)",
+            db_session_id,
+            len(exchange.citations),
+        )
+
+    atc_audio = await pipeline.speak(exchange.atc_response, language=detected_language)
+    return PipelineResult(
+        audio=atc_audio,
+        pilot_transcript=pilot_transcript,
+        atc_response=exchange.atc_response,
+        language=detected_language,
+    )
 
 
 @router.websocket("/ws/voice")
@@ -121,7 +180,12 @@ async def voice_communication(websocket: WebSocket) -> None:
             return
 
     client_id = str(uuid.uuid4())
-    pipeline = get_audio_pipeline()
+    org_id = _org_id_from_token(token_user)
+    session_module = websocket.app.state.session_module
+    pipeline = AudioPipeline(
+        llm=websocket.app.state.llm,
+        scene=websocket.app.state.scene_registry.get(DEFAULT_SCENE.version),
+    )
 
     await manager.connect(websocket, client_id)
     logger.info(f"Voice communication started for client {client_id}")
@@ -131,15 +195,32 @@ async def voice_communication(websocket: WebSocket) -> None:
     try:
         session_factory = get_session_factory()
         async with session_factory() as db:
-            training_session = await _session_repo.create(
-                db,
-                TrainingSessionCreate(client_id=client_id, language="auto"),
+            training_session = TrainingSession(
+                client_id=client_id,
+                language=session_language,
+                org_id=org_id,
+                scene_version=DEFAULT_SCENE.version,
             )
+            db.add(training_session)
+            await db.flush()
             db_session_id = training_session.id
             await db.commit()
             logger.info(f"Created TrainingSession id={db_session_id} for client {client_id}")
+        # Voice clients do not choose a Scene, so the session runs the packaged
+        # default and records it as provenance against the persisted row.
+        await session_module.start(
+            StartSessionCommand(
+                org_id=org_id,
+                user_id=None,
+                session_id=db_session_id,
+                scene_version=DEFAULT_SCENE.version,
+                language=session_language,
+                flight_plan={},
+            )
+        )
     except Exception as e:
-        logger.warning(f"Could not create TrainingSession (DB unavailable?): {e}")
+        logger.warning(f"Could not start TrainingSession (DB unavailable?): {e}")
+        db_session_id = None
 
     # Send connection confirmation
     await manager.send_json(
@@ -232,9 +313,19 @@ async def voice_communication(websocket: WebSocket) -> None:
                         logger.info(
                             f"Processing {len(combined_audio)} bytes of audio"
                         )
-                        result = await pipeline.process_audio(
-                            combined_audio, language=session_language
-                        )
+                        if db_session_id is not None:
+                            result = await _process_exchange(
+                                pipeline,
+                                session_module,
+                                org_id,
+                                db_session_id,
+                                combined_audio,
+                                session_language,
+                            )
+                        else:
+                            result = await pipeline.process_audio(
+                                combined_audio, language=session_language
+                            )
 
                         if result.audio:
                             # Persist voice exchange to DB (non-blocking, best-effort)

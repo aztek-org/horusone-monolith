@@ -47,6 +47,17 @@ class AudioPipeline:
 
         logger.info("Audio pipeline initialized successfully")
 
+    async def transcribe(self, audio_data: bytes, language: str | None = None) -> tuple[str, str]:
+        """Transcribe pilot audio and return ``(text, detected_language)``."""
+        return await self.stt_service.transcribe(audio_data, language=language)
+
+    async def speak(self, atc_text: str, language: str | None = None) -> bytes:
+        """Synthesize an ATC response and apply radio effects."""
+        audio_bytes = await self.tts_service.synthesize(atc_text, language=language)
+        if not audio_bytes:
+            return b""
+        return await self._apply_effects_to_bytes(audio_bytes)
+
     async def process_audio(
         self,
         audio_data: bytes,
@@ -71,9 +82,7 @@ class AudioPipeline:
         try:
             # Step 1: Speech to Text (with language detection)
             logger.info("Step 1: Transcribing pilot audio...")
-            pilot_text, detected_language = await self.stt_service.transcribe(
-                audio_data, language=language
-            )
+            pilot_text, detected_language = await self.transcribe(audio_data, language=language)
 
             if not pilot_text:
                 logger.warning("No transcription received, returning silence")
@@ -88,11 +97,9 @@ class AudioPipeline:
             )
             logger.info(f"ATC responds: {atc_text}")
 
-            # Step 3: Text to Speech (in detected language)
+            # Step 3 + 4: Text to Speech and radio effects
             logger.info(f"Step 3: Synthesizing ATC speech in {detected_language}...")
-            atc_audio_bytes = await self.tts_service.synthesize(
-                atc_text, language=detected_language
-            )
+            atc_audio_bytes = await self.speak(atc_text, language=detected_language)
 
             if not atc_audio_bytes:
                 logger.warning("No audio synthesized, returning silence")
@@ -102,10 +109,6 @@ class AudioPipeline:
                     atc_response=atc_text,
                     language=detected_language,
                 )
-
-            # Step 4: Apply Radio Effects
-            logger.info("Step 4: Applying radio effects...")
-            atc_audio_bytes = await self._apply_effects_to_bytes(atc_audio_bytes)
 
             logger.info("Pipeline processing complete")
             return PipelineResult(

@@ -16,7 +16,7 @@ import logging
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -292,6 +292,7 @@ async def delete_flight_plan(
 @router.post("/{plan_id}/validate", response_model=ValidationResponse)
 async def validate_flight_plan(
     plan_id: uuid.UUID,
+    request: Request,
     user: CurrentUser,
     _seat: RequireActiveSeat,
     local_user: User = Depends(get_authenticated_user),
@@ -300,8 +301,8 @@ async def validate_flight_plan(
     """Trigger LangGraph validation of a flight plan.
 
     Runs the full Gatekeeper validation pipeline (weather, fuel, route,
-    airspace, performance).  Falls back to a basic structural check when
-    the orchestrator or LLM is unavailable.
+    airspace, performance) through the composed Session module.  Falls back to
+    a basic structural check when the pipeline is unavailable.
     """
     plan = await plan_repo.get_flight_plan(db, plan_id, local_user.id)
     if plan is None:
@@ -328,35 +329,32 @@ async def validate_flight_plan(
     }
 
     try:
-        from app.services.llm.orchestrator import HorusOrchestrator
-
-        orchestrator = HorusOrchestrator()
-        result = await orchestrator.start_session(
-            flight_plan_data=flight_plan_data,
-            user_id=str(local_user.id),
-            language="en",
+        snapshot = await request.app.state.session_module.validate(
+            user_id=local_user.id,
+            flight_plan=flight_plan_data,
         )
+        validation_passed = bool(snapshot.state.get("validation_passed", False))
 
         # Update plan status based on validation outcome
-        new_status = "validated" if result.get("validation_passed") else "draft"
+        new_status = "validated" if validation_passed else "draft"
         await plan_repo.update_status(db, plan_id, new_status, local_user.id)
 
         logger.info(
             "Validation for plan %s: %s",
             plan_id,
-            "PASSED" if result.get("validation_passed") else "FAILED",
+            "PASSED" if validation_passed else "FAILED",
         )
 
         return ValidationResponse(
             plan_id=str(plan_id),
-            valid=result.get("validation_passed", False),
-            results=result.get("validation_results", []),
-            weather=result.get("weather"),
-            fuel_state=result.get("fuel_state"),
-            route_info=result.get("route_info"),
-            airspace_info=result.get("airspace_info"),
-            aircraft_performance=result.get("aircraft_performance"),
-            session_id=result.get("session_id"),
+            valid=validation_passed,
+            results=snapshot.state.get("validation_results", []),
+            weather=snapshot.state.get("weather"),
+            fuel_state=snapshot.state.get("fuel_state"),
+            route_info=snapshot.state.get("route_info"),
+            airspace_info=snapshot.state.get("airspace_info"),
+            aircraft_performance=snapshot.state.get("aircraft_performance"),
+            session_id=None,
         )
 
     except Exception:

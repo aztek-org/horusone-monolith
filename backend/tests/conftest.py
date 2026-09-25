@@ -1,10 +1,13 @@
 """Shared test fixtures for Horus ATC API."""
+from types import SimpleNamespace
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.config import Settings, get_settings
+from app.db.session import reset_engine
 from app.main import app
-
+from app.services.training_sessions.types import Debrief
 
 _SETTINGS_ENV_VARS = (
     "ENVIRONMENT",
@@ -57,6 +60,19 @@ _SETTINGS_ENV_VARS = (
 
 
 @pytest.fixture(autouse=True)
+def isolate_database_engine():
+    """Give every test its own SQLAlchemy engine.
+
+    The process-global engine caches asyncpg connections, which are bound to the
+    event loop that opened them. Each ``TestClient`` runs a fresh loop, so a
+    cached pool would be unusable in the next test.
+    """
+    reset_engine()
+    yield
+    reset_engine()
+
+
+@pytest.fixture(autouse=True)
 def isolate_settings_environment(request, monkeypatch):
     """Keep settings unit tests independent of the caller's shell environment."""
     if request.path.name not in {"test_config.py", "test_settings_loader.py"}:
@@ -72,14 +88,45 @@ def test_settings() -> Settings:
     return Settings(
         environment="testing",
         llm={
-            "provider": "ollama",
-            "base_url": "http://ollama:11434",
-            "model": "test-model",
+            "provider": "fake",
+            "base_url": "http://unused",
+            "model": "fake",
+            "embedding_model": "nomic-embed-text",
+            "temperature": 0.3,
+            "max_output_tokens": 150,
         },
         audio={"enable_radio_effects": False},
         whisper_model="base",
         cors_origins="http://localhost:3000",
     )
+
+
+class FakeSessionModule:
+    """Recording stand-in for the composed training Session module."""
+
+    def __init__(self, debrief: Debrief | None = None) -> None:
+        self.started: list[object] = []
+        self.ended: list[object] = []
+        self.sent: list[object] = []
+        self.debrief = debrief or Debrief(scoring={}, badges_earned=[], report="")
+
+    async def start(self, command: object) -> SimpleNamespace:
+        self.started.append(command)
+        return SimpleNamespace(session_id=0, phase="ingestion", exchange_count=0, state={})
+
+    async def end(self, command: object) -> Debrief:
+        self.ended.append(command)
+        return self.debrief
+
+    async def send(self, command: object) -> SimpleNamespace:
+        self.sent.append(command)
+        return SimpleNamespace(
+            atc_response="",
+            is_emergency=False,
+            exchange_count=len(self.sent),
+            pending_instructor=False,
+            citations=[],
+        )
 
 
 @pytest.fixture

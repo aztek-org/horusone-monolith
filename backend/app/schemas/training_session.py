@@ -14,12 +14,14 @@ class TrainingSessionBase(BaseModel):
 
 
 class TrainingSessionCreate(TrainingSessionBase):
-    pass
+    scene_version: str | None = Field(default=None, max_length=50)
+    flight_plan: dict[str, Any] | None = None
 
 
 class TrainingSessionResponse(TrainingSessionBase):
     id: int
     status: str
+    scene_version: str | None = None
     started_at: datetime
     ended_at: datetime | None
 

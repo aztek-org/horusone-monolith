@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -38,6 +38,12 @@ from app.schemas.training_session import (
     TrainingSessionEventResponse,
     TrainingSessionReplayResponse,
     TrainingSessionResponse,
+)
+from app.services.llm.scenes.default_scene import DEFAULT_SCENE
+from app.services.training_sessions.types import (
+    Debrief,
+    EndSessionCommand,
+    StartSessionCommand,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,6 +110,7 @@ async def list_sessions(
 @router.post("/", response_model=TrainingSessionResponse, status_code=status.HTTP_201_CREATED)
 async def create_session(
     data: TrainingSessionCreate,
+    request: Request,
     user: CurrentUser,
     _seat: RequireActiveSeat,
     org_id: UUID | None = Depends(get_org_id),
@@ -114,15 +121,34 @@ async def create_session(
 
     Requires an **active seat** in an organization.  Users without a seat
     can browse scenarios and view stats but cannot start training.
+
+    The persisted row and the training Session module are created together so
+    the Scene version used for the session is recorded from the first request.
     """
+    scene_version = data.scene_version or DEFAULT_SCENE.version
     training_session = TrainingSession(
-        **data.model_dump(),
+        **data.model_dump(exclude={"scene_version", "flight_plan"}),
         user_id=local_user.id,
         org_id=org_id,
+        scene_version=scene_version,
     )
     session.add(training_session)
     await session.flush()
     await session.refresh(training_session)
+    # The Session module writes the Scene snapshot and its first trace event
+    # through its own unit of work, so the row must be visible to that
+    # transaction before the module is asked to start the session.
+    await session.commit()
+    await request.app.state.session_module.start(
+        StartSessionCommand(
+            org_id=org_id,
+            user_id=local_user.id,
+            session_id=training_session.id,
+            scene_version=scene_version,
+            language=data.language,
+            flight_plan=data.flight_plan or {},
+        )
+    )
     _record_session_event(
         session=session,
         training_session=training_session,
@@ -132,6 +158,7 @@ async def create_session(
             "scenario_id": training_session.scenario_id,
             "language": training_session.language,
             "status": training_session.status,
+            "scene_version": scene_version,
         },
     )
     logger.info("Created training session: %s (user=%s)", training_session.id, local_user.id)
@@ -274,16 +301,16 @@ async def get_session_replay(
 )
 async def complete_session(
     session_id: int,
+    request: Request,
     user: CurrentUser,
     local_user: User = Depends(get_authenticated_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> TrainingSessionCompletionResponse:
-    """End a training session and trigger post-flight scoring.
+    """End a training session and run post-flight scoring.
 
-    Marks the session as ``completed``, records ``ended_at``, and runs
-    the LangGraph scoring pipeline (student evaluation + badge awards).
-    Falls back gracefully with a stub score when the orchestrator is
-    unavailable.
+    Marks the session as ``completed``, records ``ended_at``, and hands the
+    persisted session state to the Session module's scoring pipeline.
+    Completing an already-completed session is idempotent.
     """
     result = await session.execute(
         select(TrainingSession).where(TrainingSession.id == session_id)
@@ -315,7 +342,7 @@ async def complete_session(
         )
         return _build_completion_response(
             training_session=training_session,
-            scoring_result={},
+            debrief=None,
             already_completed=True,
         )
 
@@ -332,11 +359,19 @@ async def complete_session(
     training_session.ended_at = datetime.now(timezone.utc)
     await session.flush()
     await session.refresh(training_session)
+    # The Session module scores the state it persisted for this tenant, so the
+    # row and its ended_at must be visible to that transaction.
+    await session.commit()
 
-    scoring_result = await _run_scoring(str(session_id))
+    debrief = await request.app.state.session_module.end(
+        EndSessionCommand(
+            org_id=training_session.org_id,
+            session_id=training_session.id,
+        )
+    )
     response = _build_completion_response(
         training_session=training_session,
-        scoring_result=scoring_result,
+        debrief=debrief,
         already_completed=False,
     )
     _record_session_event(
@@ -388,13 +423,13 @@ def _record_session_event(
 
 def _build_completion_response(
     training_session: TrainingSession,
-    scoring_result: dict[str, Any],
+    debrief: Debrief | None,
     already_completed: bool,
 ) -> TrainingSessionCompletionResponse:
     """Build normalized completion payload for API responses."""
-    scoring = _normalize_completion_scoring(scoring_result.get("scoring"))
-    badges_earned = _normalize_badges(scoring_result.get("badges_earned"))
-    report = scoring_result.get("report", "")
+    scoring = _normalize_completion_scoring(debrief.scoring if debrief else None)
+    badges_earned = _normalize_badges(debrief.badges_earned if debrief else None)
+    report = debrief.report if debrief else ""
 
     return TrainingSessionCompletionResponse(
         session_id=training_session.id,
@@ -403,13 +438,13 @@ def _build_completion_response(
         already_completed=already_completed,
         scoring=scoring,
         badges_earned=badges_earned,
-        report=report if isinstance(report, str) else str(report),
+        report=report,
         replay_path=f"/session/{training_session.id}",
     )
 
 
 def _normalize_completion_scoring(raw_scoring: Any) -> dict[str, Any] | None:
-    """Normalize scoring payload returned by the orchestrator."""
+    """Normalize the scoring block produced by the Session module."""
     if not isinstance(raw_scoring, dict) or not raw_scoring:
         return None
 
@@ -716,64 +751,3 @@ def _build_replay_scoring(
         ),
         badges=badges,
     )
-
-
-# ---------------------------------------------------------------------------
-# Scoring integration
-# ---------------------------------------------------------------------------
-
-
-async def _run_scoring(session_id: str) -> dict[str, Any]:
-    """Attempt to run the LangGraph scoring pipeline.
-
-    Falls back to a stub result when the orchestrator is unavailable
-    (e.g. LangGraph / Ollama not running).
-    """
-    try:
-        from app.services.llm.orchestrator import HorusOrchestrator
-
-        orchestrator = HorusOrchestrator()
-        state = orchestrator.get_session_state(session_id)
-
-        if state is not None:
-            # Session exists in orchestrator memory — run scoring
-            result = await orchestrator.end_session(session_id)
-            logger.info("Scoring pipeline completed for session %s", session_id)
-            return result
-
-        logger.info(
-            "Session %s not in orchestrator memory — returning default scoring",
-            session_id,
-        )
-        return _default_scoring()
-
-    except Exception:
-        logger.warning(
-            "Scoring pipeline unavailable for session %s — using defaults",
-            session_id,
-            exc_info=True,
-        )
-        return _default_scoring()
-
-
-def _default_scoring() -> dict[str, Any]:
-    """Return a safe default when the scoring pipeline is unavailable."""
-    return {
-        "scoring": {
-            "communication_score": 0,
-            "decision_score": 0,
-            "procedure_score": 0,
-            "overall_score": 0,
-            "grade": "N/A",
-            "strengths": [],
-            "improvements": [
-                "Scoring unavailable — session data not found in pipeline",
-            ],
-            "summary": (
-                "Scoring could not be computed. "
-                "Review session recording manually."
-            ),
-        },
-        "badges_earned": [],
-        "report": "Scoring pipeline was not available for this session.",
-    }

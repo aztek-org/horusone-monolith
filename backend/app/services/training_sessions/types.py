@@ -78,6 +78,14 @@ class SessionModule(Protocol):
 
     async def start(self, command: StartSessionCommand) -> SessionSnapshot: ...
 
+    async def validate(
+        self,
+        *,
+        user_id: uuid.UUID | None,
+        flight_plan: dict[str, Any],
+        language: str = "en",
+    ) -> SessionSnapshot: ...
+
     async def send(self, command: SendTransmissionCommand) -> ExchangeResult: ...
 
     async def await_instructor(

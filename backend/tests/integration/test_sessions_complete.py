@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -13,6 +12,14 @@ from app.db.session import get_db_session
 from app.main import app
 from app.middleware.auth import TokenUser, get_current_user
 from app.middleware.org_context import get_authenticated_user
+from app.services.training_sessions.types import Debrief
+from tests.conftest import FakeSessionModule
+
+
+def _install_fake_session_module(debrief: Debrief | None = None) -> FakeSessionModule:
+    fake = FakeSessionModule(debrief)
+    app.state.session_module = fake
+    return fake
 
 
 class _SessionResult:
@@ -39,6 +46,9 @@ class _DummySession:
         self.added.append(instance)
 
     async def flush(self) -> None:
+        return None
+
+    async def commit(self) -> None:
         return None
 
     async def refresh(self, _instance: object) -> None:
@@ -105,8 +115,8 @@ def test_complete_session_marks_active_session_completed(client: TestClient) -> 
     _override_auth(local_user_id, roles=["student"])
     _override_db(training_session)
 
-    scoring_payload = {
-        "scoring": {
+    scoring_payload = Debrief(
+        scoring={
             "communication_score": 90,
             "decision_score": 88,
             "procedure_score": 92,
@@ -116,15 +126,12 @@ def test_complete_session_marks_active_session_completed(client: TestClient) -> 
             "improvements": ["Reduce hesitation on readback"],
             "summary": "Strong overall mission performance.",
         },
-        "badges_earned": ["clean-ops"],
-        "report": "Mission completed successfully.",
-    }
+        badges_earned=["clean-ops"],
+        report="Mission completed successfully.",
+    )
 
-    with patch(
-        "app.api.v1.sessions._run_scoring",
-        new=AsyncMock(return_value=scoring_payload),
-    ):
-        response = client.post("/api/v1/sessions/42/complete")
+    session_module = _install_fake_session_module(scoring_payload)
+    response = client.post("/api/v1/sessions/42/complete")
 
     assert response.status_code == 200
     payload = response.json()
@@ -134,8 +141,13 @@ def test_complete_session_marks_active_session_completed(client: TestClient) -> 
     assert payload["replay_path"] == "/session/42"
     assert payload["scoring"]["grade"] == "A"
     assert payload["badges_earned"] == ["clean-ops"]
+    assert payload["report"] == "Mission completed successfully."
     assert training_session.status == "completed"
     assert training_session.ended_at is not None
+
+    ended_command = session_module.ended[0]
+    assert ended_command.org_id == training_session.org_id
+    assert ended_command.session_id == 42
 
 
 def test_complete_session_is_idempotent_for_completed_sessions(client: TestClient) -> None:
@@ -152,9 +164,8 @@ def test_complete_session_is_idempotent_for_completed_sessions(client: TestClien
     _override_auth(local_user_id, roles=["student"])
     _override_db(training_session)
 
-    mocked_run_scoring = AsyncMock()
-    with patch("app.api.v1.sessions._run_scoring", new=mocked_run_scoring):
-        response = client.post("/api/v1/sessions/11/complete")
+    session_module = _install_fake_session_module()
+    response = client.post("/api/v1/sessions/11/complete")
 
     assert response.status_code == 200
     payload = response.json()
@@ -162,7 +173,7 @@ def test_complete_session_is_idempotent_for_completed_sessions(client: TestClien
     assert payload["status"] == "completed"
     assert payload["ended_at"] in {ended_at.isoformat(), ended_at.strftime("%Y-%m-%dT%H:%M:%SZ")}
     assert payload["scoring"] is None
-    mocked_run_scoring.assert_not_awaited()
+    assert session_module.ended == []
 
 
 def test_complete_session_returns_conflict_for_invalid_status(client: TestClient) -> None:

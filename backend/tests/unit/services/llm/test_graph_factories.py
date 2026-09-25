@@ -223,29 +223,6 @@ async def test_validation_graph_records_retrieved_chunk_ids() -> None:
     assert "flight_rules VFR" in query_text
 
 
-def test_legacy_orchestrator_builds_live_graph_with_injected_dependencies(monkeypatch) -> None:
-    import app.services.llm.orchestrator as orchestrator_module
-    from app.services.llm.orchestrator import HorusOrchestrator
-
-    llm = FakeAdapter()
-    calls: list[tuple[FakeAdapter, SceneConfig, bool]] = []
-    monkeypatch.setattr(orchestrator_module, "build_llm", lambda settings: llm)
-    monkeypatch.setattr(
-        orchestrator_module,
-        "build_live_session_graph",
-        lambda injected_llm, scene, interrupt: calls.append(
-            (injected_llm, scene, interrupt)
-        )
-        or object(),
-    )
-    monkeypatch.setattr(orchestrator_module, "build_validation_graph", lambda: object())
-    monkeypatch.setattr(orchestrator_module, "build_scoring_graph", lambda: object())
-
-    HorusOrchestrator(enable_hitl=True)
-
-    assert calls == [(llm, DEFAULT_SCENE, True)]
-
-
 def test_scoring_graph_compiles() -> None:
     graph = build_scoring_graph()
 

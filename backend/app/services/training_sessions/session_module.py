@@ -8,7 +8,6 @@ from dataclasses import asdict
 from typing import Any
 
 from sqlalchemy import update
-from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.llm.types import LLMModule
@@ -127,6 +126,29 @@ class TrainingSessionModule:
             command.user_id,
         )
         return self._snapshot_from_state(command.session_id, result)
+
+    async def validate(
+        self,
+        *,
+        user_id: uuid.UUID | None,
+        flight_plan: dict[str, Any],
+        language: str = "en",
+    ) -> SessionSnapshot:
+        """Run pre-flight validation for a flight plan without persisting state.
+
+        Used by the flight-plan validation route, which has no training session
+        yet.  ``SessionSnapshot.session_id`` is ``0`` because nothing is stored.
+        """
+        state: HorusState = {
+            "messages": [],
+            "session_id": "",
+            "user_id": str(user_id) if user_id else None,
+            "phase": SessionPhase.INGESTION.value,
+            "flight_plan": flight_plan,
+            "language": language,
+        }
+        result = dict(await self._validation_graph.ainvoke(state))
+        return self._snapshot_from_state(0, result)
 
     async def send(self, command: SendTransmissionCommand) -> ExchangeResult:
         """Process one pilot transmission against persisted graph state."""
@@ -441,24 +463,15 @@ class TrainingSessionModule:
             else TrainingSession.org_id.is_(None)
         )
         async with self._db_session_factory() as db:
-            try:
-                await db.execute(
-                    update(TrainingSession)
-                    .where(TrainingSession.id == session_id, org_filter)
-                    .values(
-                        scene_version=scene.version,
-                        scene_snapshot=asdict(scene),
-                    )
+            await db.execute(
+                update(TrainingSession)
+                .where(TrainingSession.id == session_id, org_filter)
+                .values(
+                    scene_version=scene.version,
+                    scene_snapshot=asdict(scene),
                 )
-                await db.commit()
-            except DBAPIError as exc:
-                await db.rollback()
-                if getattr(exc.orig, "sqlstate", None) != "42703":
-                    raise
-                logger.warning(
-                    "TrainingSession Scene provenance columns are unavailable; "
-                    "deferred migration must add scene_version and scene_snapshot"
-                )
+            )
+            await db.commit()
 
     def _storage_org_id(self, org_id: uuid.UUID | None) -> uuid.UUID:
         if org_id is not None:
