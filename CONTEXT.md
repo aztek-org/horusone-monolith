@@ -1,0 +1,41 @@
+# Horus Aviation Training
+
+Horus is a multi-tenant aviation training platform. It runs realistic ATC scenarios for student pilots and preserves every decision, exchange, and professional context for later review.
+
+## Language
+
+**Scene**:
+A reusable training plan and initial context: aircraft, airports, route, weather preset, objectives, difficulty, and the knowledge a session may cite. A Scene is authored once and versioned; many Sessions run from it.
+_Avoid_: Scenario template, flight plan (a Flight Plan is the pilot's own plan, not the Scene), session
+
+**Session**:
+One user's interaction with a Scene: transmissions, ATC responses, decisions taken, instructor overrides, and the resulting debrief. A Session is tenant-scoped and fully traceable after it ends.
+_Avoid_: conversation, chat, run, session state (state is an implementation detail of a Session)
+
+**Flight Plan**:
+The pilot's own submitted plan for a particular flight (route, fuel, weight, aircraft). A Flight Plan can become the basis for a Session; it is not the same as a Scene.
+_Avoid_: Scene, scenario
+
+**Knowledge Document**:
+An authored, versioned source of professional context (manual, SOP, regulation excerpt, FAQ) owned by a tenant or published platform-wide.
+_Avoid_: article (an article is the human-readable presentation of a document), chunk
+
+**Knowledge Chunk**:
+A retrievable span of a Knowledge Document, carrying its embedding and citation coordinates. Chunks are the unit of retrieval, never authored by hand.
+_Avoid_: embedding, vector (a vector is the numeric representation, not the content)
+
+**Citation**:
+A link from a Session exchange or debrief statement back to the exact Knowledge Chunk that informed it.
+_Avoid_: source, reference, provenance (provenance is the broader trace record; a Citation is one pointer inside it)
+
+**Provenance**:
+The durable record of which Scene version, prompt version, knowledge chunks, and model a Session used at each step. Provenance lives in Session events, not in application logs.
+_Avoid_: log, trace span (logs and spans are operational; provenance is product data)
+
+**Collaborator**:
+A person with an active seat in a tenant who may author and manage that tenant's private knowledge. Collaborators do not automatically gain platform-wide publishing rights.
+_Avoid_: staff, member, admin (a Collaborator may hold the `instructor`, `org-admin`, or `staff` seat role; the seat role is the authorization, the Collaborator is the person)
+
+**Platform-Wide Knowledge**:
+Knowledge Document whose owner is the platform itself and which every tenant may cite.
+_Avoid_: global content, public content
