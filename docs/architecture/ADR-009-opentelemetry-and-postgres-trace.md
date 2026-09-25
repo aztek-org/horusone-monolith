@@ -57,6 +57,18 @@ gives us a durable, tenant-scoped, already-authorized place to store trace.
 
 - OTel is a lightweight addition; it does not change the Session interface.
 
+## Operational notes
+
+Retention is invoked by the host scheduler, not by an in-process scheduler. Set
+`TRACE_RETENTION_DAYS=90` in the backend environment and install this cron entry:
+
+```cron
+17 3 * * * cd /opt/horus/backend && .venv/bin/python scripts/prune_session_events.py
+```
+
+The script commits one bulk delete and prints the number of expired event rows
+removed. Monitor cron output and alert on non-zero exit status.
+
 ## References
 
 - [ADR-006: Scene/Session Split and Persistent LangGraph State](./ADR-006-scene-session-and-persistent-langgraph.md)

@@ -27,6 +27,7 @@ from app.models.training_session import TrainingSession
 from app.models.training_session_event import TrainingSessionEvent
 from app.models.user import User
 from app.schemas.training_session import (
+    ProvenanceEvent,
     ReplayBadge,
     ReplayInsight,
     ReplayScoring,
@@ -256,6 +257,16 @@ async def get_session_replay(
             detail="You do not have access to this session",
         )
 
+    events_result = await session.execute(
+        select(TrainingSessionEvent)
+        .where(TrainingSessionEvent.session_id == session_id)
+        .order_by(TrainingSessionEvent.created_at.asc())
+    )
+    provenance = [
+        _provenance_from_event(event)
+        for event in events_result.scalars().all()
+    ]
+
     track = await waypoint_repo.get_session_track(session, session_id)
     raw_track_points: list[dict[str, Any]] = track.track_points if track else []
     track_points = _normalize_replay_track_points(raw_track_points)
@@ -284,6 +295,7 @@ async def get_session_replay(
         insights=insights,
         voice_logs=voice_logs,
         scoring=scoring,
+        provenance=provenance,
     )
 
 
@@ -456,6 +468,30 @@ def _to_float(value: Any, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _provenance_from_event(event: TrainingSessionEvent) -> ProvenanceEvent:
+    """Expose persisted provenance while tolerating legacy lifecycle events."""
+    payload = event.event_payload
+    raw_chunk_ids = payload.get("retrieved_chunk_ids")
+    retrieved_chunk_ids = (
+        [str(chunk_id) for chunk_id in raw_chunk_ids]
+        if isinstance(raw_chunk_ids, list)
+        else []
+    )
+    return ProvenanceEvent(
+        event_type=event.event_type,
+        created_at=event.created_at,
+        graph=payload.get("graph"),
+        node=payload.get("node"),
+        scene_version=payload.get("scene_version"),
+        prompt_version=payload.get("prompt_version"),
+        llm_provider=payload.get("provider"),
+        llm_model=payload.get("model"),
+        llm_fallback_used=payload.get("fallback_used"),
+        retrieved_chunk_ids=retrieved_chunk_ids,
+        instructor_overridden=payload.get("instructor_overridden"),
+    )
 
 
 def _can_view_session(

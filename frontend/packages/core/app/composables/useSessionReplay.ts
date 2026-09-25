@@ -57,6 +57,20 @@ export interface SessionBadge {
   description: string
 }
 
+export interface ProvenanceEvent {
+  event_type: string
+  created_at: string
+  graph: string | null
+  node: string | null
+  scene_version: string | null
+  prompt_version: string | null
+  llm_provider: string | null
+  llm_model: string | null
+  llm_fallback_used: boolean | null
+  retrieved_chunk_ids: string[]
+  instructor_overridden: boolean | null
+}
+
 export interface SessionDetail {
   id: number
   scenario_id: number | null
@@ -70,6 +84,7 @@ export interface SessionDetail {
   insights: FlightInsight[]
   voice_logs: VoiceLog[]
   scoring: SessionScoring | null
+  provenance: ProvenanceEvent[]
 }
 
 export interface SessionAuditEvent {
@@ -93,6 +108,7 @@ export function useSessionReplay() {
   const insights = ref<FlightInsight[]>([])
   const voiceLogs = ref<VoiceLog[]>([])
   const scoring = ref<SessionScoring | null>(null)
+  const provenance = ref<ProvenanceEvent[]>([])
   const sessionEvents = ref<SessionAuditEvent[]>([])
 
   // Playback state
@@ -161,6 +177,7 @@ export function useSessionReplay() {
       insights.value = result.insights ?? []
       voiceLogs.value = result.voice_logs ?? []
       scoring.value = result.scoring ?? null
+      provenance.value = result.provenance ?? []
       sessionEvents.value = events ?? []
       currentIndex.value = 0
 
@@ -289,6 +306,7 @@ export function useSessionReplay() {
     insights: readonly(insights),
     voiceLogs: readonly(voiceLogs),
     scoring: readonly(scoring),
+    provenance: readonly(provenance),
     sessionEvents: readonly(sessionEvents),
 
     // Playback state

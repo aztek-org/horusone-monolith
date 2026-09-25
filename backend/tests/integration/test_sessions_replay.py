@@ -16,23 +16,40 @@ from app.middleware.org_context import get_authenticated_user
 
 
 class _SessionResult:
-    """Simple result proxy that mimics ``scalar_one_or_none``."""
+    """Simple result proxy for session and event queries."""
 
-    def __init__(self, training_session: object | None) -> None:
+    def __init__(
+        self,
+        training_session: object | None = None,
+        events: list[object] | None = None,
+    ) -> None:
         self._training_session = training_session
+        self._events = events or []
 
     def scalar_one_or_none(self) -> object | None:
         return self._training_session
+
+    def scalars(self) -> SimpleNamespace:
+        return SimpleNamespace(all=lambda: self._events)
 
 
 class _DummySession:
     """Tiny async session stub for endpoint testing."""
 
-    def __init__(self, training_session: object | None) -> None:
+    def __init__(
+        self,
+        training_session: object | None,
+        events: list[object] | None = None,
+    ) -> None:
         self.training_session = training_session
+        self.events = events or []
+        self.execute_count = 0
 
     async def execute(self, *_args, **_kwargs) -> _SessionResult:
-        return _SessionResult(self.training_session)
+        self.execute_count += 1
+        if self.execute_count == 1:
+            return _SessionResult(training_session=self.training_session)
+        return _SessionResult(events=self.events)
 
 
 def _override_auth(local_user_id: uuid.UUID, roles: list[str] | None = None) -> None:
