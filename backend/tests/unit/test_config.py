@@ -170,6 +170,36 @@ def test_shipped_templates_carry_no_inline_value_comments(template: str) -> None
         )
 
 
+@pytest.mark.parametrize("template", _ALL_TEMPLATES)
+def test_shipped_templates_declare_comments_on_their_own_line(template: str) -> None:
+    """Close the class: no line in a shipped template may carry a trailing comment.
+
+    The templates were fixed once (``TTS_LANGUAGE="en  # en or es"`` reached
+    ``gTTS`` and raised ``ValueError: Language not supported``), but nothing
+    stopped the next one from reappearing.  ``#`` is legal at position 0 and
+    nowhere else, so assert the whole file rather than the parsed values: the
+    loader skips whole-line comments, which is exactly why an inline one is
+    silently read as part of the value.
+
+    This checks the templates we ship, not the loader.  A value in a real
+    deployment may legitimately contain a ``#`` — a password or a secret — so
+    ``_read_env_file`` must keep the remainder of the line verbatim rather than
+    strip a trailing comment for us.
+    """
+    offenders = [
+        f"{number}: {raw_line!r}"
+        for number, raw_line in enumerate(
+            (_PACKAGE_ROOT / template).read_text(encoding="utf-8").splitlines(), start=1
+        )
+        if raw_line.strip() and not raw_line.lstrip().startswith("#") and "#" in raw_line
+    ]
+
+    assert offenders == [], (
+        f"{template} declares an inline comment; put it on its own line so the "
+        f"settings loader cannot read it as part of the value"
+    )
+
+
 def _matches_code_default(raw: str, expected: object) -> bool:
     """Compare a raw template string against a code default of any type."""
     if isinstance(expected, bool):
