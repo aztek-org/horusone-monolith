@@ -32,6 +32,8 @@ dependencies = [
     "redis[hiredis]>=5.0.0",
     "langchain-groq>=0.3.0,<1.0.0",
     "pgvector>=0.3.6",
+    "langgraph-checkpoint-postgres>=2.0.0",
+    "psycopg[binary,pool]>=3.2",
 ]
 
 [project.optional-dependencies]
