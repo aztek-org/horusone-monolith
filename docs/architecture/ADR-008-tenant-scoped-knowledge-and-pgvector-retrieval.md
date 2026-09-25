@@ -124,7 +124,7 @@ considered three stores:
    > (`app/services/training_sessions/session_module.py:421`), so the field is
    > permanently empty in every deployment. Nothing else reads it either; the one
    > consumer, the voice route, logs a count and is guarded on the list being
-   > non-empty (`app/api/routes/voice.py:166-170`).
+   > non-empty (`app/api/routes/voice.py:189-194`).
    >
    > This is a **deferral, not an oversight.** Populating it needs a live-graph
    > retrieval design that has not been decided: which node retrieves, with what

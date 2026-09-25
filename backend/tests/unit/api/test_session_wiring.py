@@ -358,10 +358,11 @@ def test_voice_survives_a_scenes_path_without_the_packaged_default(
 
     The registry used to hold only the YAML's own Scenes, so the voice route's
     ``default()`` returned a packaged Scene whose version was never registered:
-    ``start()`` raised before ``manager.connect`` and the socket died with no
-    error frame and no log.  The packaged default is now registered alongside
-    the operator's Scenes, so the connection is established and the session is
-    recorded against a Scene the module can start.
+    ``start()`` raised ``KeyError`` *after* ``manager.connect`` had already
+    accepted and connected the socket, so the pilot held a live connection whose
+    session was never recorded — a silent unrecorded session, not a refused one.
+    The packaged default is now registered alongside the operator's Scenes, so
+    the session is recorded against a Scene the module can start.
     """
     scenes_file = tmp_path / "scenes.yaml"
     _write_scenes_file(scenes_file)

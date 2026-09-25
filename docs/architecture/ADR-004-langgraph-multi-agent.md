@@ -174,7 +174,7 @@ tested; the switch is not, and there is no endpoint to throw.
 - The flag is a constructor argument of `TrainingSessionModule`
   (`app/services/training_sessions/session_module.py:61`) whose default is
   `False`. This ADR previously said "callers do not set it themselves", which
-  described a flag that *nobody* sets: the composition root `app/main.py:157-165`
+  described a flag that *nobody* sets: the composition root `app/main.py:176-184`
   does not pass it, no `Settings` field sources it, and no `.env` template
   declares it. `ATCAgent` passes `False` explicitly.
 - No route calls `await_instructor`, so a held exchange could not be released

@@ -69,7 +69,7 @@ traceability, and the ability to run several backend processes.
    Session graph is built once in the `lifespan`
    (`app/main.py:176-184`, inside the `TrainingSessionModule`), while the voice
    pipeline is built **lazily, on the first voice WebSocket connection**
-   (`_shared_pipeline`, `app/api/routes/voice.py:83-99`) and published on
+   (`_shared_pipeline`, `app/api/routes/voice.py:106-122`) and published on
    `app.state` for every later connection. The delay is deliberate: building the
    pipeline loads a 145 MB Whisper checkpoint, and a process that never serves
    voice audio should not pay for it. Both properties this decision protects —
@@ -157,7 +157,7 @@ What is not real: **no route calls `await_instructor`** — `grep -rn
 await_instructor backend/app/api/` returns nothing — and **nothing sets the
 flag**. `interrupt_before_response` is a constructor argument of
 `TrainingSessionModule` (`app/services/training_sessions/session_module.py:61`)
-defaulting to `False`; the composition root `app/main.py:157-165` does not pass
+defaulting to `False`; the composition root `app/main.py:176-184` does not pass
 it, no `Settings` field sources it, and no `.env` template declares it.
 `ATCAgent` passes `False` explicitly. So in every deployment
 `instructor_overridden` is always `False` and the `awaiting_instructor` event is

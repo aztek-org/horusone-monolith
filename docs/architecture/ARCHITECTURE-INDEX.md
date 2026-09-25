@@ -49,7 +49,8 @@ header — and the earlier ADR links forward.
 | All SQL is parameterised | [ADR-002](ADR-002-database-postgresql.md) | [ADR-009](ADR-009-opentelemetry-and-postgres-trace.md) |
 | Instructor override (HITL) is built and deliberately switched off | [ADR-006](ADR-006-scene-session-and-persistent-langgraph.md) | [ADR-004](ADR-004-langgraph-multi-agent.md), `CONTEXT.md`, `docs/development.md`, issue [#3](https://github.com/martinsgmx/horusone-mvp/issues/3) |
 | `GET /api/v1/scenes` always lists the packaged `default-v1`; an unregistered `scene_version` is a 404, never a fallback | [ADR-006](ADR-006-scene-session-and-persistent-langgraph.md) | `backend/app/api/v1/scenes.py` (both route docstrings), `backend/app/services/llm/scenes/registry.py` |
-| Legacy `OLLAMA_*` environment names override their grouped `LLM_*` counterparts | — (no ADR; operator rule) | `docs/development.md` ("Legacy environment names"), `backend/app/settings_loader.py`, `backend/app/config.py` |
+| `GET /health/ready` reports the LLM under `services.llm`, not `services.ollama` — an accepted response-field rename | [ADR-007](ADR-007-llm-provider-adapters.md) | `backend/app/api/routes/health.py` (`ServiceStatus.llm`), `backend/app/llm/adapters/` |
+| Legacy `OLLAMA_*` environment names override their grouped `LLM_*` counterparts | — (no ADR; operator rule) | `docs/development.md` ("Legacy environment names"), `backend/app/settings_loader.py`, `backend/app/config.py`, `.github/workflows/ci.yml` |
 | Citations are not attached to ATC exchanges; retrieval is wired, the exchange-to-chunk link is deferred | [ADR-008](ADR-008-tenant-scoped-knowledge-and-pgvector-retrieval.md) | `CONTEXT.md` (the `Citation` term), `backend/app/services/training_sessions/session_module.py` |
 
 ## Operator manuals

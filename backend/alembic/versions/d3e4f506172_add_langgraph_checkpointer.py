@@ -1,18 +1,27 @@
 """Add LangGraph Postgres checkpointer tables.
 
-The checkpointer schema is sourced from the installed
-``langgraph-checkpoint-postgres`` package rather than copied into this
-migration, so this file is only correct for the *major* version of that package
-it was written against.  ``pyproject.toml`` pins
-``langgraph-checkpoint-postgres>=3.0.0,<4.0.0`` so that the two ways a major
-version could change under this file are both excluded: a 2.x resolution, whose
-``PostgresSaver.MIGRATIONS`` is not the set transcribed below, and a 4.x
-release, which would add migrations nobody has reviewed.  Patch and minor
-upgrades within 3.x stay permitted, because they may extend the migration set
-but are not expected to rewrite the 3.x statements.  ``uv.lock`` resolves the
-pin to ``3.0.5``; upgrading within the major still requires re-reading
-``PostgresSaver.MIGRATIONS``, and outside it requires editing this constraint
-and re-reviewing this file.
+The checkpointer schema is sourced from the *installed*
+``langgraph-checkpoint-postgres`` package rather than transcribed into this file:
+``upgrade()`` executes ``PostgresSaver.MIGRATIONS`` as the package defines it.  A
+major version could still invalidate the file in two ways, and
+``pyproject.toml`` pins ``langgraph-checkpoint-postgres>=3.0.0,<4.0.0`` to exclude
+both:
+
+* **A 2.x resolution** would break ``PostgresSessionStore``, which hands the saver
+  a connection pool rather than a connection
+  (``app/services/training_sessions/postgres_session_store.py:35``).  In 3.x
+  ``AsyncPostgresSaver``'s ``_ainternal.Conn`` is ``AsyncConnection |
+  AsyncConnectionPool`` and ``get_connection`` branches on the pool; the 2.x
+  signature has no such branch, so the pool object would not be usable.  This —
+  not the migration statements, which are read from whatever is installed — is
+  the binding constraint on the lower bound.
+* **A 4.x release** could add or rewrite migrations nobody has reviewed.
+
+Patch and minor upgrades within 3.x stay permitted, because they may extend the
+migration set but are not expected to rewrite the 3.x statements.  ``uv.lock``
+resolves the pin to ``3.0.5``; upgrading within the major still requires
+re-reading ``PostgresSaver.MIGRATIONS``, and outside it requires editing this
+constraint and re-reviewing this file.
 
 Revision ID: d3e4f506172
 Revises: c2d3e4f5061

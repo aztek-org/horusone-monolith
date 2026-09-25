@@ -256,7 +256,7 @@ Decision 5 originally promised that *every log line* carries `org_id`,
 - **No `logger.*` call under `backend/app/` passes `extra=`.** All ~175 logger
   calls format `org_id` or `session_id` into the message *string* where they have
   it (`app/api/v1/scenarios.py:54`, `app/api/v1/admin.py:441`,
-  `app/api/v1/gamification.py:100`, `app/api/routes/voice.py:271`, and so on),
+  `app/api/v1/gamification.py:100`, `app/api/routes/voice.py:298`, and so on),
   which is prose a log aggregator can grep, not structured fields it can filter
   on. Most calls carry neither.
 - **No `trace_id` is injected into a `LogRecord`.** There is no logging filter,

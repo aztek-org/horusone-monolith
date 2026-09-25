@@ -18,6 +18,15 @@ class HealthResponse(BaseModel):
 
 
 class ServiceStatus(BaseModel):
+    """Per-dependency reachability.
+
+    ``llm`` was named ``ollama`` before ADR-007 made the provider a choice.  The
+    rename is a response-field change, recorded in
+    ``docs/architecture/ARCHITECTURE-INDEX.md``: an external monitor that reads
+    ``services.ollama`` reads nothing now.  Only ``ready`` and the status code
+    are load-bearing in-repo.
+    """
+
     database: str
     redis: str
     llm: str  # the configured language-model provider, whatever it is
@@ -42,7 +51,19 @@ async def health_check() -> HealthResponse:
 
 @router.get("/health/ready", response_model=ReadinessResponse)
 async def readiness_check(request: Request) -> ReadinessResponse:
-    """Readiness check — probes all dependent services."""
+    """Readiness check — probes all dependent services.
+
+    **This endpoint is unauthenticated and its LLM probe leaves the process.**  A
+    readiness check has to answer a load balancer that holds no credentials, so
+    the route carries no auth dependency — which means the ``llm`` field reports
+    the reachability of a provider addressed over the network, and some adapters
+    (Groq, NVIDIA NIM) send the configured ``Authorization: Bearer`` key on every
+    call.  That is safe only while ``LLM_BASE_URL`` stays server-side
+    configuration the operator controls: pointing it at a third party both leaks
+    the key to that party and lets anyone who can reach this route use the API's
+    key as a probe amplifier.  Do not front this route with per-caller auth, and
+    do not make the provider URL caller-supplied.
+    """
     services = ServiceStatus(
         database=await _probe_database(),
         redis=await _probe_redis(),
