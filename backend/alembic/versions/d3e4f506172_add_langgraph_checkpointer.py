@@ -2,12 +2,17 @@
 
 The checkpointer schema is sourced from the installed
 ``langgraph-checkpoint-postgres`` package rather than copied into this
-migration, so this file is only correct for the version actually resolved at
-install time.  ``pyproject.toml`` declares ``langgraph-checkpoint-postgres>=2.0.0``
-and ``uv.lock`` resolves that to ``3.0.5``; the statements executed below are
-whatever ``PostgresSaver.MIGRATIONS`` holds in the resolved version, not
-necessarily 3.0.5's.  Upgrading the package without re-reading its migrations is
-an unreviewed schema change.
+migration, so this file is only correct for the *major* version of that package
+it was written against.  ``pyproject.toml`` pins
+``langgraph-checkpoint-postgres>=3.0.0,<4.0.0`` so that the two ways a major
+version could change under this file are both excluded: a 2.x resolution, whose
+``PostgresSaver.MIGRATIONS`` is not the set transcribed below, and a 4.x
+release, which would add migrations nobody has reviewed.  Patch and minor
+upgrades within 3.x stay permitted, because they may extend the migration set
+but are not expected to rewrite the 3.x statements.  ``uv.lock`` resolves the
+pin to ``3.0.5``; upgrading within the major still requires re-reading
+``PostgresSaver.MIGRATIONS``, and outside it requires editing this constraint
+and re-reviewing this file.
 
 Revision ID: d3e4f506172
 Revises: c2d3e4f5061

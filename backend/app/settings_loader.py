@@ -71,6 +71,16 @@ _GROUP_ENV = {
     },
 }
 
+#: Pre-grouping environment names, mapped onto the grouped field they now feed.
+#:
+#: This mapping is applied *after* the grouped mapping in ``_settings_input`` on
+#: purpose, which makes the legacy name win: an operator upgrading from a
+#: pre-grouping release who still has ``OLLAMA_BASE_URL`` set keeps the value
+#: they had rather than silently picking up a newly-added ``LLM_BASE_URL``
+#: default. The cost is that the two keys are not interchangeable when both are
+#: set — the legacy one shadows the grouped one. This precedence is documented
+#: in ``docs/development.md`` and mirrored by ``config._LEGACY_GROUP_FIELDS``,
+#: which merges the same way.
 _LEGACY_ENV = {
     "OLLAMA_BASE_URL": ("llm", "base_url"),
     "OLLAMA_LLM_MODEL": ("llm", "model"),
@@ -93,7 +103,11 @@ def _read_env_file(path: Path) -> dict[str, str]:
 
 
 def _settings_input(values: dict[str, str]) -> dict[str, object]:
-    """Translate environment names into the grouped Settings constructor shape."""
+    """Translate environment names into the grouped Settings constructor shape.
+
+    A legacy name overrides the grouped name for the same field, because
+    ``_LEGACY_ENV`` is applied last. See ``_LEGACY_ENV``.
+    """
     data: dict[str, object] = {}
     groups: dict[str, dict[str, object]] = {name: {} for name in _GROUP_ENV}
 

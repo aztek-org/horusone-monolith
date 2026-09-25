@@ -227,8 +227,8 @@ Key variables to set for local dev:
 |----------|---------|-------------|
 | `DATABASE_URL` | `postgresql+asyncpg://horus:horus@localhost:5432/horus_db` | PostgreSQL connection string |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection string |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_LLM_MODEL` | `llama3.2:3b` | LLM model name for ATC responses |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint. **Legacy name** — overrides `LLM_BASE_URL` when both are set (see [Legacy environment names](#legacy-environment-names)) |
+| `OLLAMA_LLM_MODEL` | `llama3.2:3b` | LLM model name for ATC responses. **Legacy name** — overrides `LLM_MODEL` |
 | `AUTH_ENABLED` | `true` | **Set to `false` to skip Keycloak locally** |
 | `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001,http://localhost:3002,http://127.0.0.1:3000` | Allowed frontend origins |
 | `WHISPER_MODEL` | `base` | Whisper model size (tiny/base/small/medium/large) |
@@ -737,9 +737,12 @@ All variables are configured in `backend/.env`. Defaults are suitable for local 
 | `KEYCLOAK_ISSUER_URL` | `http://localhost:8180/realms/horus` | Keycloak realm issuer URL |
 | `KEYCLOAK_CLIENT_ID` | `horus-api` | Keycloak client ID for the API |
 | **LLM / AI** | | |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_LLM_MODEL` | `llama3.2:3b` | LLM model for ATC responses |
-| `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
+| `LLM_BASE_URL` | _(blank; provider default applies)_ | Base URL for the primary LLM provider |
+| `LLM_MODEL` | _(blank; provider default applies)_ | Primary LLM model |
+| `LLM_EMBEDDING_MODEL` | _(blank; provider default applies)_ | Embedding model |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint. **Legacy name for `LLM_BASE_URL`** |
+| `OLLAMA_LLM_MODEL` | `llama3.2:3b` | LLM model for ATC responses. **Legacy name for `LLM_MODEL`** |
+| `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model. **Legacy name for `LLM_EMBEDDING_MODEL`** |
 | **Speech** | | |
 | `WHISPER_MODEL` | `base` | Whisper model size (`tiny` / `base` / `small` / `medium` / `large`) |
 | `WHISPER_LANGUAGE` | `en` | STT language |
@@ -765,6 +768,40 @@ All variables are configured in `backend/.env`. Defaults are suitable for local 
 | `STATIC_LEVEL` | `0.01` | Radio static intensity |
 | **CORS** | | |
 | `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001,http://localhost:3002,http://127.0.0.1:3000` | Comma-separated allowed origins |
+
+### Legacy environment names
+
+Settings used to be flat. Three names predate the grouping and are still
+accepted, in both `.env` files and the process environment:
+
+| Legacy name | Grouped name it feeds |
+|---|---|
+| `OLLAMA_BASE_URL` | `LLM_BASE_URL` → `llm.base_url` |
+| `OLLAMA_LLM_MODEL` | `LLM_MODEL` → `llm.model` |
+| `OLLAMA_EMBEDDING_MODEL` | `LLM_EMBEDDING_MODEL` → `llm.embedding_model` |
+
+**The legacy name wins when both are set.** The loader applies the grouped names
+first and the legacy names second (`_LEGACY_ENV` in
+`backend/app/settings_loader.py`, applied in `_settings_input`), so
+`OLLAMA_BASE_URL` silently shadows `LLM_BASE_URL` — with no warning, and no
+entry in the log saying which one took effect.
+
+That is deliberate. An operator upgrading from a pre-grouping release with
+`OLLAMA_BASE_URL` still in their `.env` keeps the endpoint they configured,
+rather than having it silently replaced by a newly-introduced `LLM_BASE_URL`
+value. The cost is that the two names are not interchangeable while both are
+present.
+
+**To upgrade cleanly: delete the `OLLAMA_*` name and set the `LLM_*` one.**
+Nothing in `backend/app/` reads the legacy names any more. If you need to
+confirm which value is live, read the grouped field — `settings.llm.base_url` —
+rather than the environment.
+
+The same precedence applies to the flat *keyword* arguments accepted by
+`Settings` in code (`ollama_base_url=...`), via `_LEGACY_GROUP_FIELDS` in
+`backend/app/config.py`, which merges the legacy value over the grouped one. The
+read-only `settings.ollama_base_url` property is a different thing entirely: it
+only ever reports `llm.base_url`, and cannot introduce a legacy value.
 
 ---
 

@@ -115,6 +115,25 @@ considered three stores:
    and will be evaluated against a fixed aviation eval set before it is
    promoted. A fine-tuned model is never the sole source of a Citation.
 
+   > **Scope: retrieval ships, citations on exchanges do not.** Tenant-scoped
+   > retrieval is wired — the composition root builds the retriever and passes it
+   > to the `TrainingSessionModule` as `knowledge` (`app/main.py:167,182`) — and
+   > which chunks a step drew on is recorded as `retrieved_chunk_ids` on the
+   > `TrainingSessionEvent`. Attaching `Citation`s to ATC exchanges is **not**
+   > wired: `ExchangeResult.citations` is constructed as `[]` on every path
+   > (`app/services/training_sessions/session_module.py:421`), so the field is
+   > permanently empty in every deployment. Nothing else reads it either; the one
+   > consumer, the voice route, logs a count and is guarded on the list being
+   > non-empty (`app/api/routes/voice.py:166-170`).
+   >
+   > This is a **deferral, not an oversight.** Populating it needs a live-graph
+   > retrieval design that has not been decided: which node retrieves, with what
+   > `RetrievalQuery` (the graph has no tenant `org_id` of its own to scope with),
+   > and whether the ATC prompt receives the retrieved text or only the
+   > coordinates. Guessing that here would put a design decision in a field
+   > assignment. The `Citation` term in `CONTEXT.md` stays as the definition of
+   > what a Citation is, not as a claim that one is produced.
+
 ## Consequences
 
 ### Positive
@@ -123,7 +142,9 @@ considered three stores:
 - Full-text search keeps working; the vector leg is additive.
 - `FakeRetriever` gives development and route tests a real retriever behind the
   same seam, with no second datastore to run.
-- Citations are exact: page, section, and character coordinates per chunk.
+- Citations, when they are attached, will be exact: page, section, and character
+  coordinates per chunk. The coordinates ship with the chunks today; the
+  exchange-to-chunk link does not.
 
 ### Negative
 

@@ -743,7 +743,7 @@ requires-dist = [
     { name = "langchain-community", specifier = ">=0.0.20" },
     { name = "langchain-groq", specifier = ">=0.3.0,<1.0.0" },
     { name = "langgraph", specifier = ">=0.2.0" },
-    { name = "langgraph-checkpoint-postgres", specifier = ">=2.0.0" },
+    { name = "langgraph-checkpoint-postgres", specifier = ">=3.0.0,<4.0.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8.0" },
     { name = "numpy", specifier = ">=1.22.0,<2.0.0" },
     { name = "ollama", specifier = ">=0.1.6" },

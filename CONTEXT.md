@@ -26,7 +26,7 @@ A retrievable span of a Knowledge Document, carrying its embedding and citation 
 _Avoid_: embedding, vector (a vector is the numeric representation, not the content)
 
 **Citation**:
-A link from a Session exchange or debrief statement back to the exact Knowledge Chunk that informed it.
+A link from a Session exchange or debrief statement back to the exact Knowledge Chunk that informed it. This entry defines the term, not a shipped capability: nothing produces a Citation today. `ExchangeResult.citations` is always `[]`, and the chunk a step used is recorded as provenance (`retrieved_chunk_ids`) instead. See [ADR-008](docs/architecture/ADR-008-tenant-scoped-knowledge-and-pgvector-retrieval.md).
 _Avoid_: source, reference, provenance (provenance is the broader trace record; a Citation is one pointer inside it)
 
 **Provenance**:

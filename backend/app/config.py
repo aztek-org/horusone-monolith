@@ -154,6 +154,16 @@ class Settings(BaseSettings):
     # the pre-grouping attribute names working for out-of-tree callers, so each
     # one names its remaining in-repo readers: an alias with no reader is a
     # candidate for removal, not one with a reader that a reader cannot find.
+    #
+    # These properties are read-only.  The *inbound* direction is a separate
+    # surface with its own precedence: ``_LEGACY_GROUP_FIELDS`` below lets a
+    # pre-grouping keyword (``ollama_base_url=...``) stand in for a grouped one,
+    # and the settings loader does the same for the matching environment names.
+    # Both merge the legacy value *over* the grouped one, so when both are given
+    # the legacy name wins.  That is deliberate -- an operator upgrading with
+    # ``OLLAMA_BASE_URL`` still set keeps the value they had rather than
+    # inheriting a new default -- and it is documented in
+    # ``docs/development.md`` ("Environment Variable Reference").
 
     @property
     def ollama_base_url(self) -> str:
@@ -164,7 +174,8 @@ class Settings(BaseSettings):
         ``FlightPlanParser``; the parser ignores it and now takes no such
         argument, so the reader is gone.  ``OLLAMA_BASE_URL`` is still accepted
         as an environment/keyword alias by ``Settings`` and the settings loader
-        — that is a separate compatibility surface and is unaffected.  Read the
+        — that is a separate compatibility surface and is unaffected, though it
+        does **override** ``LLM_BASE_URL`` when both are set.  Read the
         grouped field instead: ``settings.llm.base_url``.
         """
         return self.llm.base_url

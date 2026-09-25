@@ -65,7 +65,15 @@ traceability, and the ability to run several backend processes.
 4. **The LLM is an injected dependency, never constructed in a graph node.**
    Live, validation, and scoring graphs are built by factories that receive an
    LLM module. The module-level `_llm` global is removed. Each backend process
-   builds its graphs once at startup.
+   builds each graph at most once, but not all at the same moment: the live
+   Session graph is built once in the `lifespan`
+   (`app/main.py:176-184`, inside the `TrainingSessionModule`), while the voice
+   pipeline is built **lazily, on the first voice WebSocket connection**
+   (`_shared_pipeline`, `app/api/routes/voice.py:83-99`) and published on
+   `app.state` for every later connection. The delay is deliberate: building the
+   pipeline loads a 145 MB Whisper checkpoint, and a process that never serves
+   voice audio should not pay for it. Both properties this decision protects —
+   one build per process, not one per request — hold either way.
 
 5. **Every Session step emits a `TrainingSessionEvent`.** The event payload
    carries `scene_version`, `prompt_version`, `graph`, `node`, `llm_provider`,
@@ -93,6 +101,27 @@ traceability, and the ability to run several backend processes.
    `tests/integration/test_session_module_postgres.py`, which run the same
    interface against two different checkpointers.
 
+8. **`GET /api/v1/scenes` always lists the packaged default Scene.** This is an
+   accepted API change. The composition root registers the packaged `default-v1`
+   alongside whatever a configured `SCENES_PATH` provides, whenever that path
+   does not already name it (`_build_scene_registry`, `app/main.py:142-149`), so
+   the listing always contains a Scene the Session module can actually start.
+   `default-v1` therefore **appears after** the operator's own Scenes rather than
+   before them, and a client that indexes the list by position sees a new
+   trailing entry when `SCENES_PATH` omits the default. Clients must select a
+   Scene by its `version`, not by list position.
+
+   The companion rule is that a genuinely unknown `scene_version` is still a
+   clean `404`, never a silent substitution. `GET /api/v1/scenes/{version}` calls
+   `SceneRegistry.get()`, which raises `KeyError` rather than falling back
+   (`app/services/llm/scenes/registry.py:58-60`), and the route turns that into
+   `404 Scene '<version>' not found` (`app/api/v1/scenes.py:38-45`). The
+   fallback exists only in `SceneRegistry.default()` (`registry.py:66-70`), which
+   is for "which Scene do I start when the caller named none" — never for
+   "resolve the version the caller asked for". Without that rule a typo would
+   hand a client one Scene's context while its request said another, and the
+   provenance recorded on the events would name a Scene the client never chose.
+
 ## Consequences
 
 ### Positive
@@ -100,7 +129,10 @@ traceability, and the ability to run several backend processes.
 - A backend restart no longer destroys a live Session.
 - Multiple backend processes can serve the same Session.
 - Tests cross the same seam production uses: same interface, different checkpointer.
-- Citation and model provenance become queryable product data, not log scraping.
+- Model provenance is queryable product data, not log scraping. Which chunks a
+  step retrieved is recorded as `retrieved_chunk_ids` on the event; see
+  [ADR-008](./ADR-008-tenant-scoped-knowledge-and-pgvector-retrieval.md) for why
+  *citations* are a separate, deliberately deferred piece of work.
 - The instructor-override machinery exists, is checkpointed, and is covered by
   tests — the hard part is done even though it is switched off.
 
