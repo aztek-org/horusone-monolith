@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from app.config import Settings, get_settings, reset_settings_cache
+from app.config import LLMSettings, Settings, get_settings, reset_settings_cache
 from app.settings_loader import MissingSettingError
 
 # Shipped templates live at the package root, next to the venv and alembic dir.
@@ -369,3 +369,79 @@ def test_get_settings_reads_grouped_environment(monkeypatch: pytest.MonkeyPatch)
         assert settings.knowledge.top_k == 9
     finally:
         reset_settings_cache()
+
+
+def test_legacy_name_shadows_the_grouped_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``OLLAMA_BASE_URL`` must win when both names are set — CI relies on it.
+
+    The rule is stated in four places (``settings_loader._LEGACY_ENV``,
+    ``config._LEGACY_GROUP_FIELDS``, ``docs/development.md`` and the architecture
+    index) and, until now, was asserted nowhere: the only in-repo mention under
+    ``tests/`` was the env-isolation list.  ``.github/workflows/ci.yml`` sets both
+    ``LLM_BASE_URL`` and ``OLLAMA_BASE_URL`` and relies on the shadowing, so an
+    inverted precedence would change CI's LLM base URL silently and nothing would
+    fail.
+
+    Two surfaces can set this value — the environment loader and the ``Settings``
+    keyword — and they are two implementations of one rule, so assert the concrete
+    value *and* that the two agree, as ADR-009's standing rule requires.
+    """
+    monkeypatch.setenv("ENVIRONMENT", "testing")
+    monkeypatch.setenv("LLM_BASE_URL", "http://grouped.example:11434")
+    monkeypatch.setenv("OLLAMA_BASE_URL", "http://legacy.example:11434")
+    monkeypatch.setenv("LLM_MODEL", "grouped-model")
+    monkeypatch.setenv("OLLAMA_LLM_MODEL", "legacy-model")
+    monkeypatch.setenv("LLM_EMBEDDING_MODEL", "grouped-embedding")
+    monkeypatch.setenv("OLLAMA_EMBEDDING_MODEL", "legacy-embedding")
+    reset_settings_cache()
+
+    try:
+        settings = get_settings()
+    finally:
+        reset_settings_cache()
+
+    assert settings.llm.base_url == "http://legacy.example:11434"
+    assert settings.llm.model == "legacy-model"
+    assert settings.llm.embedding_model == "legacy-embedding"
+
+    keyword = Settings(
+        _env_file=None,
+        environment="testing",
+        llm={
+            "base_url": "http://grouped.example:11434",
+            "model": "grouped-model",
+            "embedding_model": "grouped-embedding",
+        },
+        ollama_base_url="http://legacy.example:11434",
+        ollama_llm_model="legacy-model",
+        ollama_embedding_model="legacy-embedding",
+    )
+    assert (keyword.llm.base_url, keyword.llm.model, keyword.llm.embedding_model) == (
+        settings.llm.base_url,
+        settings.llm.model,
+        settings.llm.embedding_model,
+    )
+
+
+def test_a_constructed_group_plus_a_legacy_keyword_is_refused_loudly() -> None:
+    """A legacy keyword must never be silently dropped by a constructed group.
+
+    ``Settings.__init__`` merges a legacy keyword into its group, but only when
+    the group is absent or a dict.  Handed a constructed ``LLMSettings`` neither
+    branch fires, the legacy value disappears, and the caller silently receives
+    the dataclass defaults — a wrong configuration with no signal, which is the
+    class of defect this branch exists to close.  Four lines of refusal cost more
+    than a deployment that quietly talks to the wrong endpoint.
+    """
+    with pytest.raises(ValueError) as exc_info:
+        Settings(
+            _env_file=None,
+            environment="testing",
+            llm=LLMSettings(provider="ollama", base_url="http://grouped.example:11434"),
+            ollama_base_url="http://legacy.example:11434",
+        )
+
+    message = str(exc_info.value)
+    assert "llm" in message
+    assert "ollama_base_url" in message
+    assert "dict" in message

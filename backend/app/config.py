@@ -146,6 +146,27 @@ class Settings(BaseSettings):
                 normalized[group_name] = group_values
             elif isinstance(existing, dict):
                 normalized[group_name] = {**existing, **group_values}
+            else:
+                # A constructed group (e.g. ``LLMSettings(...)``) has no branch
+                # that can merge into it, so the legacy value would be dropped
+                # here and the caller would silently receive the dataclass
+                # defaults.  Refuse instead: a loud failure at construction is
+                # cheaper than a deployment quietly talking to the wrong
+                # endpoint.  Passing the group as a dict is the accepted shape.
+                legacy_names = sorted(
+                    name
+                    for name, (group, _field) in _LEGACY_GROUP_FIELDS.items()
+                    if group == group_name and name in data
+                )
+                raise ValueError(
+                    f"Settings({group_name}=<{type(existing).__name__}>, "
+                    f"{', '.join(legacy_names)}=...) cannot be combined: the "
+                    f"{group_name!r} group is already a {type(existing).__name__}, "
+                    f"which cannot take the legacy {', '.join(legacy_names)} "
+                    f"value. Pass the group as a dict "
+                    f"(Settings({group_name}={{...}})), or drop the legacy keyword "
+                    f"and set the field on the {type(existing).__name__}."
+                )
 
         super().__init__(**normalized)
 
