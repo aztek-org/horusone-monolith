@@ -86,6 +86,12 @@ class _QueryStringScrubber(SpanProcessor):
     an invalid IPv6 literal, for instance -- so leaving such a URL untouched
     would be a caller-triggerable bypass of the privacy contract rather than a
     degradation of telemetry quality.
+
+    OpenTelemetry attributes may also be string sequences, so every list or
+    tuple element is scrubbed independently. Any other shape, including a
+    sequence containing a non-string element, is dropped in full: the SDK may
+    serialize it even when this control cannot safely inspect it, and losing a
+    malformed URL attribute is safer than exporting caller-controlled text.
     """
 
     _URL_ATTRIBUTES = ("http.url", "url.full")
@@ -97,19 +103,52 @@ class _QueryStringScrubber(SpanProcessor):
         scrubbed_attributes = dict(attributes)
         changed = False
         for attribute in self._URL_ATTRIBUTES:
-            value = scrubbed_attributes.get(attribute)
-            if not isinstance(value, str):
+            if attribute not in scrubbed_attributes:
                 continue
-            try:
-                parsed = urlsplit(value)
-            except ValueError:
-                scrubbed_attributes[attribute] = _without_query_or_fragment(value)
-                changed = True
-                continue
-            if parsed.query or parsed.fragment:
-                scrubbed_attributes[attribute] = urlunsplit(
-                    (parsed.scheme, parsed.netloc, parsed.path, "", "")
-                )
+            value = scrubbed_attributes[attribute]
+            if isinstance(value, str):
+                try:
+                    parsed = urlsplit(value)
+                except ValueError:
+                    scrubbed_attributes[attribute] = _without_query_or_fragment(value)
+                    changed = True
+                    continue
+                if parsed.query or parsed.fragment:
+                    scrubbed_attributes[attribute] = urlunsplit(
+                        (parsed.scheme, parsed.netloc, parsed.path, "", "")
+                    )
+                    changed = True
+            elif isinstance(value, (list, tuple)):
+                if not all(isinstance(element, str) for element in value):
+                    del scrubbed_attributes[attribute]
+                    changed = True
+                    continue
+                scrubbed_sequence: list[str] = []
+                for element in value:
+                    try:
+                        parsed_element = urlsplit(element)
+                    except ValueError:
+                        scrubbed_sequence.append(_without_query_or_fragment(element))
+                        continue
+                    if parsed_element.query or parsed_element.fragment:
+                        scrubbed_sequence.append(
+                            urlunsplit(
+                                (
+                                    parsed_element.scheme,
+                                    parsed_element.netloc,
+                                    parsed_element.path,
+                                    "",
+                                    "",
+                                )
+                            )
+                        )
+                    else:
+                        scrubbed_sequence.append(element)
+                if scrubbed_sequence != list(value):
+                    scrubbed_attributes[attribute] = scrubbed_sequence
+                    changed = True
+            else:
+                del scrubbed_attributes[attribute]
                 changed = True
         if changed:
             # ReadableSpan exposes an immutable mapping, so replace its backing

@@ -420,6 +420,73 @@ def test_unparsable_url_attributes_lose_their_query_and_fragment() -> None:
         assert "#tail" not in serialised
 
 
+def _url_attribute_json(value: Any) -> tuple[dict[str, Any], str]:
+    """Export one real SDK span carrying ``http.url`` and return its JSON form."""
+    configure_telemetry(_settings(), environment="development")
+    collector = _collect_spans()
+
+    with trace.get_tracer("test.scrubber").start_as_current_span("probe") as span:
+        span.set_attribute("http.url", value)
+
+    serialised = json.loads(collector.get_finished_spans()[0].to_json())
+    assert isinstance(serialised, dict)
+    attributes = serialised.get("attributes", {})
+    assert isinstance(attributes, dict)
+    return dict(attributes), json.dumps(serialised)
+
+
+def test_url_attribute_list_drops_query_text() -> None:
+    attributes, serialised = _url_attribute_json(
+        ["https://example.test/search?q=clearance-denied"]
+    )
+
+    assert attributes["http.url"] == ["https://example.test/search"]
+    assert "q=" not in serialised
+    assert "clearance-denied" not in serialised
+
+
+def test_url_attribute_list_drops_fragment_text() -> None:
+    attributes, serialised = _url_attribute_json(
+        ["https://example.test/search#private-fragment"]
+    )
+
+    assert attributes["http.url"] == ["https://example.test/search"]
+    assert "#private-fragment" not in serialised
+    assert "private-fragment" not in serialised
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (
+            [
+                "https://example.test/search?q=clearance-denied",
+                "https://example.test/other#private-fragment",
+            ],
+            ["https://example.test/search", "https://example.test/other"],
+        ),
+        ([], []),
+    ],
+)
+def test_url_attribute_mixed_and_empty_lists_are_safe(
+    value: list[str], expected: list[str]
+) -> None:
+    attributes, serialised = _url_attribute_json(value)
+
+    assert attributes["http.url"] == expected
+    assert "q=" not in serialised
+    assert "#private-fragment" not in serialised
+    assert "clearance-denied" not in serialised
+
+
+def test_url_attribute_drops_non_string_non_sequence_value() -> None:
+    attributes, serialised = _url_attribute_json(42)
+
+    assert "http.url" not in attributes
+    assert "q=" not in serialised
+    assert "#private-fragment" not in serialised
+
+
 # ---------------------------------------------------------------------------
 # Telemetry must never break the product
 # ---------------------------------------------------------------------------
