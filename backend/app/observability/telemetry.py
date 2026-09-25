@@ -20,13 +20,14 @@ import uuid
 from collections.abc import Iterator
 from contextlib import ExitStack, contextmanager
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import FastAPI
 from opentelemetry import trace
 from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, TracerProvider
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
     ConsoleSpanExporter,
@@ -53,7 +54,61 @@ _configured = False
 _asyncpg_instrumentor = AsyncPGInstrumentor()
 
 
-def _build_exporter(settings: TraceSettings) -> SpanExporter:
+class _QueryStringScrubber(SpanProcessor):
+    """Remove query strings from URL attributes before they reach an exporter.
+
+    FastAPI instrumentation records the request URL on server spans. Query
+    parameters are caller-controlled free text, so retaining them would violate
+    this module's privacy contract. ``ReadableSpan`` exposes attributes through
+    a read-only mapping, so the processor replaces its backing attributes after
+    the span has ended and before the next processor exports it.
+    """
+
+    _URL_ATTRIBUTES = ("http.url", "url.full")
+
+    def on_end(self, span: ReadableSpan) -> None:
+        attributes = span.attributes
+        if attributes is None:
+            return
+        scrubbed_attributes = dict(attributes)
+        changed = False
+        for attribute in self._URL_ATTRIBUTES:
+            value = scrubbed_attributes.get(attribute)
+            if not isinstance(value, str):
+                continue
+            try:
+                parsed = urlsplit(value)
+            except ValueError:
+                continue
+            if parsed.query or parsed.fragment:
+                scrubbed_attributes[attribute] = urlunsplit(
+                    (parsed.scheme, parsed.netloc, parsed.path, "", "")
+                )
+                changed = True
+        if changed:
+            # ReadableSpan exposes an immutable mapping, so replace its backing
+            # attributes only after the span has ended and before the next
+            # processor exports it.
+            setattr(span, "_attributes", scrubbed_attributes)
+
+    def shutdown(self) -> None:
+        return None
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        return True
+
+
+class _NoopSpanExporter(SpanExporter):
+    """Discard spans in the testing environment without console or memory capture."""
+
+    def export(self, spans: Any) -> Any:
+        return None
+
+    def shutdown(self) -> None:
+        return None
+
+
+def _build_exporter(settings: TraceSettings, *, environment: str) -> SpanExporter:
     """Return the OTLP exporter for a configured endpoint, else the console one.
 
     The OTLP exporter ships in its own distribution so that a deployment that
@@ -61,6 +116,9 @@ def _build_exporter(settings: TraceSettings) -> SpanExporter:
     therefore a configuration state, not an error: warn and export to the
     console rather than leaving the deployment silently untraced.
     """
+    if environment == "testing":
+        return _NoopSpanExporter()
+
     endpoint = settings.otel_endpoint
     if not endpoint:
         return ConsoleSpanExporter()
@@ -71,51 +129,67 @@ def _build_exporter(settings: TraceSettings) -> SpanExporter:
             OTLPSpanExporter,
         )
     except ImportError:
+        try:
+            endpoint_host = urlsplit(endpoint).hostname or "<redacted>"
+        except ValueError:
+            endpoint_host = "<redacted>"
         logger.warning(
-            "OTEL_EXPORTER_OTLP_ENDPOINT=%s is set but the OTLP exporter package is "
-            "not installed; exporting spans to the console instead. Install "
-            "opentelemetry-exporter-otlp-proto-http to send them to a collector.",
-            endpoint,
+            "OTEL_EXPORTER_OTLP_ENDPOINT for host %s is set but the OTLP exporter "
+            "package is not installed; exporting spans to the console instead. "
+            "Install opentelemetry-exporter-otlp-proto-http to send them to a collector.",
+            endpoint_host,
         )
         return ConsoleSpanExporter()
 
     return OTLPSpanExporter(endpoint=endpoint)  # type: ignore[no-any-return]
 
 
-def configure_telemetry(settings: TraceSettings, app: FastAPI | None = None) -> None:
+def configure_telemetry(
+    settings: TraceSettings, *, environment: str, app: FastAPI | None = None
+) -> None:
     """Install OTel FastAPI + asyncpg instrumentation and a console or OTLP exporter.
 
-    Safe to call more than once; later calls are no-ops. Pass ``app`` to
-    instrument a specific FastAPI application, which is done from the lifespan
-    because Starlette only builds the middleware stack on the first request.
+    Provider and asyncpg installation are process-wide and guarded for
+    idempotency. FastAPI instrumentation is per application, so each new app
+    handed to this function is instrumented even when the provider already
+    exists.
     """
     global _configured
-    if _configured:
-        logger.debug("Telemetry already configured; leaving the installed pipeline alone.")
-        return
-
-    try:
-        provider = TracerProvider(
-            resource=Resource.create(
-                {
-                    "service.name": SERVICE_NAME,
-                    "deployment.environment": settings.log_level,
-                }
+    if not _configured:
+        try:
+            provider = TracerProvider(
+                resource=Resource.create(
+                    {
+                        "service.name": SERVICE_NAME,
+                        "deployment.environment": environment,
+                    }
+                )
             )
-        )
-        provider.add_span_processor(BatchSpanProcessor(_build_exporter(settings)))
-        trace.set_tracer_provider(provider)
-        _asyncpg_instrumentor.instrument()
-        if app is not None:
-            FastAPIInstrumentor.instrument_app(app)
-    except Exception:
-        logger.warning(
-            "OpenTelemetry configuration failed; continuing without telemetry.",
-            exc_info=True,
-        )
-        return
+            provider.add_span_processor(_QueryStringScrubber())
+            provider.add_span_processor(
+                BatchSpanProcessor(_build_exporter(settings, environment=environment))
+            )
+            trace.set_tracer_provider(provider)
+            _asyncpg_instrumentor.instrument()
+        except Exception:
+            logger.warning(
+                "OpenTelemetry configuration failed; continuing without telemetry.",
+                exc_info=True,
+            )
+            return
+        _configured = True
+    else:
+        logger.debug("Telemetry already configured; leaving the installed pipeline alone.")
 
-    _configured = True
+    if app is not None:
+        try:
+            FastAPIInstrumentor.instrument_app(app)
+        except Exception:
+            logger.warning(
+                "OpenTelemetry FastAPI instrumentation failed for the supplied app; "
+                "continuing without it.",
+                exc_info=True,
+            )
 
 
 def _session_attributes(session_id: int, org_id: uuid.UUID | None) -> dict[str, Any]:

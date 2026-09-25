@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 import uuid
-from typing import Any
+from typing import Any, cast
 
 import asyncpg
 import pytest
@@ -50,8 +53,13 @@ def _installed_exporter() -> SpanExporter:
     both turn on, so the test reaches into the SDK.
     """
     processors = _installed_provider()._active_span_processor._span_processors
-    assert len(processors) == 1, f"expected one span processor, got {processors!r}"
-    return processors[0].span_exporter
+    exporters = [
+        processor.span_exporter
+        for processor in processors
+        if hasattr(processor, "span_exporter")
+    ]
+    assert len(exporters) == 1, f"expected one span exporter, got {exporters!r}"
+    return cast(SpanExporter, exporters[0])
 
 
 def _collect_spans() -> InMemorySpanExporter:
@@ -125,7 +133,7 @@ def _isolate_telemetry():
 
 
 def test_console_exporter_configured_without_endpoint():
-    configure_telemetry(TraceSettings(retention_days=90, otel_endpoint=None, log_level="INFO"))
+    configure_telemetry(TraceSettings(retention_days=90, otel_endpoint=None, log_level="INFO"), environment="development")
     with span_for_session(1, uuid.uuid4()) as span:
         span.set_attribute("session_id", 1)
     assert span.is_recording() or not span.is_recording()  # exporter smoke test, no exception
@@ -137,7 +145,7 @@ def test_console_exporter_configured_without_endpoint():
 
 
 def test_no_endpoint_selects_the_console_exporter():
-    configure_telemetry(_settings())
+    configure_telemetry(_settings(), environment="development")
 
     assert isinstance(_installed_exporter(), ConsoleSpanExporter)
 
@@ -150,19 +158,43 @@ def test_otlp_endpoint_falls_back_to_console_when_the_exporter_is_absent(caplog)
     warning rather than take the process down or export nothing at all.
     """
     with caplog.at_level("WARNING", logger=telemetry.__name__):
-        configure_telemetry(_settings(otel_endpoint="http://collector.internal:4318"))
+        configure_telemetry(
+            _settings(otel_endpoint="https://user:secret@collector.internal:4318"),
+            environment="development",
+        )
 
     assert isinstance(_installed_exporter(), ConsoleSpanExporter)
     assert "OTEL_EXPORTER_OTLP_ENDPOINT" in caplog.text
     assert "opentelemetry-exporter-otlp-proto-http" in caplog.text
+    assert "user:secret" not in caplog.text
+    assert "secret" not in caplog.text
+
+
+def test_otlp_endpoint_constructs_exporter_when_optional_extra_is_present():
+    exporter_module = pytest.importorskip(
+        "opentelemetry.exporter.otlp.proto.http.trace_exporter"
+    )
+
+    exporter = telemetry._build_exporter(
+        _settings(otel_endpoint="https://collector.internal:4318"),
+        environment="development",
+    )
+
+    assert isinstance(exporter, exporter_module.OTLPSpanExporter)
 
 
 def test_resource_identifies_the_service_and_environment():
-    configure_telemetry(_settings(log_level="DEBUG"))
+    configure_telemetry(_settings(log_level="DEBUG"), environment="production")
 
     attributes = _installed_provider().resource.attributes
     assert attributes["service.name"] == "horus-backend"
-    assert attributes["deployment.environment"] == "DEBUG"
+    assert attributes["deployment.environment"] == "production"
+
+
+def test_testing_environment_discards_spans_without_console_export():
+    configure_telemetry(_settings(), environment="testing")
+
+    assert isinstance(_installed_exporter(), telemetry._NoopSpanExporter)
 
 
 # ---------------------------------------------------------------------------
@@ -184,11 +216,11 @@ def test_repeated_configuration_installs_one_pipeline(caplog):
     settings = _settings()
 
     with caplog.at_level("WARNING"):
-        configure_telemetry(settings)
+        configure_telemetry(settings, environment="development")
         provider = _installed_provider()
         exporter = _installed_exporter()
-        configure_telemetry(settings)
-        configure_telemetry(_settings(log_level="ERROR"))
+        configure_telemetry(settings, environment="development")
+        configure_telemetry(_settings(log_level="ERROR"), environment="development")
 
     assert trace.get_tracer_provider() is provider
     assert _installed_exporter() is exporter
@@ -211,8 +243,8 @@ def test_fastapi_app_is_instrumented_once():
     async def probe() -> dict[str, bool]:
         return {"ok": True}
 
-    configure_telemetry(_settings(), application)
-    configure_telemetry(_settings(), application)
+    configure_telemetry(_settings(), environment="development", app=application)
+    configure_telemetry(_settings(), environment="development", app=application)
     collector = _collect_spans()
 
     with TestClient(application) as client:
@@ -220,6 +252,85 @@ def test_fastapi_app_is_instrumented_once():
 
     assert application._is_instrumented_by_opentelemetry is True
     assert [span.name for span in collector.get_finished_spans()].count("GET /probe") == 1
+
+
+def test_each_app_is_instrumented_after_provider_configuration():
+    first_app = FastAPI()
+    second_app = FastAPI()
+
+    @first_app.get("/first")
+    async def first() -> dict[str, bool]:
+        return {"ok": True}
+
+    @second_app.get("/second")
+    async def second() -> dict[str, bool]:
+        return {"ok": True}
+
+    configure_telemetry(_settings(), environment="development", app=first_app)
+    configure_telemetry(_settings(), environment="development", app=second_app)
+    collector = _collect_spans()
+
+    with TestClient(first_app) as first_client, TestClient(second_app) as second_client:
+        assert first_client.get("/first").status_code == 200
+        assert second_client.get("/second").status_code == 200
+
+    span_names = [span.name for span in collector.get_finished_spans()]
+    assert span_names.count("GET /first") == 1
+    assert span_names.count("GET /second") == 1
+
+
+def test_shipped_app_produces_a_server_span_when_instrumented_at_import():
+    """The shipped composition root must instrument before TestClient starts it."""
+    script = """
+import json
+from fastapi.testclient import TestClient
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from app.main import app
+
+provider = trace.get_tracer_provider()
+if not isinstance(provider, TracerProvider):
+    print("[]")
+    raise SystemExit(0)
+collector = InMemorySpanExporter()
+provider.add_span_processor(SimpleSpanProcessor(collector))
+with TestClient(app) as client:
+    assert client.get("/openapi.json").status_code == 200
+print(json.dumps([span.name for span in collector.get_finished_spans()]))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=os.getcwd(),
+        env={**os.environ, "ENVIRONMENT": "testing"},
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "GET /openapi.json" in json.loads(result.stdout)
+
+
+def test_server_span_drops_query_string_before_export():
+    application = FastAPI()
+
+    @application.get("/search")
+    async def search() -> dict[str, bool]:
+        return {"ok": True}
+
+    configure_telemetry(_settings(), environment="development", app=application)
+    collector = _collect_spans()
+
+    with TestClient(application) as client:
+        assert client.get("/search?q=student%20radios%20said%20clearance%20denied").status_code == 200
+
+    server_span = next(span for span in collector.get_finished_spans() if span.name == "GET /search")
+    serialised = json.dumps(server_span.to_json())
+    assert "q=" not in server_span.attributes.get("http.url", "")
+    assert "q=" not in server_span.attributes.get("url.full", "")
+    assert "student radios" not in serialised
+    assert "clearance" not in serialised
 
 
 # ---------------------------------------------------------------------------
@@ -257,18 +368,18 @@ def test_exporter_failure_does_not_break_the_session_span():
 
 
 def test_caller_exceptions_still_propagate():
-    configure_telemetry(_settings())
+    configure_telemetry(_settings(), environment="development")
 
     with pytest.raises(RuntimeError, match="product failure"), span_for_session(7, ORG_ID):
         raise RuntimeError("product failure")
 
 
 def test_configuration_failure_leaves_the_backend_running(monkeypatch: pytest.MonkeyPatch):
-    def explode(settings: TraceSettings) -> SpanExporter:
+    def explode(settings: TraceSettings, *, environment: str) -> SpanExporter:
         raise RuntimeError("no telemetry for you")
 
     monkeypatch.setattr(telemetry, "_build_exporter", explode)
-    configure_telemetry(_settings())  # must not raise
+    configure_telemetry(_settings(), environment="development")  # must not raise
     assert telemetry._configured is False
 
     # The backend keeps serving: a session span still works, just untraced.
@@ -284,7 +395,7 @@ def test_configuration_failure_leaves_the_backend_running(monkeypatch: pytest.Mo
 
 
 def test_session_span_carries_only_correlation_keys():
-    configure_telemetry(_settings())
+    configure_telemetry(_settings(), environment="development")
     collector = _collect_spans()
 
     with span_for_session(42, ORG_ID):
@@ -301,7 +412,7 @@ def test_session_span_carries_only_correlation_keys():
 
 
 def test_session_span_carries_no_prompt_or_transcript_content():
-    configure_telemetry(_settings())
+    configure_telemetry(_settings(), environment="development")
     collector = _collect_spans()
 
     # Graph node and provider metadata are allowed; product content is not.
@@ -318,7 +429,7 @@ def test_session_span_carries_no_prompt_or_transcript_content():
 
 
 def test_span_context_carries_a_valid_sampled_trace_id():
-    configure_telemetry(_settings())
+    configure_telemetry(_settings(), environment="development")
 
     with span_for_session(42, ORG_ID) as span:
         context = span.get_span_context()

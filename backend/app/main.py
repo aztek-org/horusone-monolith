@@ -8,6 +8,8 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from opentelemetry import trace as otel_trace
+from opentelemetry.sdk.trace import TracerProvider
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
@@ -135,10 +137,6 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     from app.db.session import get_session_factory
 
     app_settings = _resolve_settings(application)
-    # Operational telemetry only; product provenance stays in PostgreSQL
-    # (ADR-009). Safe to call repeatedly and safe to fail: the backend must
-    # serve requests and training sessions with or without a collector.
-    configure_telemetry(app_settings.trace, application)
     llm = build_llm(app_settings)
     store: SessionStore
     if app_settings.environment == "production":
@@ -176,7 +174,18 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         logger.info("Shutting down Horus ATC API...")
-        await close_redis()
+        try:
+            await close_redis()
+        finally:
+            try:
+                provider = otel_trace.get_tracer_provider()
+                if isinstance(provider, TracerProvider):
+                    provider.shutdown()
+            except Exception:
+                logger.warning(
+                    "OpenTelemetry provider shutdown failed; continuing shutdown.",
+                    exc_info=True,
+                )
 
 
 # Create FastAPI app
@@ -207,6 +216,11 @@ app.add_middleware(
     expose_headers=["Content-Disposition"],
 )
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Instrument before Starlette's first ASGI invocation builds middleware_stack.
+# Calling this from the lifespan is too late: the lifespan itself is an ASGI
+# invocation, so instrument_app() would patch a stack that is already built.
+configure_telemetry(settings.trace, environment=settings.environment, app=app)
 
 # Include routers
 app.include_router(health.router, tags=["Health"])
