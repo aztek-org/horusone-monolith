@@ -658,7 +658,7 @@ Deleted files: `backend/app/services/llm/orchestrator.py` only.
 - Create: `backend/app/services/llm/scenes/__init__.py`, `default_scene.py`, `registry.py`, `backend/app/services/training_sessions/graphs.py`
 - Create: `docs/architecture/scene-config.example.yaml`
 - Modify: `backend/app/services/llm/graphs/live_session_graph.py` (remove `_llm`, accept `llm: LLMModule` and `scene: SceneConfig`)
-- Modify: `backend/app/services/llm/graphs/validation_graph.py`, `scoring_graph.py` (accept optional `knowledge`, keep node functions unchanged)
+- Modify: `backend/app/services/llm/graphs/validation_graph.py` (accept optional `knowledge` retriever; keep node functions otherwise unchanged). **`scoring_graph.py` is intentionally NOT modified** — the plan previously listed it here, but the task body only ever specified `build_scoring_graph()` as unchanged, so the file-list entry was a planning error. (Corrected 2026-09-25 after the Task 5 review.)
 - Modify: `backend/app/services/llm/atc_agent.py` (become a thin adapter over the live graph; remove its private `AgentState`/`SessionPhase`/understand-respond-evaluate graph and its Ollama construction)
 - Modify: `backend/app/services/llm/state.py` (add `scene_version: str`, `prompt_version: str`, `retrieved_chunk_ids: list[str]`, `llm_provider: str`, `llm_model: str`, `llm_fallback_used: bool`, `pending_instructor: bool`)
 - Modify: `backend/app/core/audio_pipeline.py` (accept `llm: LLMModule`, `scene: SceneConfig`; construct `ATCAgent(llm, scene)`)
