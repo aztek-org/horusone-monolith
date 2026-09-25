@@ -28,6 +28,7 @@ from app.services.llm.scenes.registry import SceneConfig
 from app.services.llm.state import HorusState, SessionPhase
 
 logger = logging.getLogger(__name__)
+_CONTROLLED_PROMPT_KEYS = frozenset({"pilot_message"})
 
 
 def _understand_input(state: HorusState) -> dict[str, Any]:
@@ -60,7 +61,12 @@ def _route_after_understand(state: HorusState) -> str:
 
 
 def _prompt_context(scene: SceneConfig, context: dict[str, Any]) -> dict[str, Any]:
-    """Fill required prompt fields from the Scene when runtime context is sparse."""
+    """Fill Scene context while reserving controlled keys for the current exchange.
+
+    Context supplied by callers is untrusted for prompt control. Controlled
+    values, currently ``pilot_message``, are therefore always applied after
+    and take precedence over same-named context keys.
+    """
     scene_context = {
         "callsign": scene.aircraft.get("callsign", "Aircraft calling"),
         "aircraft_type": scene.aircraft.get("type", "aircraft"),
@@ -72,7 +78,47 @@ def _prompt_context(scene: SceneConfig, context: dict[str, Any]) -> dict[str, An
         "destination": scene.airports.get("arrival", "destination"),
         "weather": "",
     }
-    return {**scene_context, **context}
+    untrusted_context = {
+        key: value
+        for key, value in context.items()
+        if key not in _CONTROLLED_PROMPT_KEYS
+    }
+    return {**scene_context, **untrusted_context}
+
+
+def _message_role(message: Any) -> str:
+    if isinstance(message, dict):
+        return str(message.get("role") or message.get("type") or "")
+    return str(getattr(message, "type", ""))
+
+
+def _message_content(message: Any) -> str:
+    if isinstance(message, dict):
+        return str(message.get("content") or "")
+    return str(getattr(message, "content", message))
+
+
+def _render_recent_exchanges(messages: list[Any] | None) -> str:
+    """Render at most the last three pilot/ATC exchanges for continuity."""
+    recent_messages = list(messages or [])[-6:]
+    if not recent_messages:
+        return ""
+
+    history_lines = []
+    for message in recent_messages:
+        label = "Pilot" if _message_role(message) in {"human", "user"} else "ATC"
+        history_lines.append(f"{label}: {_message_content(message)}")
+    return "\nRecent exchanges:\n" + "\n".join(history_lines) + "\n"
+
+
+def _clean_response(response: str) -> str:
+    """Normalize provider text for concise, role-free ATC speech."""
+    cleaned = " ".join(response.strip().split())
+    prefixes = ("ATC:", "Tower:", "Approach:", "Ground:", "Response:", "Controller:")
+    for prefix in prefixes:
+        if cleaned.startswith(prefix):
+            cleaned = cleaned[len(prefix) :].strip()
+    return cleaned
 
 
 def _generate_atc_response_factory(llm: LLMModule, scene: SceneConfig):
@@ -84,6 +130,9 @@ def _generate_atc_response_factory(llm: LLMModule, scene: SceneConfig):
             **context,
             pilot_message=state.get("pilot_message") or "",
         )
+        history = _render_recent_exchanges(state.get("messages"))
+        if history:
+            prompt = f"{history}\n{prompt}"
         request = GenerationRequest(
             prompt=prompt,
             purpose="atc_response",
@@ -92,7 +141,7 @@ def _generate_atc_response_factory(llm: LLMModule, scene: SceneConfig):
         )
         result = await llm.generate(request)
         return {
-            "atc_response": result.text,
+            "atc_response": _clean_response(result.text),
             "llm_provider": result.provider,
             "llm_model": result.model,
             "llm_fallback_used": result.fallback_used,

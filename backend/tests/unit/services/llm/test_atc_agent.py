@@ -37,7 +37,9 @@ async def test_generate_response_delegates_to_live_graph() -> None:
 
 
 async def test_generate_response_preserves_conversation_history() -> None:
-    agent, _ = _make_agent(replace(DEFAULT_SCENE, prompt_template="[[reply:Response {pilot_message}]]"))
+    agent, llm = _make_agent(
+        replace(DEFAULT_SCENE, prompt_template="[[reply:Response {pilot_message}]]")
+    )
 
     await agent.generate_response("First")
     await agent.generate_response("Second", language="es")
@@ -46,6 +48,10 @@ async def test_generate_response_preserves_conversation_history() -> None:
         {"pilot": "First", "atc": "Response First", "language": "en"},
         {"pilot": "Second", "atc": "Response Second", "language": "es"},
     ]
+    assert len(llm.calls) == 2
+    assert "Recent exchanges:" in llm.calls[1].prompt
+    assert "Pilot: First" in llm.calls[1].prompt
+    assert "ATC: Response First" in llm.calls[1].prompt
 
 
 async def test_generate_response_passes_language_and_context_to_llm() -> None:

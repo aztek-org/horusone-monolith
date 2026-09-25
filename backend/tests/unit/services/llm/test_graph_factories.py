@@ -70,12 +70,62 @@ def test_live_graph_uses_injected_llm_and_scene_constraints() -> None:
     assert llm.calls[0].language == "en"
 
 
+@pytest.mark.asyncio
+async def test_controlled_pilot_message_overrides_context_collision() -> None:
+    scene = replace(DEFAULT_SCENE, prompt_template="[[reply:{pilot_message}]]")
+    graph = build_live_session_graph(FakeAdapter(), scene, False)
+
+    result = await graph.ainvoke(
+        _live_state("Actual current transmission") | {"context": {"pilot_message": "Stale value"}}
+    )
+
+    assert result["atc_response"] == "Actual current transmission"
+
+
 def test_live_graph_supports_an_empty_context() -> None:
     graph = build_live_session_graph(FakeAdapter(), DEFAULT_SCENE, False)
 
     result = asyncio.run(graph.ainvoke(_live_state()))
 
     assert result["atc_response"] == "Say again, transmission unclear."
+
+
+@pytest.mark.parametrize(
+    ("raw_response", "clean_response"),
+    [
+        ("ATC: Cleared for takeoff runway 27.", "Cleared for takeoff runway 27."),
+        ("Tower: Contact approach on 123.4.", "Contact approach on 123.4."),
+        (
+            "Approach: Descend and maintain flight level 250.",
+            "Descend and maintain flight level 250.",
+        ),
+        ("Ground: Taxi to runway 27 via Alpha.", "Taxi to runway 27 via Alpha."),
+        ("Response: Roger, maintain heading 270.", "Roger, maintain heading 270."),
+        (
+            "Controller: Reduce speed to 180 knots.",
+            "Reduce speed to 180 knots.",
+        ),
+        (
+            "  Tower:   Contact\n  approach   on 123.4.  ",
+            "Contact approach on 123.4.",
+        ),
+        ("ATC: Tower: Contact approach on 123.4.", "Contact approach on 123.4."),
+    ],
+)
+@pytest.mark.asyncio
+async def test_live_graph_normalizes_generated_response(
+    raw_response: str,
+    clean_response: str,
+) -> None:
+    scene = replace(
+        DEFAULT_SCENE,
+        prompt_template=f"{DEFAULT_SCENE.prompt_template}\n[[reply:{raw_response}]]",
+    )
+    graph = build_live_session_graph(FakeAdapter(), scene, False)
+
+    result = await graph.ainvoke(_live_state())
+
+    assert result["atc_response"] == clean_response
 
 
 @pytest.mark.asyncio

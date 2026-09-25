@@ -39,6 +39,15 @@ class SceneConfig:
     prompt_template: str
     constraints: SceneConstraints
 
+    def __post_init__(self) -> None:
+        """Reject prompt grammars that would fail before a live exchange."""
+        try:
+            self.prompt_template.format(
+                **{placeholder: "test" for placeholder in _REQUIRED_PROMPT_PLACEHOLDERS}
+            )
+        except (AttributeError, IndexError, KeyError, TypeError, ValueError) as exc:
+            raise ValueError("Scene prompt template cannot be rendered") from exc
+
 
 class SceneRegistry:
     """Look up immutable Scene configurations by version."""

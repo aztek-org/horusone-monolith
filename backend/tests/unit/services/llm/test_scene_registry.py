@@ -10,9 +10,28 @@ from pathlib import Path
 import pytest
 
 from app.services.llm.scenes.default_scene import DEFAULT_SCENE
-from app.services.llm.scenes.registry import SceneRegistry, load_scene_configs
+from app.services.llm.scenes.registry import SceneConfig, SceneRegistry, load_scene_configs
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
+_BROKEN_CONVERSION = (
+    "Placeholders: {pilot_message} {callsign} {aircraft_type} {altitude} "
+    "{heading} {speed} {position} {phase} {destination} {weather} "
+    "{pilot_message!z}"
+)
+
+
+def _scene_with_prompt(prompt_template: str) -> SceneConfig:
+    return SceneConfig(
+        version="direct-v1",
+        name="Direct",
+        aircraft={},
+        airports={},
+        objectives=[],
+        difficulty=1,
+        knowledge_refs=[],
+        prompt_template=prompt_template,
+        constraints=DEFAULT_SCENE.constraints,
+    )
 
 
 def test_default_scene_is_versioned_and_constrained() -> None:
@@ -137,3 +156,24 @@ scenes:
 
     with pytest.raises(ValueError, match="missing required placeholders"):
         load_scene_configs(path)
+
+
+def test_loader_rejects_invalid_prompt_conversion(tmp_path: Path) -> None:
+    path = tmp_path / "scenes.yaml"
+    path.write_text(
+        f"""
+scenes:
+  - version: broken-v1
+    name: Broken
+    prompt_template: "{_BROKEN_CONVERSION}"
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="cannot be rendered"):
+        load_scene_configs(path)
+
+
+def test_direct_scene_construction_rejects_invalid_prompt_conversion() -> None:
+    with pytest.raises(ValueError, match="cannot be rendered"):
+        _scene_with_prompt(_BROKEN_CONVERSION)
