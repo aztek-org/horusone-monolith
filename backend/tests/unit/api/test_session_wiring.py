@@ -135,6 +135,7 @@ def test_voice_session_without_scene_records_default_scene(
                 (session_id,),
             ).fetchall()
             assert [event_type for (event_type,) in events] == [
+                "created",
                 "session_started",
                 "exchange_completed",
             ]

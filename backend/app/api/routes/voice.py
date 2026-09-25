@@ -17,6 +17,7 @@ from app.middleware.auth import TokenUser, get_current_user_ws
 from app.models.training_session import TrainingSession
 from app.schemas.voice_log import VoiceLogCreate
 from app.services.llm.scenes.default_scene import DEFAULT_SCENE
+from app.services.training_sessions.audit import record_session_created
 from app.services.training_sessions.types import (
     SendTransmissionCommand,
     SessionModule,
@@ -239,6 +240,9 @@ async def voice_communication(websocket: WebSocket) -> None:
             db.add(training_session)
             await db.flush()
             db_session_id = training_session.id
+            # The row and its created audit event commit together, so a voice
+            # session can never exist without the event that explains it.
+            record_session_created(db, training_session, user_id=None)
             await db.commit()
             logger.info(f"Created TrainingSession id={db_session_id} for client {client_id}")
         # Voice clients do not choose a Scene, so the session runs the packaged
@@ -360,22 +364,26 @@ async def voice_communication(websocket: WebSocket) -> None:
                                     combined_audio,
                                     session_language,
                                 )
-                            except Exception as e:
+                            except Exception:
                                 # A Session failure must never look like a
-                                # successful exchange: fall back to nothing and
-                                # tell the client, rather than answering from
-                                # the pipeline outside the recorded session.
-                                logger.error(
+                                # successful exchange: tell the client, rather
+                                # than answering from the pipeline outside the
+                                # recorded session.  The cause stays in the log;
+                                # provider, graph and database errors must not be
+                                # disclosed to the client.
+                                logger.exception(
                                     "Session exchange failed for session %s",
                                     db_session_id,
-                                    exc_info=True,
                                 )
                                 await manager.send_json(
                                     client_id,
                                     {
                                         "type": "error",
                                         "code": "SESSION_ERROR",
-                                        "message": f"Training session unavailable: {e}",
+                                        "message": (
+                                            "Training session unavailable. "
+                                            "Please try again."
+                                        ),
                                     },
                                 )
                                 continue

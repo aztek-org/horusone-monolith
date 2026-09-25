@@ -8,7 +8,9 @@ fails, which must never look like a successful recorded exchange.
 
 from __future__ import annotations
 
+import json
 import os
+import uuid
 from types import SimpleNamespace
 
 import pytest
@@ -71,6 +73,30 @@ def _delete_client_sessions(client_id: str) -> None:
         db.execute("DELETE FROM training_sessions WHERE client_id = %s", (client_id,))
 
 
+def _create_organization() -> str:
+    org_id = str(uuid.uuid4())
+    with _sync_db() as db:
+        db.execute(
+            "INSERT INTO organizations (id, name, slug) VALUES (%s, %s, %s)",
+            (org_id, "Voice routing test", f"voice-{org_id}"),
+        )
+    return org_id
+
+
+def _delete_organization(org_id: str) -> None:
+    with _sync_db() as db:
+        db.execute("DELETE FROM organizations WHERE id = %s", (org_id,))
+
+
+def _session_events(session_id: int) -> list[tuple]:
+    with _sync_db() as db:
+        return db.execute(
+            "SELECT event_type, user_id, org_id, event_payload "
+            "FROM training_session_events WHERE session_id = %s ORDER BY created_at, id",
+            (session_id,),
+        ).fetchall()
+
+
 # ── Fallback: no persisted Session means the pipeline answers ──────────
 
 
@@ -102,13 +128,18 @@ def test_pipeline_fallback_is_used_when_no_session_can_be_persisted(
 def test_session_module_failure_is_not_converted_into_a_pipeline_answer(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A failing Session must surface as an error, never as a recorded answer.
+    """A failing Session must surface as a generic error, never as an answer.
 
     Silently falling back here would hand a student an unreviewed AI response
-    while the system believed the exchange had been recorded.
+    while the system believed the exchange had been recorded, and echoing the
+    raw exception would disclose provider, graph or database detail.
     """
     session_module = _install_session_module(
-        FakeSessionModule(send_error=RuntimeError("graph unavailable"))
+        FakeSessionModule(
+            send_error=RuntimeError(
+                "postgresql+asyncpg://horus:hunter2@db/horus_db: relation missing"
+            )
+        )
     )
     fake_ws_user(monkeypatch)
     fake_audio_services(monkeypatch)
@@ -121,17 +152,69 @@ def test_session_module_failure_is_not_converted_into_a_pipeline_answer(
             websocket.send_json({"type": "audio_end"})
             payloads, audio_frames = collect_frames(websocket)
 
-        assert payloads[-1] == {
-            "type": "error",
-            "code": "SESSION_ERROR",
-            "message": "Training session unavailable: graph unavailable",
-        }
+        error = payloads[-1]
+        assert error["type"] == "error"
+        assert error["code"] == "SESSION_ERROR"
+        assert error["message"] == "Training session unavailable. Please try again."
         assert "response_complete" not in [payload["type"] for payload in payloads]
         assert audio_frames == 0
         assert len(session_module.sent) == 1
+
+        for secret in ("hunter2", "postgresql", "relation missing", "RuntimeError"):
+            assert secret not in json.dumps(payloads)
     finally:
         if client_id:
             _delete_client_sessions(client_id)
+
+
+def test_successful_voice_session_records_its_created_audit_event(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A voice-created session must persist with the audit event that explains it.
+
+    The payload must match the HTTP create path so both routes produce the same
+    audit record, and the event's tenant must match the row's.
+    """
+    org_id = _create_organization()
+    _install_session_module(FakeSessionModule())
+    fake_ws_user(monkeypatch, organization_id=org_id)
+    fake_audio_services(monkeypatch)
+
+    client_id = None
+    try:
+        with client.websocket_connect("/ws/voice") as websocket:
+            client_id = websocket.receive_json()["client_id"]
+            websocket.send_bytes(b"RIFF-not-real-audio")
+            websocket.send_json({"type": "audio_end"})
+            payloads, audio_frames = collect_frames(websocket)
+
+        assert "response_complete" in [payload["type"] for payload in payloads]
+
+        with _sync_db() as db:
+            row = db.execute(
+                "SELECT id, org_id, user_id, scenario_id, language, status, scene_version "
+                "FROM training_sessions WHERE client_id = %s",
+                (client_id,),
+            ).fetchone()
+        assert row is not None
+        session_id, row_org_id, row_user_id, scenario_id, language, status, scene_version = row
+        assert str(row_org_id) == org_id
+
+        created = [event for event in _session_events(session_id) if event[0] == "created"]
+        assert len(created) == 1
+        _, event_user_id, event_org_id, payload = created[0]
+        assert str(event_org_id) == org_id == str(row_org_id)
+        assert event_user_id == row_user_id
+        assert payload == {
+            "scenario_id": scenario_id,
+            "language": language,
+            "status": status,
+            "scene_version": scene_version,
+        }
+    finally:
+        if client_id:
+            _delete_client_sessions(client_id)
+        _delete_organization(org_id)
 
 
 def test_failed_session_start_leaves_no_orphan_session_row(

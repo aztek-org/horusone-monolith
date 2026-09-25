@@ -40,6 +40,10 @@ from app.schemas.training_session import (
     TrainingSessionResponse,
 )
 from app.services.llm.scenes.default_scene import DEFAULT_SCENE
+from app.services.training_sessions.audit import (
+    record_session_created,
+    record_session_event,
+)
 from app.services.training_sessions.types import (
     Debrief,
     EndSessionCommand,
@@ -137,18 +141,7 @@ async def create_session(
     session.add(training_session)
     await session.flush()
     await session.refresh(training_session)
-    _record_session_event(
-        session=session,
-        training_session=training_session,
-        user_id=local_user.id,
-        event_type="created",
-        event_payload={
-            "scenario_id": training_session.scenario_id,
-            "language": training_session.language,
-            "status": training_session.status,
-            "scene_version": scene_version,
-        },
-    )
+    record_session_created(session, training_session, user_id=local_user.id)
     await session.commit()
     await request.app.state.session_module.start(
         StartSessionCommand(
@@ -375,10 +368,11 @@ async def complete_session(
         debrief=debrief,
         already_completed=False,
     )
-    _record_session_event(
-        session=session,
-        training_session=training_session,
+    record_session_event(
+        session,
+        session_id=training_session.id,
         user_id=local_user.id,
+        org_id=training_session.org_id,
         event_type="completed",
         event_payload={
             "grade": response.scoring.grade if response.scoring else None,
@@ -401,25 +395,6 @@ async def complete_session(
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
-
-
-def _record_session_event(
-    session: AsyncSession,
-    training_session: TrainingSession,
-    user_id: UUID | None,
-    event_type: str,
-    event_payload: dict[str, Any],
-) -> None:
-    """Append an audit event for the session lifecycle."""
-    session.add(
-        TrainingSessionEvent(
-            session_id=training_session.id,
-            user_id=user_id,
-            org_id=training_session.org_id,
-            event_type=event_type,
-            event_payload=event_payload,
-        )
-    )
 
 
 def _build_completion_response(
