@@ -30,6 +30,7 @@ _TOP_LEVEL_ENV = {
     "WHISPER_MODEL": "whisper_model",
     "WHISPER_LANGUAGE": "whisper_language",
     "TTS_LANGUAGE": "tts_language",
+    "SCENES_PATH": "scenes_path",
 }
 
 _GROUP_ENV = {

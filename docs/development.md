@@ -714,6 +714,7 @@ All variables are configured in `backend/.env`. Defaults are suitable for local 
 | `WHISPER_MODEL` | `base` | Whisper model size (`tiny` / `base` / `small` / `medium` / `large`) |
 | `WHISPER_LANGUAGE` | `en` | STT language |
 | `TTS_LANGUAGE` | `en` | TTS language |
+| `SCENES_PATH` | _(blank)_ | Scene registry YAML; blank uses the packaged `default-v1` Scene |
 | **Audio** | | |
 | `SAMPLE_RATE` | `16000` | Audio sample rate (Hz) |
 | `CHUNK_SIZE` | `1024` | Audio chunk size |

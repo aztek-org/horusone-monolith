@@ -2,22 +2,17 @@
 
 from __future__ import annotations
 
-import io
-import json
 import os
 
-import numpy as np
 import pytest
-import soundfile as sf
 from fastapi.testclient import TestClient
 from psycopg import Connection, connect
 from sqlalchemy.engine import make_url
 
-from app.api.routes import voice as voice_module
-from app.middleware.auth import TokenUser
+from app.config import Settings, get_settings
+from app.main import app
 from app.services.llm.scenes.default_scene import DEFAULT_SCENE
-from app.services.stt import whisper_service
-from app.services.tts import tts_service
+from tests.conftest import collect_frames, fake_audio_services, fake_ws_user
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 _SYNC_DSN = (
@@ -32,6 +27,43 @@ _SYNC_DSN = (
 def _sync_db() -> Connection:
     """Open a loop-independent connection so the sync test never touches the app pool."""
     return connect(_SYNC_DSN, autocommit=True)
+
+
+def _write_scenes_file(path) -> None:
+    path.write_text(
+        "scenes:\n"
+        "  - version: storm-v3\n"
+        "    name: Storm\n"
+        "    prompt_template: |-\n"
+        "      {callsign} at {altitude} ft, {heading} degrees, {speed} knots\n"
+        "      near {position}, {phase}, heading {destination}, {weather},\n"
+        "      aircraft {aircraft_type}. Pilot: {pilot_message}\n",
+        encoding="utf-8",
+    )
+
+
+def test_scene_registry_falls_back_to_the_packaged_default(client: TestClient) -> None:
+    """With no configured scenes_path the packaged default Scene is registered."""
+    registry = client.app.state.scene_registry
+
+    assert registry.default().version == DEFAULT_SCENE.version
+    assert registry.get(DEFAULT_SCENE.version) is DEFAULT_SCENE
+
+
+def test_scene_registry_loads_the_configured_scenes_path(test_settings: Settings, tmp_path) -> None:
+    """SCENES_PATH reaches the registry through Settings, not a direct env read."""
+    scenes_file = tmp_path / "scenes.yaml"
+    _write_scenes_file(scenes_file)
+    app.dependency_overrides[get_settings] = lambda: test_settings.model_copy(
+        update={"scenes_path": str(scenes_file)}
+    )
+    try:
+        with TestClient(app) as client:
+            registry = client.app.state.scene_registry
+            assert registry.get("storm-v3").version == "storm-v3"
+            assert registry.default().version == DEFAULT_SCENE.version
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_composition_root_builds_session_module(client: TestClient) -> None:
@@ -57,29 +89,8 @@ def test_voice_session_without_scene_records_default_scene(
     default Scene version, proving the voice path no longer needs a caller to
     choose a Scene first.
     """
-    token_user = TokenUser(
-        keycloak_id="kc-voice",
-        email="voice@test.com",
-        display_name="Voice Pilot",
-        roles=["platform-admin"],
-        organization_id=None,
-    )
-
-    async def _authenticated(_websocket: object) -> TokenUser:
-        return token_user
-
-    async def _transcribe(_self: object, _audio: bytes, language: str | None = None):
-        return "N123AB tower, taxi via alpha", "en"
-
-    async def _synthesize(_self: object, _text: str, language: str | None = None) -> bytes:
-        buffer = io.BytesIO()
-        sf.write(buffer, np.zeros(800, dtype="float32"), 16000, format="WAV")
-        return buffer.getvalue()
-
-    monkeypatch.setattr(voice_module, "get_current_user_ws", _authenticated)
-    monkeypatch.setattr(whisper_service.whisper, "load_model", lambda *_a, **_k: object())
-    monkeypatch.setattr(whisper_service.WhisperSTTService, "transcribe", _transcribe)
-    monkeypatch.setattr(tts_service.TTSService, "synthesize", _synthesize)
+    fake_ws_user(monkeypatch)
+    fake_audio_services(monkeypatch)
 
     client_id = None
     payloads: list[dict] = []
@@ -91,17 +102,7 @@ def test_voice_session_without_scene_records_default_scene(
 
         websocket.send_bytes(b"RIFF-not-real-audio")
         websocket.send_json({"type": "audio_end"})
-
-        for _ in range(10):
-            message = websocket.receive()
-            if message.get("type") == "websocket.disconnect":
-                break
-            if message.get("bytes"):
-                audio_frames += 1
-            if message.get("text"):
-                payloads.append(json.loads(message["text"]))
-                if payloads[-1].get("type") == "response_complete":
-                    break
+        payloads, audio_frames = collect_frames(websocket)
 
     frame_types = [payload["type"] for payload in payloads]
     assert "response_complete" in frame_types

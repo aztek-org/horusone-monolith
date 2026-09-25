@@ -122,8 +122,10 @@ async def create_session(
     Requires an **active seat** in an organization.  Users without a seat
     can browse scenarios and view stats but cannot start training.
 
-    The persisted row and the training Session module are created together so
-    the Scene version used for the session is recorded from the first request.
+    The row and its ``created`` audit event are written in one unit of work, so
+    a session can never exist without the event that explains it.  The Session
+    module then starts the session through its own unit of work, which requires
+    the row to be visible first.
     """
     scene_version = data.scene_version or DEFAULT_SCENE.version
     training_session = TrainingSession(
@@ -135,20 +137,6 @@ async def create_session(
     session.add(training_session)
     await session.flush()
     await session.refresh(training_session)
-    # The Session module writes the Scene snapshot and its first trace event
-    # through its own unit of work, so the row must be visible to that
-    # transaction before the module is asked to start the session.
-    await session.commit()
-    await request.app.state.session_module.start(
-        StartSessionCommand(
-            org_id=org_id,
-            user_id=local_user.id,
-            session_id=training_session.id,
-            scene_version=scene_version,
-            language=data.language,
-            flight_plan=data.flight_plan or {},
-        )
-    )
     _record_session_event(
         session=session,
         training_session=training_session,
@@ -160,6 +148,17 @@ async def create_session(
             "status": training_session.status,
             "scene_version": scene_version,
         },
+    )
+    await session.commit()
+    await request.app.state.session_module.start(
+        StartSessionCommand(
+            org_id=org_id,
+            user_id=local_user.id,
+            session_id=training_session.id,
+            scene_version=scene_version,
+            language=data.language,
+            flight_plan=data.flight_plan or {},
+        )
     )
     logger.info("Created training session: %s (user=%s)", training_session.id, local_user.id)
     return training_session  # type: ignore[return-value]
@@ -355,20 +354,22 @@ async def complete_session(
             ),
         )
 
-    training_session.status = "completed"
-    training_session.ended_at = datetime.now(timezone.utc)
-    await session.flush()
-    await session.refresh(training_session)
-    # The Session module scores the state it persisted for this tenant, so the
-    # row and its ended_at must be visible to that transaction.
-    await session.commit()
-
+    # Score first: the Session module reads the graph state it persisted, not this
+    # row.  Keeping the status change in the route's own uncommitted unit of work
+    # means a scoring failure rolls the row back to "active" instead of stranding
+    # a completed session that can never produce a debrief.
     debrief = await request.app.state.session_module.end(
         EndSessionCommand(
             org_id=training_session.org_id,
             session_id=training_session.id,
         )
     )
+
+    training_session.status = "completed"
+    training_session.ended_at = datetime.now(timezone.utc)
+    await session.flush()
+    await session.refresh(training_session)
+
     response = _build_completion_response(
         training_session=training_session,
         debrief=debrief,

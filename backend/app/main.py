@@ -1,7 +1,6 @@
 """Main FastAPI application for Horus ATC Voice Communication API."""
 
 import logging
-import os
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
@@ -118,11 +117,10 @@ def _resolve_settings(application: FastAPI) -> Settings:
     return override() if override is not None else get_settings()
 
 
-def _build_scene_registry() -> SceneRegistry:
-    """Load the Scene registry, preferring ``SCENES_PATH`` over the packaged Scene."""
-    override = os.getenv("SCENES_PATH")
-    if override:
-        return load_scene_configs(override)
+def _build_scene_registry(app_settings: Settings) -> SceneRegistry:
+    """Load the Scene registry, preferring a configured path over the packaged Scene."""
+    if app_settings.scenes_path:
+        return load_scene_configs(app_settings.scenes_path)
     return SceneRegistry({DEFAULT_SCENE.version: DEFAULT_SCENE})
 
 
@@ -149,7 +147,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         await store.setup()
     else:
         store = InMemorySessionStore()
-    scenes = _build_scene_registry()
+    scenes = _build_scene_registry(app_settings)
     retriever = _build_retriever(app_settings)
     trace = SqlAlchemyTraceRecorder()
 

@@ -163,7 +163,9 @@ class TrainingSessionModule:
             **(state.get("context") or {}),
             **(command.context_overrides or {}),
         }
-        result, interrupted = await self._run_live_graph(state)
+        result, interrupted = await self._run_live_graph(
+            state, storage_org_id, command.session_id
+        )
         result["pending_instructor"] = interrupted
         await self._store.save(
             storage_org_id, command.session_id, result, interrupted
@@ -223,7 +225,7 @@ class TrainingSessionModule:
             )
         else:
             result, interrupted = await self._run_live_graph(
-                state, interrupt_before_response=False
+                state, storage_org_id, session_id, interrupt_before_response=False
             )
             if interrupted:
                 raise RuntimeError("Non-interrupting live graph unexpectedly paused")
@@ -309,10 +311,16 @@ class TrainingSessionModule:
     async def _run_live_graph(
         self,
         state: dict[str, Any],
+        org_id: uuid.UUID,
+        session_id: int,
         *,
         interrupt_before_response: bool | None = None,
     ) -> tuple[dict[str, Any], bool]:
-        """Run the graph and detect LangGraph's streamed static interrupt event."""
+        """Run the graph on the tenant's checkpoint thread and detect interrupts.
+
+        The ``thread_id`` is what keys the LangGraph checkpointer, so it must
+        match the id the store uses or the run would not resume this session.
+        """
         scene_version = str(state["scene_version"])
         interrupts = (
             self._interrupt_before_response
@@ -329,10 +337,15 @@ class TrainingSessionModule:
             )
             self._live_graphs[graph_key] = graph
 
+        config = {
+            "configurable": {
+                "thread_id": SessionStore.thread_id(org_id, session_id),
+            }
+        }
         result = dict(state)
         interrupted = False
         async for mode, chunk in graph.astream(
-            state, stream_mode=["values", "updates"]
+            state, config=config, stream_mode=["values", "updates"]
         ):
             if mode == "values":
                 result = dict(chunk)

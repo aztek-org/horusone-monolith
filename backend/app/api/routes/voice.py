@@ -3,8 +3,10 @@
 import json
 import logging
 import uuid
+from dataclasses import dataclass
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from sqlalchemy import delete
 
 from app.core.audio_pipeline import AudioPipeline, PipelineResult
 from app.core.websocket_manager import manager
@@ -75,6 +77,32 @@ async def _persist_voice_exchange(
         logger.warning(f"Could not persist voice logs (DB unavailable?): {e}")
 
 
+async def _discard_session(db_session_id: int) -> None:
+    """Remove a session row that could not be started, so no orphan is left behind.
+
+    The row must be committed before the Session module can record anything
+    against it, so a failed start is compensated for by deleting the row here
+    rather than leaving a session that claims to exist but has no provenance.
+    """
+    try:
+        session_factory = get_session_factory()
+        async with session_factory() as db:
+            await db.execute(
+                delete(TrainingSession).where(TrainingSession.id == db_session_id)
+            )
+            await db.commit()
+    except Exception as e:
+        logger.warning("Could not discard training session %s: %s", db_session_id, e)
+
+
+@dataclass(frozen=True)
+class _ExchangeOutcome:
+    """Result of one pilot transmission, plus why no audio was produced."""
+
+    result: PipelineResult
+    pending_instructor: bool = False
+
+
 async def _process_exchange(
     pipeline: AudioPipeline,
     session_module: SessionModule,
@@ -82,7 +110,7 @@ async def _process_exchange(
     db_session_id: int,
     audio: bytes,
     language: str | None,
-) -> PipelineResult:
+) -> _ExchangeOutcome:
     """Answer one pilot transmission through the persisted training Session.
 
     The pilot transmission is transcribed, handed to the Session module that
@@ -93,8 +121,10 @@ async def _process_exchange(
     pilot_transcript, detected_language = await pipeline.transcribe(audio, language=language)
     if not pilot_transcript:
         logger.warning("No transcription received, returning silence")
-        return PipelineResult(
-            audio=b"", pilot_transcript="", atc_response="", language=detected_language or "en"
+        return _ExchangeOutcome(
+            PipelineResult(
+                audio=b"", pilot_transcript="", atc_response="", language=detected_language or "en"
+            )
         )
 
     exchange = await session_module.send(
@@ -106,11 +136,14 @@ async def _process_exchange(
     )
     if exchange.pending_instructor:
         logger.info("Exchange for session %s is awaiting instructor review", db_session_id)
-        return PipelineResult(
-            audio=b"",
-            pilot_transcript=pilot_transcript,
-            atc_response="",
-            language=detected_language,
+        return _ExchangeOutcome(
+            PipelineResult(
+                audio=b"",
+                pilot_transcript=pilot_transcript,
+                atc_response="",
+                language=detected_language,
+            ),
+            pending_instructor=True,
         )
     if exchange.citations:
         logger.info(
@@ -120,11 +153,13 @@ async def _process_exchange(
         )
 
     atc_audio = await pipeline.speak(exchange.atc_response, language=detected_language)
-    return PipelineResult(
-        audio=atc_audio,
-        pilot_transcript=pilot_transcript,
-        atc_response=exchange.atc_response,
-        language=detected_language,
+    return _ExchangeOutcome(
+        PipelineResult(
+            audio=atc_audio,
+            pilot_transcript=pilot_transcript,
+            atc_response=exchange.atc_response,
+            language=detected_language,
+        )
     )
 
 
@@ -220,6 +255,8 @@ async def voice_communication(websocket: WebSocket) -> None:
         )
     except Exception as e:
         logger.warning(f"Could not start TrainingSession (DB unavailable?): {e}")
+        if db_session_id is not None:
+            await _discard_session(db_session_id)
         db_session_id = None
 
     # Send connection confirmation
@@ -314,20 +351,54 @@ async def voice_communication(websocket: WebSocket) -> None:
                             f"Processing {len(combined_audio)} bytes of audio"
                         )
                         if db_session_id is not None:
-                            result = await _process_exchange(
-                                pipeline,
-                                session_module,
-                                org_id,
-                                db_session_id,
-                                combined_audio,
-                                session_language,
-                            )
+                            try:
+                                outcome = await _process_exchange(
+                                    pipeline,
+                                    session_module,
+                                    org_id,
+                                    db_session_id,
+                                    combined_audio,
+                                    session_language,
+                                )
+                            except Exception as e:
+                                # A Session failure must never look like a
+                                # successful exchange: fall back to nothing and
+                                # tell the client, rather than answering from
+                                # the pipeline outside the recorded session.
+                                logger.error(
+                                    "Session exchange failed for session %s",
+                                    db_session_id,
+                                    exc_info=True,
+                                )
+                                await manager.send_json(
+                                    client_id,
+                                    {
+                                        "type": "error",
+                                        "code": "SESSION_ERROR",
+                                        "message": f"Training session unavailable: {e}",
+                                    },
+                                )
+                                continue
                         else:
-                            result = await pipeline.process_audio(
-                                combined_audio, language=session_language
+                            outcome = _ExchangeOutcome(
+                                await pipeline.process_audio(
+                                    combined_audio, language=session_language
+                                )
                             )
+                        result = outcome.result
 
-                        if result.audio:
+                        if outcome.pending_instructor:
+                            await manager.send_json(
+                                client_id,
+                                {
+                                    "type": "awaiting_instructor",
+                                    "message": (
+                                        "Transmission held for instructor review. "
+                                        "No ATC response will be sent until it is approved."
+                                    ),
+                                },
+                            )
+                        elif result.audio:
                             # Persist voice exchange to DB (non-blocking, best-effort)
                             if db_session_id and result.pilot_transcript:
                                 await _persist_voice_exchange(

@@ -124,6 +124,8 @@ class Settings(BaseSettings):
     trace: TraceSettings = TraceSettings()
     audio: AudioSettings = AudioSettings()
 
+    scenes_path: str = ""
+
     whisper_model: str = "base"
     whisper_language: str = "en"
     tts_language: str = "en"

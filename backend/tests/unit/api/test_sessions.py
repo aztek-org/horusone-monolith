@@ -232,3 +232,145 @@ async def test_get_session_events_returns_session_audit_entries() -> None:
     assert len(result) == 2
     assert result[0].event_type == "created"
     assert result[1].event_type == "completed"
+
+
+class _UnitOfWorkStub:
+    """AsyncSession stand-in that records the order of a route's own DB work."""
+
+    def __init__(self, training_session: object | None = None) -> None:
+        self.training_session = training_session
+        self.calls: list[str] = []
+        self.added: list[object] = []
+
+    async def execute(self, *_args: object, **_kwargs: object) -> _SessionResult:
+        self.calls.append("execute")
+        return _SessionResult(self.training_session)
+
+    def add(self, instance: object) -> None:
+        self.calls.append(f"add:{type(instance).__name__}")
+        self.added.append(instance)
+
+    async def flush(self) -> None:
+        self.calls.append("flush")
+
+    async def refresh(self, instance: object) -> None:
+        self.calls.append("refresh")
+        if isinstance(instance, TrainingSession):
+            instance.id = 77
+
+    async def commit(self) -> None:
+        self.calls.append("commit")
+
+    async def rollback(self) -> None:
+        self.calls.append("rollback")
+
+
+@pytest.mark.asyncio
+async def test_create_session_commits_row_and_audit_event_together() -> None:
+    """A session and its created event must reach the database in one commit."""
+    session = _UnitOfWorkStub()
+
+    await sessions.create_session(
+        data=TrainingSessionCreate(scenario_id=3, language="en"),
+        request=_fake_request(FakeSessionModule()),
+        user=_build_student(uuid.uuid4()),
+        _seat=object(),
+        org_id=None,
+        local_user=SimpleNamespace(id=uuid.uuid4()),
+        session=session,
+    )
+
+    assert session.calls == [
+        "add:TrainingSession",
+        "flush",
+        "refresh",
+        "add:TrainingSessionEvent",
+        "commit",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_create_session_keeps_its_audit_event_when_start_fails() -> None:
+    """A failed Session start must not leave a session without its created event."""
+    session = _UnitOfWorkStub()
+    session_module = FakeSessionModule(start_error=RuntimeError("graph unavailable"))
+
+    with pytest.raises(RuntimeError, match="graph unavailable"):
+        await sessions.create_session(
+            data=TrainingSessionCreate(scenario_id=3, language="en"),
+            request=_fake_request(session_module),
+            user=_build_student(uuid.uuid4()),
+            _seat=object(),
+            org_id=None,
+            local_user=SimpleNamespace(id=uuid.uuid4()),
+            session=session,
+        )
+
+    # The row and its created event were written together before the module ran,
+    # so the committed session is always explained by an audit event.
+    commit_index = session.calls.index("commit")
+    assert "add:TrainingSession" in session.calls[:commit_index]
+    assert "add:TrainingSessionEvent" in session.calls[:commit_index]
+
+
+@pytest.mark.asyncio
+async def test_scoring_failure_leaves_the_session_retryable() -> None:
+    """A failed end() must not strand a completed row with no debrief."""
+    now = datetime.now(tz=timezone.utc)
+    training_session = SimpleNamespace(
+        id=42,
+        scenario_id=7,
+        status="active",
+        language="en",
+        started_at=now,
+        ended_at=None,
+        user_id=uuid.uuid4(),
+        org_id=uuid.uuid4(),
+    )
+    session = _UnitOfWorkStub(training_session)
+    session_module = FakeSessionModule(end_error=RuntimeError("scoring graph unavailable"))
+
+    with pytest.raises(RuntimeError, match="scoring graph unavailable"):
+        await sessions.complete_session(
+            session_id=42,
+            request=_fake_request(session_module),
+            user=_build_student(training_session.org_id),
+            local_user=SimpleNamespace(id=training_session.user_id),
+            session=session,
+        )
+
+    assert "commit" not in session.calls
+    assert training_session.status == "active"
+    assert training_session.ended_at is None
+    assert session.added == []
+
+
+@pytest.mark.asyncio
+async def test_completion_commits_status_and_event_after_scoring() -> None:
+    """A scored session is marked completed and audited in the same unit of work."""
+    training_session = SimpleNamespace(
+        id=42,
+        scenario_id=7,
+        status="active",
+        language="en",
+        started_at=datetime.now(tz=timezone.utc),
+        ended_at=None,
+        user_id=uuid.uuid4(),
+        org_id=uuid.uuid4(),
+    )
+    session = _UnitOfWorkStub(training_session)
+    session_module = FakeSessionModule(Debrief(scoring={}, badges_earned=[], report=""))
+
+    await sessions.complete_session(
+        session_id=42,
+        request=_fake_request(session_module),
+        user=_build_student(training_session.org_id),
+        local_user=SimpleNamespace(id=training_session.user_id),
+        session=session,
+    )
+
+    assert session_module.ended
+    assert "commit" not in session.calls
+    assert session.calls[-1] == "add:TrainingSessionEvent"
+    assert training_session.status == "completed"
+    assert training_session.ended_at is not None

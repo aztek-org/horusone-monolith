@@ -400,3 +400,82 @@ async def test_validate_runs_the_graph_without_persisting_state() -> None:
     assert "validation_passed" in snapshot.state
     assert await store.load(uuid.UUID(int=0), 0) is None
     assert trace.events == []
+
+
+class _ConfigRecordingGraph:
+    """Stand-in live graph that records the LangGraph config it is handed."""
+
+    def __init__(self, configs: list[object], interrupts: bool) -> None:
+        self.configs = configs
+        self.interrupts = interrupts
+
+    async def astream(self, state: dict, config: object = None, **_kwargs: object):
+        self.configs.append(config)
+        if self.interrupts:
+            yield "updates", {"__interrupt__": ("generate_atc_response",)}
+        yield "values", {
+            **state,
+            "atc_response": "N123AB cleared",
+            "exchange_count": 1,
+            "pending_instructor": False,
+        }
+
+
+def _module_with_recording_graph(monkeypatch, configs: list[object]) -> TrainingSessionModule:
+    monkeypatch.setattr(
+        "app.services.training_sessions.session_module.build_live_session_graph",
+        lambda _llm, _scene, interrupts: _ConfigRecordingGraph(configs, interrupts),
+    )
+    return _module()
+
+
+@pytest.mark.asyncio
+async def test_live_graph_runs_on_the_tenant_scoped_thread(monkeypatch) -> None:
+    """The live graph must be invoked with the tenant's checkpoint thread_id."""
+    configs: list[object] = []
+    module = _module_with_recording_graph(monkeypatch, configs)
+    org_id = uuid.uuid4()
+    await _start(module, org_id)
+
+    await module.send(SendTransmissionCommand(org_id, 1, "Tower, request taxi"))
+
+    assert configs == [{"configurable": {"thread_id": f"{org_id}:1"}}]
+
+
+@pytest.mark.asyncio
+async def test_thread_id_separates_tenants_sharing_a_session_id(monkeypatch) -> None:
+    """Two tenants running the same session_id must not share a checkpoint thread."""
+    configs: list[object] = []
+    first = uuid.uuid4()
+    second = uuid.uuid4()
+
+    tenant_a = _module_with_recording_graph(monkeypatch, configs)
+    await _start(tenant_a, first)
+    await tenant_a.send(SendTransmissionCommand(first, 1, "Tower, request taxi"))
+
+    tenant_b = _module_with_recording_graph(monkeypatch, configs)
+    await _start(tenant_b, second)
+    await tenant_b.send(SendTransmissionCommand(second, 1, "Tower, request taxi"))
+
+    thread_ids = [config["configurable"]["thread_id"] for config in configs]
+    assert thread_ids == [f"{first}:1", f"{second}:1"]
+    assert thread_ids[0] != thread_ids[1]
+
+
+@pytest.mark.asyncio
+async def test_await_instructor_runs_on_the_tenant_scoped_thread(monkeypatch) -> None:
+    """The instructor release path must use the same tenant-scoped thread."""
+    configs: list[object] = []
+    module = _module(interrupt_before_response=True)
+    monkeypatch.setattr(
+        "app.services.training_sessions.session_module.build_live_session_graph",
+        lambda _llm, _scene, interrupts: _ConfigRecordingGraph(configs, interrupts),
+    )
+    org_id = uuid.uuid4()
+    await _start(module, org_id)
+    await module.send(SendTransmissionCommand(org_id, 1, "request clearance"))
+    configs.clear()
+
+    await module.await_instructor(org_id, 1)
+
+    assert configs == [{"configurable": {"thread_id": f"{org_id}:1"}}]
