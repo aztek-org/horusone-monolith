@@ -98,3 +98,4 @@ considered three stores:
 - [ADR-002: Database Selection](./ADR-002-database-postgresql.md)
 - [ADR-007: LLM Provider Adapters](./ADR-007-llm-provider-adapters.md)
 - [ADR-009: OpenTelemetry and Postgres Trace](./ADR-009-opentelemetry-and-postgres-trace.md)
+- Index: [ARCHITECTURE-INDEX.md](./ARCHITECTURE-INDEX.md)

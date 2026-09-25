@@ -56,6 +56,13 @@ Routing policy, in config:
 
 ## Consequences
 
+> **Standing rule.** A shipped default that contradicts an accepted decision is a
+> defect, even when nothing errors — including the defaults this ADR introduced.
+> The remedy is a config regression test that asserts the **concrete value**, not
+> merely that a value exists. The rule, the three defaults that motivated it, and
+> the tests that now guard them are recorded in
+> [ADR-009](./ADR-009-opentelemetry-and-postgres-trace.md#shipped-defaults-are-part-of-the-contract).
+
 ### Positive
 
 - Provider choice moves from call sites to one config field.
@@ -81,3 +88,4 @@ Routing policy, in config:
 - [ADR-004: LangGraph Multi-Agent Architecture](./ADR-004-langgraph-multi-agent.md)
 - [ADR-006: Scene/Session Split and Persistent LangGraph State](./ADR-006-scene-session-and-persistent-langgraph.md)
 - [ADR-008: Tenant-Scoped Knowledge and pgvector Retrieval](./ADR-008-tenant-scoped-knowledge-and-pgvector-retrieval.md)
+- Index: [ARCHITECTURE-INDEX.md](./ARCHITECTURE-INDEX.md)

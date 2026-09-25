@@ -32,16 +32,24 @@ traceability, and the ability to run several backend processes.
    that Scene. A Flight Plan remains the pilot's own submission and may seed a
    Scene. These terms are recorded in `CONTEXT.md`.
 
-2. **A single Session module owns the lifecycle.** Callers use a narrow interface:
+2. **A single Session module owns the lifecycle.** Callers use a narrow interface,
+   as built in `backend/app/services/training_sessions/session_module.py`:
 
    ```python
-   class TrainingSessionModule(Protocol):
+   class TrainingSessionModule:
        async def start(self, command: StartSessionCommand) -> SessionSnapshot: ...
+       async def validate(self, *, user_id, flight_plan, language="en") -> SessionSnapshot: ...
        async def send(self, command: SendTransmissionCommand) -> ExchangeResult: ...
-       async def await_instructor(self, session_id: int, org_id: UUID) -> ExchangeResult | None: ...
+       async def await_instructor(
+           self, org_id: UUID, session_id: int, instructor_response: str | None = None
+       ) -> ExchangeResult | None: ...
        async def end(self, command: EndSessionCommand) -> Debrief: ...
-       async def snapshot(self, session_id: int, org_id: UUID) -> SessionSnapshot: ...
+       async def snapshot(self, org_id: UUID | None, session_id: int) -> SessionSnapshot: ...
    ```
+
+   Note the argument order: `org_id` comes before `session_id`, and
+   `validate()` exists for the flight-plan validation route, which has no
+   training session yet and persists nothing.
 
    The interface hides graph construction, checkpointer wiring, tenant checks,
    event emission, and voice-log persistence. Callers never see `HorusState`,
@@ -66,8 +74,24 @@ traceability, and the ability to run several backend processes.
    `GET /api/v1/sessions/{id}/events` and `GET /api/v1/sessions/{id}/replay`.
 
 6. **The in-memory `HorusOrchestrator` is retired** as a caller-facing module once
-   the Session module is live. `backend/tests/unit/services/llm/test_atc_agent.py`
-   is rewritten to cross the Session module interface rather than a private graph.
+   the Session module is live.
+
+   *Implemented.* `backend/app/services/llm/orchestrator.py` no longer exists and
+   no module exports `HorusOrchestrator`. The composition root
+   `backend/app/main.py` builds the `TrainingSessionModule` in its `lifespan` and
+   publishes it, with every other collaborator, on `app.state`. In production the
+   store is `PostgresSessionStore`; in every other environment it is
+   `InMemorySessionStore`, selected by `settings.environment == "production"`.
+   `backend/app/services/llm/atc_agent.py` survives as `ATCAgent`, a thin adapter
+   over the same live graph, for the `AudioPipeline` interface.
+
+   *Correction to the original text.* The original decision said
+   `tests/unit/services/llm/test_atc_agent.py` would be rewritten to cross the
+   Session module interface. It was not: that file still tests `ATCAgent`
+   directly. The tests that cross the Session module interface are
+   `tests/unit/services/test_session_module.py` and
+   `tests/integration/test_session_module_postgres.py`, which run the same
+   interface against two different checkpointers.
 
 ## Consequences
 
@@ -100,3 +124,4 @@ traceability, and the ability to run several backend processes.
 - [ADR-004: LangGraph Multi-Agent Architecture](./ADR-004-langgraph-multi-agent.md)
 - [ADR-007: LLM Provider Adapters](./ADR-007-llm-provider-adapters.md)
 - [ADR-009: OpenTelemetry and Postgres Trace](./ADR-009-opentelemetry-and-postgres-trace.md)
+- Index: [ARCHITECTURE-INDEX.md](./ARCHITECTURE-INDEX.md)

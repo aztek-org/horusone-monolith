@@ -54,3 +54,7 @@ Docker Compose stack (`backend/docker-compose.yml`):
 - WebSocket must use `wss://` (TLS) in production
 - VPS needs a reverse proxy (nginx/Caddy) in front of FastAPI for TLS termination
 - Frontend and backend can be updated independently
+
+## References
+
+- Index: [ARCHITECTURE-INDEX.md](./ARCHITECTURE-INDEX.md)

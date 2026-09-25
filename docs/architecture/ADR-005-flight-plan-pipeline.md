@@ -184,3 +184,5 @@ erDiagram
 - [ICAO Flight Plan Format (Doc 4444)](https://www.icao.int/airnavigation/Pages/flight-plan.aspx)
 - Related ADR: [ADR-004: LangGraph Multi-Agent Architecture](./ADR-004-langgraph-multi-agent.md)
 - Related ADR: [ADR-002: Database Selection](./ADR-002-database-postgresql.md)
+- Related ADR: [ADR-006: Scene/Session Split and Persistent LangGraph State](./ADR-006-scene-session-and-persistent-langgraph.md)
+- Index: [ARCHITECTURE-INDEX.md](./ARCHITECTURE-INDEX.md)
