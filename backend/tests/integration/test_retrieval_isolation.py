@@ -2,7 +2,7 @@ import os
 import uuid
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.config import KnowledgeSettings
 from app.db.session import get_session_factory
@@ -10,6 +10,7 @@ from app.knowledge.ingest import KnowledgeIngestor
 from app.knowledge.retrieval.pgvector import PgVectorRetriever
 from app.knowledge.types import DocumentUpload, RetrievalQuery
 from app.llm.adapters.fake_adapter import FakeAdapter
+from app.models.knowledge_document import ContentChunk
 from app.models.organization import Organization
 
 pytestmark = pytest.mark.skipif(
@@ -43,9 +44,23 @@ async def _organization_ids() -> tuple:
     return organizations[0].id, organizations[1].id
 
 
+async def _fresh_organization_id() -> object:
+    """Create and commit a tenant with no knowledge chunks of its own."""
+    suffix = uuid.uuid4().hex
+    organization = Organization(
+        name=f"Knowledge Empty Tenant {suffix}",
+        slug=f"knowledge-empty-tenant-{suffix}",
+    )
+    async with get_session_factory()() as db:
+        db.add(organization)
+        await db.commit()
+    return organization.id
+
+
 @pytest.mark.asyncio
 async def test_private_chunk_never_leaks_across_tenants():
-    org_a, org_b = await _organization_ids()
+    org_a = (await _organization_ids())[0]
+    org_b = await _fresh_organization_id()
     async with get_session_factory()() as db:
         await KnowledgeIngestor(FakeAdapter(), SETTINGS, "nomic-embed-text").ingest(
             db,
@@ -59,6 +74,12 @@ async def test_private_chunk_never_leaks_across_tenants():
             ),
         )
         await db.commit()
+
+    async with get_session_factory()() as db:
+        chunk_count = await db.execute(
+            select(func.count()).select_from(ContentChunk).where(ContentChunk.org_id == org_b)
+        )
+        assert chunk_count.scalar_one() == 0
 
     retriever = PgVectorRetriever(get_session_factory, FakeAdapter(), SETTINGS)
     results = await retriever.search(

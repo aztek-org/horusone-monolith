@@ -53,7 +53,7 @@ class KnowledgeSettings:
     """Configuration for knowledge retrieval and chunking."""
 
     chunk_size: int = 1000
-    chunk_overlap: int = 200
+    chunk_overlap: int = 150
     embedding_dimensions: int = 768
     top_k: int = 5
     default_chunk_quota: int = 10

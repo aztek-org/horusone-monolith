@@ -62,6 +62,14 @@ def test_settings_defaults() -> None:
     assert settings.enable_radio_effects is True
 
 
+def test_knowledge_chunking_defaults_are_stable() -> None:
+    """Keep shipped knowledge chunking aligned with the ingest contract."""
+    settings = Settings(_env_file=None, environment="testing")
+
+    assert settings.knowledge.chunk_size == 1000
+    assert settings.knowledge.chunk_overlap == 150
+
+
 def test_cors_origins_list_multiple() -> None:
     """Test CORS origins are correctly parsed from a comma-separated string."""
     settings = Settings(cors_origins="http://localhost:3000,https://example.com")
