@@ -39,13 +39,27 @@ router = APIRouter(prefix="/flight-plans", tags=["Flight Plans"])
 plan_repo = FlightPlanRepository()
 
 
-def _get_parser() -> FlightPlanParser:
-    """Construct a ``FlightPlanParser``.
+def _get_parser(request: Request) -> FlightPlanParser:
+    """Construct a ``FlightPlanParser`` around the application's LLM module.
+
+    The parser used to be built with no ``llm``, so it ran
+    ``build_llm(get_settings())`` per request: every ``/from-text`` and
+    ``/from-image`` call constructed a fresh provider adapter, and both
+    ``ChatGroq`` and ``ollama.Client`` own an httpx client that is never closed,
+    so each request leaked one.  The composition root already builds a single
+    module and publishes it on ``app.state.llm`` (``app/main.py``), so the route
+    hands that to the parser instead of building a second one.
 
     The parser reads ``LLM_*`` itself and ignores the retired
-    ``ollama_base_url``/``ollama_llm_model`` names, so nothing is passed to it.
+    ``ollama_base_url``/``ollama_llm_model`` names, so nothing else is passed.
+
+    Args:
+        request: The inbound request, whose application owns the LLM module.
+
+    Returns:
+        A parser bound to the application's LLM module.
     """
-    return FlightPlanParser()
+    return FlightPlanParser(request.app.state.llm)
 
 
 # ── List / Create ──────────────────────────────────────────────────
@@ -112,6 +126,7 @@ async def create_flight_plan(
 )
 async def create_flight_plan_from_text(
     data: FlightPlanFromText,
+    request: Request,
     user: CurrentUser,
     _seat: RequireActiveSeat,
     local_user: User = Depends(get_authenticated_user),
@@ -120,14 +135,15 @@ async def create_flight_plan_from_text(
 ) -> FlightPlanRead:
     """Create a flight plan by parsing free-text input via AI.
 
-    Uses the Ollama LLM to extract structured fields from the free-text
-    description.  Falls back to keyword-based extraction when the LLM
-    is unavailable.
+    Uses the configured LLM provider to extract structured fields from the
+    free-text description.  Falls back to keyword-based extraction when the LLM
+    is unavailable — including when the parser itself cannot be constructed, so
+    a provider that refuses to build yields a stub plan rather than a 500.
     """
     effective_org = data.org_id or org_id
-    parser = _get_parser()
 
     try:
+        parser = _get_parser(request)
         parsed = await parser.from_text(data.text)
     except Exception:
         logger.warning("Flight plan text parsing failed — creating stub plan", exc_info=True)
@@ -159,6 +175,7 @@ async def create_flight_plan_from_text(
 )
 async def create_flight_plan_from_image(
     file: UploadFile,
+    request: Request,
     user: CurrentUser,
     _seat: RequireActiveSeat,
     local_user: User = Depends(get_authenticated_user),
@@ -168,11 +185,11 @@ async def create_flight_plan_from_image(
     """Create a flight plan from an uploaded image (OCR + AI parsing).
 
     Pipeline: read image bytes → OCR text extraction → LLM parsing
-    into structured fields.  Falls back gracefully at each stage.
+    into structured fields.  Falls back gracefully at each stage, including when
+    the parser cannot be constructed at all.
     """
     filename = file.filename or "unknown"
     content_type = file.content_type or "unknown"
-    parser = _get_parser()
 
     try:
         image_bytes = await file.read()
@@ -184,6 +201,7 @@ async def create_flight_plan_from_image(
         )
 
     try:
+        parser = _get_parser(request)
         parsed = await parser.from_image(image_bytes)
     except Exception:
         logger.warning("Flight plan image parsing failed — creating stub plan", exc_info=True)
