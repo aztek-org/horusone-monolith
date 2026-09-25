@@ -37,7 +37,7 @@ services:
   # Creates horus_db (app) + keycloak_db (auth) on first start
   # ---------------------------------------------------------------------------
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: horus-postgres
     restart: unless-stopped
     environment:
