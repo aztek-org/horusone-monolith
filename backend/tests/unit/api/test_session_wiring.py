@@ -42,6 +42,14 @@ def _write_scenes_file(path) -> None:
     )
 
 
+def _clear_process_pipeline() -> None:
+    """Drop the process-wide AudioPipeline so the next connection rebuilds it."""
+    try:
+        del app.state.audio_pipeline
+    except (AttributeError, KeyError):
+        pass
+
+
 def test_scene_registry_falls_back_to_the_packaged_default(client: TestClient) -> None:
     """With no configured scenes_path the packaged default Scene is registered."""
     registry = client.app.state.scene_registry
@@ -141,3 +149,38 @@ def test_voice_session_without_scene_records_default_scene(
             ]
         finally:
             db.execute("DELETE FROM training_sessions WHERE client_id = %s", (client_id,))
+
+
+@pytest.mark.skipif(not DATABASE_URL, reason="DATABASE_URL is required for the voice WebSocket")
+def test_voice_survives_a_scenes_path_without_the_packaged_default(
+    test_settings: Settings, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A SCENES_PATH with no ``default-v1`` must not kill the voice socket.
+
+    The registry holds only the YAML's own Scenes, so resolving the packaged
+    default by version would raise before ``manager.connect``: the socket would
+    die with no error frame and no log.  Resolving the registry's *default*
+    falls back to the packaged Scene instead, so the connection is established.
+    """
+    scenes_file = tmp_path / "scenes.yaml"
+    _write_scenes_file(scenes_file)
+    _clear_process_pipeline()
+    app.dependency_overrides[get_settings] = lambda: test_settings.model_copy(
+        update={"scenes_path": str(scenes_file)}
+    )
+    try:
+        with TestClient(app) as client:
+            registered = [scene.version for scene in client.app.state.scene_registry.list_all()]
+            assert DEFAULT_SCENE.version not in registered
+            assert client.app.state.scene_registry.default().version == DEFAULT_SCENE.version
+
+            fake_ws_user(monkeypatch)
+            fake_audio_services(monkeypatch)
+
+            with client.websocket_connect("/ws/voice") as websocket:
+                connected = websocket.receive_json()
+
+            assert connected["type"] == "connected"
+    finally:
+        _clear_process_pipeline()
+        app.dependency_overrides.clear()

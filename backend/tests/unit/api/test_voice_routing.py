@@ -20,7 +20,11 @@ from sqlalchemy.engine import make_url
 from starlette.websockets import WebSocketDisconnect
 
 from app.api.routes import voice as voice_module
+from app.config import Settings
+from app.core.audio_pipeline import AudioPipeline
 from app.main import app
+from app.middleware import auth as auth_module
+from app.services.training_sessions.session_module import MissingOrgError
 from tests.conftest import (
     FakeSessionModule,
     collect_frames,
@@ -55,6 +59,22 @@ def _install_session_module(module: FakeSessionModule) -> FakeSessionModule:
     return module
 
 
+def clear_process_pipeline() -> None:
+    """Drop the process-wide AudioPipeline so a test builds its own."""
+    try:
+        del app.state.audio_pipeline
+    except (AttributeError, KeyError):
+        pass
+
+
+@pytest.fixture(autouse=True)
+def isolated_process_pipeline():
+    """Give each test a pipeline cache of its own, so sharing is only tested where asserted."""
+    clear_process_pipeline()
+    yield
+    clear_process_pipeline()
+
+
 def _closed_code(message: dict) -> int:
     """Read the close code from a Starlette TestClient close/disconnect frame."""
     assert message["type"] in {"websocket.close", "websocket.disconnect"}
@@ -86,6 +106,33 @@ def _create_organization() -> str:
 def _delete_organization(org_id: str) -> None:
     with _sync_db() as db:
         db.execute("DELETE FROM organizations WHERE id = %s", (org_id,))
+
+
+def _create_user() -> str:
+    user_id = str(uuid.uuid4())
+    with _sync_db() as db:
+        db.execute(
+            "INSERT INTO users (id, keycloak_id, email, display_name) "
+            "VALUES (%s, %s, %s, %s)",
+            (user_id, f"kc-{user_id}", f"voice-{user_id}@test.com", "Voice Student"),
+        )
+    return user_id
+
+
+def _delete_user(user_id: str) -> None:
+    with _sync_db() as db:
+        db.execute("DELETE FROM users WHERE id = %s", (user_id,))
+
+
+def _seat_holding(user_id: str) -> SimpleNamespace:
+    """A token user whose local row already exists, holding one active seat."""
+    async def _sync_user(_db: object, _token_user: object) -> SimpleNamespace:
+        return SimpleNamespace(id=uuid.UUID(user_id))
+
+    async def _active_seats(*_args: object) -> list[SimpleNamespace]:
+        return [SimpleNamespace(is_active=True, organization_id=None)]
+
+    return SimpleNamespace(sync_user=_sync_user, seats=_active_seats)
 
 
 def _session_events(session_id: int) -> list[tuple]:
@@ -217,6 +264,57 @@ def test_successful_voice_session_records_its_created_audit_event(
         _delete_organization(org_id)
 
 
+def test_voice_session_is_attributable_to_its_pilot(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A seated pilot's session must record the pilot on the row and the event.
+
+    A session with ``user_id = NULL`` cannot be listed or fetched by the student
+    who flew it, so the two writes have to agree on a real id.
+    """
+    org_id = _create_organization()
+    user_id = _create_user()
+    session_module = _install_session_module(FakeSessionModule())
+    fake_ws_user(monkeypatch, roles=["student"], organization_id=org_id)
+    fake_audio_services(monkeypatch)
+    holder = _seat_holding(user_id)
+    monkeypatch.setattr(voice_module, "sync_user_from_token", holder.sync_user)
+    monkeypatch.setattr(voice_module, "_seat_repo", SimpleNamespace(get_user_seats=holder.seats))
+
+    client_id = None
+    try:
+        with client.websocket_connect("/ws/voice") as websocket:
+            client_id = websocket.receive_json()["client_id"]
+            websocket.send_bytes(b"RIFF-not-real-audio")
+            websocket.send_json({"type": "audio_end"})
+            payloads, _ = collect_frames(websocket)
+
+        assert "response_complete" in [payload["type"] for payload in payloads]
+
+        with _sync_db() as db:
+            row = db.execute(
+                "SELECT id, user_id, org_id FROM training_sessions WHERE client_id = %s",
+                (client_id,),
+            ).fetchone()
+        assert row is not None
+        session_id, row_user_id, row_org_id = row
+        assert row_user_id is not None
+        assert str(row_user_id) == user_id
+        assert str(row_org_id) == org_id
+
+        created = [event for event in _session_events(session_id) if event[0] == "created"]
+        assert len(created) == 1
+        _, event_user_id, _, _ = created[0]
+        assert event_user_id == row_user_id
+
+        assert session_module.started[0].user_id == uuid.UUID(user_id)
+    finally:
+        if client_id:
+            _delete_client_sessions(client_id)
+        _delete_user(user_id)
+        _delete_organization(org_id)
+
+
 def test_failed_session_start_leaves_no_orphan_session_row(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -264,11 +362,142 @@ def test_pending_instructor_reports_a_hold_instead_of_a_generation_failure(
             _delete_client_sessions(client_id)
 
 
+# ── Process-wide pipeline: heavy collaborators built once ─────────────
+
+
+def test_heavy_collaborators_are_built_once_and_shared_by_every_connection(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two connections must not load a second Whisper model or compile a second graph.
+
+    Only the ATC conversation history may differ per connection, so one pilot's
+    reset can never clear another pilot's context.
+    """
+    no_database(monkeypatch)
+    _install_session_module(FakeSessionModule())
+    fake_ws_user(monkeypatch)
+    fake_audio_services(monkeypatch)
+
+    built: list[AudioPipeline] = []
+
+    class _CountingPipeline(AudioPipeline):
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+            built.append(self)
+
+    monkeypatch.setattr(voice_module, "AudioPipeline", _CountingPipeline)
+
+    used: list[AudioPipeline] = []
+    serve = AudioPipeline.process_audio
+
+    async def _record(self: AudioPipeline, *args: object, **kwargs: object):
+        used.append(self)
+        return await serve(self, *args, **kwargs)
+
+    monkeypatch.setattr(AudioPipeline, "process_audio", _record)
+
+    for _ in range(2):
+        with client.websocket_connect("/ws/voice") as websocket:
+            client_id = websocket.receive_json()["client_id"]
+            websocket.send_bytes(b"RIFF-not-real-audio")
+            websocket.send_json({"type": "audio_end"})
+            payloads, audio_frames = collect_frames(websocket)
+        assert "response_complete" in [payload["type"] for payload in payloads]
+        assert audio_frames == 1
+        assert _session_row(client_id) is None
+
+    assert len(built) == 1, "the Whisper checkpoint and graph must be built once per process"
+    first, second = used
+    assert first is not second
+    # Expensive, stateless per call: shared.
+    assert first.stt_service is second.stt_service
+    assert first.tts_service is second.tts_service
+    assert first.effects_processor is second.effects_processor
+    assert first.atc_agent.graph is second.atc_agent.graph
+    # Per-connection conversation state: not shared.
+    assert first.atc_agent is not second.atc_agent
+    assert first.atc_agent.conversation_history is not second.atc_agent.conversation_history
+
+
+def test_one_pilots_reset_does_not_clear_another_pilots_context(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A shared pipeline must not share the ATC conversation history."""
+    no_database(monkeypatch)
+    _install_session_module(FakeSessionModule())
+    fake_ws_user(monkeypatch)
+    fake_audio_services(monkeypatch)
+
+    agents: list[object] = []
+    serve = AudioPipeline.process_audio
+
+    async def _record(self: AudioPipeline, *args: object, **kwargs: object):
+        agents.append(self.atc_agent)
+        return await serve(self, *args, **kwargs)
+
+    monkeypatch.setattr(AudioPipeline, "process_audio", _record)
+
+    with client.websocket_connect("/ws/voice") as websocket:
+        websocket.receive_json()
+        websocket.send_json({"type": "reset"})
+
+    with client.websocket_connect("/ws/voice") as websocket:
+        websocket.receive_json()
+        websocket.send_bytes(b"RIFF-not-real-audio")
+        websocket.send_json({"type": "audio_end"})
+        collect_frames(websocket)
+
+    assert len(agents) == 1
+    assert len(agents[0].get_conversation_history()) == 1
+
+
+# ── A permanent tenant failure must not degrade into an unrecorded session ──
+
+
+def test_missing_tenant_rejects_the_connection_instead_of_degrading(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A token with no organization is a permanent, caller-attributable failure.
+
+    Degrading open would hand the pilot live ATC audio with no session, no
+    exchange event and no voice log, after the socket was already accepted.
+    """
+    session_module = _install_session_module(
+        FakeSessionModule(
+            start_error=MissingOrgError("org_id is required for this session operation")
+        )
+    )
+    fake_ws_user(monkeypatch, organization_id=None)
+    fake_audio_services(monkeypatch)
+
+    with client.websocket_connect("/ws/voice") as websocket:
+        payload = websocket.receive_json()
+        assert payload["type"] == "error"
+        assert payload["code"] == "NO_ORGANIZATION"
+        closed = websocket.receive()
+
+    assert _closed_code(closed) == 4003
+    assert session_module.started != []
+
+
 # ── Preserved WebSocket behaviour ─────────────────────────────────────
 
 
-def test_unauthenticated_connection_is_rejected(client: TestClient) -> None:
-    """No token means the socket is closed before any frame is sent."""
+def test_unauthenticated_connection_is_rejected(
+    client: TestClient,
+    test_settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No token means the socket is closed before any frame is sent.
+
+    The WebSocket auth helper reads the canonical settings rather than the test
+    dependency override, and canonical settings are cached for the whole process,
+    so this test pins the settings it runs under instead of inheriting whatever
+    ``AUTH_ENABLED`` the developer's shell happens to hold.
+    """
+    monkeypatch.setattr(auth_module, "get_settings", lambda: test_settings)
+    assert test_settings.auth_enabled is True
+
     with pytest.raises(WebSocketDisconnect) as excinfo:
         with client.websocket_connect("/ws/voice") as websocket:
             websocket.receive_json()
