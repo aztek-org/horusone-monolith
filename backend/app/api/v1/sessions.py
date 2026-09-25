@@ -14,13 +14,13 @@ from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.permissions import can_access_org, has_role, is_platform_admin
 from app.db.repositories.waypoint_repository import WaypointRepository
-from app.db.session import get_db_session, get_session_factory
+from app.db.session import get_db_session
 from app.middleware.auth import CurrentUser, TokenUser
 from app.middleware.org_context import RequireActiveSeat, get_authenticated_user, get_org_id
 from app.models.training_session import TrainingSession
@@ -43,6 +43,7 @@ from app.schemas.training_session import (
 from app.services.llm.scenes.default_scene import DEFAULT_SCENE
 from app.services.llm.scenes.registry import SceneRegistry
 from app.services.training_sessions.audit import (
+    discard_unstarted_session,
     record_session_created,
     record_session_event,
 )
@@ -55,25 +56,6 @@ from app.services.training_sessions.types import (
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 waypoint_repo = WaypointRepository()
-
-
-async def discard_unstarted_session(db_session_id: int) -> None:
-    """Remove a session row that could not be started, so no orphan is left behind.
-
-    The row must be committed before the Session module can record anything
-    against it, so a failed start is compensated for by deleting the row here
-    rather than leaving a session that claims to exist but was never started.
-    The voice route imports this so both creation paths compensate the same way.
-    """
-    try:
-        session_factory = get_session_factory()
-        async with session_factory() as db:
-            await db.execute(
-                delete(TrainingSession).where(TrainingSession.id == db_session_id)
-            )
-            await db.commit()
-    except Exception as e:
-        logger.warning("Could not discard training session %s: %s", db_session_id, e)
 
 
 @router.get("/", response_model=list[TrainingSessionResponse])
