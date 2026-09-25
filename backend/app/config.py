@@ -149,141 +149,109 @@ class Settings(BaseSettings):
 
         super().__init__(**normalized)
 
+    # -- Flat compatibility aliases ----------------------------------
+    # The grouped fields above are the source of truth.  These properties keep
+    # the pre-grouping attribute names working for out-of-tree callers, so each
+    # one names its remaining in-repo readers: an alias with no reader is a
+    # candidate for removal, not one with a reader that a reader cannot find.
+
     @property
     def ollama_base_url(self) -> str:
-        """Flat alias for a grouped field; a live caller still reads this name.
+        """Flat alias for ``llm.base_url``, retained for backward compatibility.
 
-        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
-        7) are complete, so this shim is no longer scheduled for an
-        unfinished task — it is scheduled for the callers named below.
-
-        Read by: `app/api/v1/flight_plans.py:47`.
-
-        Four aliases now have no reader under `app/` at all —
-        `ollama_embedding_model`, `sample_rate`, `audio_format`, and
-        `chunk_size` are read only by tests and external scripts — and are the
-        first to go.
+        Nothing in ``backend/app/`` reads this any more.  The last in-repo
+        reader was ``app/api/v1/flight_plans.py``, which passed it to
+        ``FlightPlanParser``; the parser ignores it and now takes no such
+        argument, so the reader is gone.  ``OLLAMA_BASE_URL`` is still accepted
+        as an environment/keyword alias by ``Settings`` and the settings loader
+        — that is a separate compatibility surface and is unaffected.  Read the
+        grouped field instead: ``settings.llm.base_url``.
         """
         return self.llm.base_url
 
     @property
     def ollama_llm_model(self) -> str:
-        """Flat alias for a grouped field; a live caller still reads this name.
+        """Flat alias for ``llm.model``, retained for backward compatibility.
 
-        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
-        7) are complete, so this shim is no longer scheduled for an
-        unfinished task — it is scheduled for the callers named below.
-
-        Read by: `app/api/v1/flight_plans.py:48`.
-
+        Nothing in ``backend/app/`` reads this any more.  The last in-repo
+        reader was ``app/api/v1/flight_plans.py``, which passed it to
+        ``FlightPlanParser``; the parser ignores it and now takes no such
+        argument, so the reader is gone.  ``OLLAMA_LLM_MODEL`` is still accepted
+        as an environment/keyword alias by ``Settings`` and the settings loader
+        — that is a separate compatibility surface and is unaffected.  Read the
+        grouped field instead: ``settings.llm.model``.
         """
         return self.llm.model
 
     @property
     def ollama_embedding_model(self) -> str:
-        """Flat alias for a grouped field; a live caller still reads this name.
+        """Flat alias for ``llm.embedding_model``; no application reader left.
 
-        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
-        7) are complete, so this shim is no longer scheduled for an
-        unfinished task — it is scheduled for the callers named below.
-
-        Read by: no application caller left.
-
+        Read ``settings.llm.embedding_model``.
         """
         return self.llm.embedding_model
 
     @property
     def sample_rate(self) -> int:
-        """Flat alias for a grouped field; a live caller still reads this name.
+        """Flat alias for ``audio.sample_rate``; no application reader left.
 
-        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
-        7) are complete, so this shim is no longer scheduled for an
-        unfinished task — it is scheduled for the callers named below.
-
-        Read by: no application caller left.
-
+        Read ``settings.audio.sample_rate``.
         """
         return self.audio.sample_rate
 
     @property
     def chunk_size(self) -> int:
-        """Flat alias for a grouped field; a live caller still reads this name.
+        """Flat alias for ``audio.chunk_size``; no application reader left.
 
-        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
-        7) are complete, so this shim is no longer scheduled for an
-        unfinished task — it is scheduled for the callers named below.
-
-        Read by: no application caller left.
-
-        Name collision: this is the **audio** chunk size. The knowledge
-        chunk window is `settings.knowledge.chunk_size`, and that is what
-        `KnowledgeIngestor` reads (ADR-008). Pick the wrong one and the
-        wrong 1000 lands in `ingest_events.chunk_size`.
+        Read ``settings.audio.chunk_size``.  Note the name collision: this is
+        the **audio** chunk size, while the knowledge chunk window is
+        ``settings.knowledge.chunk_size`` — which is what ``KnowledgeIngestor``
+        reads, since it is handed a ``KnowledgeSettings`` (ADR-008).  Reach for
+        the wrong one and the wrong 1000 lands in ``ingest_events.chunk_size``.
         """
         return self.audio.chunk_size
 
     @property
     def audio_format(self) -> str:
-        """Flat alias for a grouped field; a live caller still reads this name.
+        """Flat alias for ``audio.audio_format``; no application reader left.
 
-        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
-        7) are complete, so this shim is no longer scheduled for an
-        unfinished task — it is scheduled for the callers named below.
-
-        Read by: no application caller left.
-
+        Read ``settings.audio.audio_format``.
         """
         return self.audio.audio_format
 
     @property
     def enable_radio_effects(self) -> bool:
-        """Flat alias for a grouped field; a live caller still reads this name.
+        """Flat alias for ``audio.enable_radio_effects``.
 
-        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
-        7) are complete, so this shim is no longer scheduled for an
-        unfinished task — it is scheduled for the callers named below.
-
-        Read by: `app/services/audio_effects/filters.py:34`.
-
+        Read by ``app/services/audio_effects/filters.py``.  Read the grouped
+        field instead: ``settings.audio.enable_radio_effects``.
         """
         return self.audio.enable_radio_effects
 
     @property
     def noise_level(self) -> float:
-        """Flat alias for a grouped field; a live caller still reads this name.
+        """Flat alias for ``audio.noise_level``.
 
-        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
-        7) are complete, so this shim is no longer scheduled for an
-        unfinished task — it is scheduled for the callers named below.
-
-        Read by: `app/services/audio_effects/filters.py:93`.
-
+        Read by ``app/services/audio_effects/filters.py``.  Read the grouped
+        field instead: ``settings.audio.noise_level``.
         """
         return self.audio.noise_level
 
     @property
     def static_level(self) -> float:
-        """Flat alias for a grouped field; a live caller still reads this name.
+        """Flat alias for ``audio.static_level``.
 
-        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
-        7) are complete, so this shim is no longer scheduled for an
-        unfinished task — it is scheduled for the callers named below.
-
-        Read by: `app/services/audio_effects/filters.py:106`.
-
+        Read by ``app/services/audio_effects/filters.py``.  Read the grouped
+        field instead: ``settings.audio.static_level``.
         """
         return self.audio.static_level
 
     @property
     def log_level(self) -> str:
-        """Flat alias for a grouped field; a live caller still reads this name.
+        """Flat alias for ``trace.log_level``.
 
-        The grouped `Settings` landed in Task 1 and its follow-on tasks (2, 5,
-        7) are complete, so this shim is no longer scheduled for an
-        unfinished task — it is scheduled for the callers named below.
-
-        Read by: `app/main.py:291`.
-
+        Read by ``app/main.py`` when configuring logging.  Read the grouped field
+        instead: ``settings.trace.log_level``.
         """
         return self.trace.log_level
 
