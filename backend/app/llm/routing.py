@@ -106,3 +106,7 @@ class FallbackLLM:
             return await self.primary.embed(texts)
         except LLMTransientError as error:
             raise self._unavailable(error, fallback_attempted=False) from error
+
+    async def probe(self) -> str:
+        """Report the primary provider's reachability, in its own protocol."""
+        return await self.primary.probe()

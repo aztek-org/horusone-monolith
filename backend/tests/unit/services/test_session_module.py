@@ -1,12 +1,13 @@
 """Behavioral tests for the persisted training Session module."""
 
 import uuid
+from dataclasses import replace
 
 import pytest
 
 from app.llm.adapters.fake_adapter import FakeAdapter
 from app.services.llm.scenes.default_scene import DEFAULT_SCENE
-from app.services.llm.scenes.registry import SceneRegistry
+from app.services.llm.scenes.registry import SceneConfig, SceneRegistry
 from app.services.training_sessions.session_module import (
     MissingOrgError,
     SessionPendingInstructorError,
@@ -46,12 +47,13 @@ def _module(
     trace: InMemoryTraceRecorder | None = None,
     db_session_factory: type[_NoDb] = _NoDb,
     require_org: bool = True,
+    scene: SceneConfig = DEFAULT_SCENE,
     **kwargs: object,
 ) -> TrainingSessionModule:
     return TrainingSessionModule(
         store or InMemorySessionStore(),
         trace or InMemoryTraceRecorder(),
-        SceneRegistry({DEFAULT_SCENE.version: DEFAULT_SCENE}),
+        SceneRegistry({scene.version: scene}),
         FakeAdapter(),
         db_session_factory=db_session_factory,
         require_org=require_org,
@@ -365,6 +367,89 @@ async def test_every_event_contains_required_provenance() -> None:
         "instructor_override",
     ]
     assert all(required <= payload.keys() for _, _, payload in trace.events)
+
+
+class _RecordingRetriever:
+    """Records the queries the validation graph's retrieval node issues."""
+
+    def __init__(self) -> None:
+        self.queries: list[object] = []
+
+    async def search(self, query: object) -> list[object]:
+        self.queries.append(query)
+        return []
+
+
+@pytest.mark.asyncio
+async def test_start_scopes_retrieval_to_the_session_tenant() -> None:
+    """A started session retrieves as its own tenant, not as a global reader."""
+    retriever = _RecordingRetriever()
+    org_id = uuid.uuid4()
+    module = _module(knowledge=retriever)
+
+    await _start(module, org_id)
+
+    assert len(retriever.queries) == 1
+    assert retriever.queries[0].org_id == org_id
+
+
+@pytest.mark.asyncio
+async def test_start_scopes_retrieval_to_the_scenes_knowledge_refs() -> None:
+    """A Scene's ``knowledge_refs`` reach the query instead of being dropped."""
+    retriever = _RecordingRetriever()
+    scene = replace(DEFAULT_SCENE, knowledge_refs=["keflavik-approach.md"])
+    org_id = uuid.uuid4()
+    module = _module(knowledge=retriever, scene=scene)
+
+    await _start(module, org_id)
+
+    assert retriever.queries[0].knowledge_refs == ["keflavik-approach.md"]
+
+
+@pytest.mark.asyncio
+async def test_start_without_a_tenant_retrieves_only_global_knowledge() -> None:
+    """``require_org=False`` stays fail-closed rather than reaching a tenant."""
+    retriever = _RecordingRetriever()
+    module = _module(knowledge=retriever, require_org=False)
+
+    await _start(module, None)
+
+    assert retriever.queries[0].org_id is None
+
+
+@pytest.mark.asyncio
+async def test_validate_scopes_retrieval_to_a_tenant_when_the_caller_knows_it() -> None:
+    """The flight-plan route can opt into tenant-scoped retrieval."""
+    retriever = _RecordingRetriever()
+    module = _module(knowledge=retriever)
+    org_id = uuid.uuid4()
+
+    await module.validate(
+        user_id=None,
+        flight_plan={"departure_icao": "KLAX", "arrival_icao": "KSFO"},
+        org_id=org_id,
+    )
+
+    assert retriever.queries[0].org_id == org_id
+
+
+@pytest.mark.asyncio
+async def test_validate_without_a_tenant_retrieves_only_global_knowledge() -> None:
+    """The tenant-less validate path is explicit, and global-only by design.
+
+    Retrieval with no tenant resolves to ``org_id IS NULL``, so a flight plan
+    checked without one can never reach another tenant's private manuals.
+    """
+    retriever = _RecordingRetriever()
+    module = _module(knowledge=retriever)
+
+    await module.validate(
+        user_id=None,
+        flight_plan={"departure_icao": "KLAX", "arrival_icao": "KSFO"},
+    )
+
+    assert retriever.queries[0].org_id is None
+    assert retriever.queries[0].knowledge_refs == []
 
 
 @pytest.mark.asyncio

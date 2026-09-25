@@ -356,6 +356,142 @@ def test_build_llm_returns_router_for_fake_provider() -> None:
     assert llm.provider_is_external is False
 
 
+class _RecordingProbeClient:
+    """httpx double that records the probe URL and replays a status code."""
+
+    calls: list[tuple[str, dict[str, str] | None]] = []
+    status_code = 200
+    fail_on_connect = False
+
+    def __init__(self, *, timeout: float) -> None:
+        self.timeout = timeout
+
+    async def __aenter__(self) -> "_RecordingProbeClient":
+        if self.fail_on_connect:
+            raise httpx.ConnectError("offline")
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        return None
+
+    async def get(self, url: str, headers: dict[str, str] | None = None) -> Any:
+        type(self).calls.append((url, headers))
+        return httpx.Response(
+            self.status_code, request=httpx.Request("GET", url)
+        )
+
+
+def _patch_probe_client(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    status_code: int = 200,
+    fail_on_connect: bool = False,
+) -> type[_RecordingProbeClient]:
+    client = type(
+        "ProbeClient",
+        (_RecordingProbeClient,),
+        {"calls": [], "status_code": status_code, "fail_on_connect": fail_on_connect},
+    )
+    monkeypatch.setattr("app.llm.health.httpx.AsyncClient", client)
+    return client
+
+
+@pytest.mark.asyncio
+async def test_ollama_probe_uses_the_ollama_tags_route(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _patch_probe_client(monkeypatch)
+    adapter = OllamaAdapter(_settings(base_url="http://x:11434/"))
+
+    assert await adapter.probe() == "ok"
+    assert client.calls == [("http://x:11434/api/tags", None)]
+
+
+@pytest.mark.asyncio
+async def test_ollama_probe_uses_a_short_readiness_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A readiness probe must not wait out a 120-second inference timeout."""
+    timeouts: list[float] = []
+
+    class Client(_RecordingProbeClient):
+        def __init__(self, *, timeout: float) -> None:
+            timeouts.append(timeout)
+            super().__init__(timeout=timeout)
+
+    Client.calls = []
+    monkeypatch.setattr("app.llm.health.httpx.AsyncClient", Client)
+    adapter = OllamaAdapter(_settings(timeout_seconds=120.0))
+
+    assert await adapter.probe() == "ok"
+    assert timeouts == [3.0]
+
+
+@pytest.mark.asyncio
+async def test_groq_probe_uses_the_authenticated_groq_models_route(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _patch_probe_client(monkeypatch)
+    adapter = GroqAdapter(
+        _settings("groq", base_url="https://api.groq.test/", api_key="secret")
+    )
+
+    assert await adapter.probe() == "ok"
+    assert client.calls == [
+        ("https://api.groq.test/models", {"Authorization": "Bearer secret"})
+    ]
+
+
+@pytest.mark.asyncio
+async def test_nvidia_nim_probe_uses_the_openai_compatible_models_route(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _patch_probe_client(monkeypatch)
+    adapter = NvidiaNIMAdapter(
+        _settings("nvidia-nim", base_url="http://nim.test", api_key="secret")
+    )
+
+    assert await adapter.probe() == "ok"
+    assert client.calls == [
+        ("http://nim.test/v1/models", {"Authorization": "Bearer secret"})
+    ]
+
+
+@pytest.mark.asyncio
+async def test_probe_reports_degraded_when_the_provider_answers_wrongly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 401 still proves the endpoint is up, but the provider is not serving."""
+    _patch_probe_client(monkeypatch, status_code=401)
+
+    assert await GroqAdapter(
+        _settings("groq", base_url="https://api.groq.test", api_key="secret")
+    ).probe() == "degraded"
+
+
+@pytest.mark.asyncio
+async def test_probe_reports_unreachable_when_the_provider_is_offline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_probe_client(monkeypatch, fail_on_connect=True)
+
+    assert await OllamaAdapter(_settings()).probe() == "unreachable"
+
+
+@pytest.mark.asyncio
+async def test_fake_provider_reports_loaded_because_it_has_no_endpoint() -> None:
+    assert await FakeAdapter().probe() == "loaded"
+
+
+@pytest.mark.asyncio
+async def test_router_probes_its_primary_provider() -> None:
+    primary = FakeAdapter(_settings("fake"))
+
+    assert await FallbackLLM(primary, None, allow_external_fallback=False).probe() == (
+        "loaded"
+    )
+
+
 def test_build_llm_rejects_unknown_provider() -> None:
     with pytest.raises(ValueError, match="Unknown LLM_PROVIDER 'unknown'"):
         build_llm(Settings(environment="testing", llm=_settings("unknown")))

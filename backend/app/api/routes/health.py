@@ -1,7 +1,10 @@
 """Health check endpoint with real service probes."""
 import logging
-from fastapi import APIRouter
+
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
+
+from app.llm.types import LLMModule
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +20,7 @@ class HealthResponse(BaseModel):
 class ServiceStatus(BaseModel):
     database: str
     redis: str
-    ollama: str
+    llm: str  # the configured language-model provider, whatever it is
     whisper: str
     tts: str
 
@@ -38,19 +41,19 @@ async def health_check() -> HealthResponse:
 
 
 @router.get("/health/ready", response_model=ReadinessResponse)
-async def readiness_check() -> ReadinessResponse:
+async def readiness_check(request: Request) -> ReadinessResponse:
     """Readiness check — probes all dependent services."""
     services = ServiceStatus(
         database=await _probe_database(),
         redis=await _probe_redis(),
-        ollama=await _probe_ollama(),
+        llm=await _probe_llm(request),
         whisper="loaded",
         tts="loaded",
     )
     ready = all(
         v in ("ok", "loaded") for v in (
             services.database, services.redis,
-            services.ollama, services.whisper, services.tts,
+            services.llm, services.whisper, services.tts,
         )
     )
     return ReadinessResponse(ready=ready, services=services)
@@ -59,7 +62,9 @@ async def readiness_check() -> ReadinessResponse:
 async def _probe_database() -> str:
     try:
         from sqlalchemy import text
+
         from app.db.session import async_session_factory
+
         async with async_session_factory() as session:
             await session.execute(text("SELECT 1"))
         return "ok"
@@ -79,17 +84,18 @@ async def _probe_redis() -> str:
         return "unreachable"
 
 
-async def _probe_ollama() -> str:
+async def _probe_llm(request: Request) -> str:
+    """Report the configured provider's reachability in its own protocol.
+
+    Asking the adapter rather than hardcoding a provider's route is what keeps a
+    healthy Groq or NVIDIA NIM deployment from being reported as not ready.
+    """
+    llm: LLMModule | None = getattr(request.app.state, "llm", None)
+    if llm is None:
+        logger.warning("No language-model module is configured")
+        return "unreachable"
     try:
-        import httpx
-        from app.config import get_settings
-        settings = get_settings()
-        base = settings.ollama_base_url.rstrip("/")
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{base}/api/tags")
-            if resp.status_code < 300:
-                return "ok"
-        return "degraded"
+        return await llm.probe()
     except Exception:
-        logger.warning("Ollama health probe failed", exc_info=True)
+        logger.warning("Language-model health probe failed", exc_info=True)
         return "unreachable"

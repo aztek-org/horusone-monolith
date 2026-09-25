@@ -9,6 +9,7 @@ from groq import APIConnectionError, APIStatusError
 from langchain_groq import ChatGroq
 
 from app.config import LLMSettings
+from app.llm.health import probe_endpoint
 from app.llm.scene_constraints import SceneConstraints, merge
 from app.llm.types import (
     EmbeddingResult,
@@ -42,6 +43,9 @@ class GroqAdapter:
             max_output_tokens=settings.max_output_tokens,
         )
 
+    def _headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self.settings.api_key}"}
+
     async def generate(self, request: GenerationRequest) -> GenerationResult:
         """Generate text with scene overrides applied to configured defaults."""
         constraints = merge(self._base_constraints, request.scene_constraints)
@@ -72,3 +76,10 @@ class GroqAdapter:
     async def embed(self, texts: list[str]) -> EmbeddingResult:
         """Reject embeddings because Groq is generation-only in v1."""
         raise LLMUsageError("Groq adapter does not support embeddings")
+
+    async def probe(self) -> str:
+        """Report reachability using Groq's own authenticated models route."""
+        return await probe_endpoint(
+            f"{self.settings.base_url.rstrip('/')}/models",
+            headers=self._headers(),
+        )

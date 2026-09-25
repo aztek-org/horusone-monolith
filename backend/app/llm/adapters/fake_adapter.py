@@ -40,3 +40,7 @@ class FakeAdapter:
             model="fake",
             dimensions=768,
         )
+
+    async def probe(self) -> str:
+        """Report ``loaded``: the provider runs in process, with no endpoint."""
+        return "loaded"

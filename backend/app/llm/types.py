@@ -54,6 +54,13 @@ class LLMModule(Protocol):
 
     async def embed(self, texts: list[str]) -> EmbeddingResult: ...
 
+    async def probe(self) -> str:
+        """Report this provider's reachability to a readiness check.
+
+        Returns ``"ok"``, ``"degraded"``, or ``"unreachable"``, using the
+        provider's own protocol rather than another provider's.
+        """
+
 
 class LLMTransientError(RuntimeError):
     """Provider timed out or returned a transient error; eligible for fallback."""

@@ -19,7 +19,7 @@ from app.services.llm.graphs.validation_graph import (
     build_validation_graph,
 )
 from app.services.llm.scenes.registry import SceneConfig, SceneRegistry
-from app.services.llm.state import HorusState, SessionPhase
+from app.services.llm.state import HorusState, SessionPhase, advance_exchange
 from app.services.training_sessions.session_store import SessionStore, StoredState
 from app.services.training_sessions.trace import TraceRecorder
 from app.services.training_sessions.types import (
@@ -80,6 +80,7 @@ class TrainingSessionModule:
             "messages": [],
             "session_id": str(command.session_id),
             "user_id": str(command.user_id) if command.user_id else None,
+            "org_id": str(command.org_id) if command.org_id else None,
             "phase": SessionPhase.INGESTION.value,
             "flight_plan": command.flight_plan,
             "weather": None,
@@ -102,6 +103,7 @@ class TrainingSessionModule:
             "context": {},
             "scene_version": scene.version,
             "prompt_version": scene.version,
+            "knowledge_refs": list(scene.knowledge_refs),
             "retrieved_chunk_ids": [],
             "llm_provider": "",
             "llm_model": "",
@@ -133,16 +135,26 @@ class TrainingSessionModule:
         user_id: uuid.UUID | None,
         flight_plan: dict[str, Any],
         language: str = "en",
+        org_id: uuid.UUID | None = None,
     ) -> SessionSnapshot:
         """Run pre-flight validation for a flight plan without persisting state.
 
         Used by the flight-plan validation route, which has no training session
         yet.  ``SessionSnapshot.session_id`` is ``0`` because nothing is stored.
+
+        This path is deliberately tenant-optional.  ``org_id`` is ``None``
+        unless the caller knows the active organization, and a ``None`` tenant
+        makes retrieval fail-closed: only globally published chunks are visible.
+        Callers that do have a tenant should pass it so the tenant's own manuals
+        are retrieved, exactly as a training session does.  There is no Scene on
+        a standalone flight-plan validation, so no ``knowledge_refs`` filter is
+        applied.
         """
         state: HorusState = {
             "messages": [],
             "session_id": "",
             "user_id": str(user_id) if user_id else None,
+            "org_id": str(org_id) if org_id else None,
             "phase": SessionPhase.INGESTION.value,
             "flight_plan": flight_plan,
             "language": language,
@@ -205,11 +217,15 @@ class TrainingSessionModule:
 
     async def await_instructor(
         self,
-        org_id: uuid.UUID,
+        org_id: uuid.UUID | None,
         session_id: int,
         instructor_response: str | None = None,
     ) -> ExchangeResult | None:
-        """Complete a reviewed exchange with instructor or graph-owned text."""
+        """Complete a reviewed exchange with instructor or graph-owned text.
+
+        ``org_id`` is optional because ``require_org=False`` is a supported
+        mode, in which case the caller has no tenant to name.
+        """
         storage_org_id = self._storage_org_id(org_id)
         stored = await self._load(storage_org_id, session_id)
         if not stored.pending_instructor and not stored.values.get(
@@ -366,16 +382,10 @@ class TrainingSessionModule:
     def _complete_instructor_exchange(
         state: dict[str, Any], instructor_response: str
     ) -> dict[str, Any]:
-        exchange_count = int(state.get("exchange_count", 0)) + 1
-        session_phase = str(state.get("session_phase_detail") or "cruise")
-        if session_phase == "briefing":
-            session_phase = "taxi"
         return {
             **state,
+            **advance_exchange(state),
             "atc_response": instructor_response,
-            "exchange_count": exchange_count,
-            "session_phase_detail": session_phase,
-            "phase": SessionPhase.ACTIVE.value,
             "llm_provider": "instructor",
             "llm_model": "instructor",
             "llm_fallback_used": False,
@@ -469,7 +479,7 @@ class TrainingSessionModule:
         org_id: uuid.UUID | None,
         scene: SceneConfig,
     ) -> None:
-        """Write provenance columns when the deferred migration is installed."""
+        """Record the Scene version and its full snapshot on the session row."""
         org_filter = (
             TrainingSession.org_id == org_id
             if org_id is not None

@@ -84,13 +84,14 @@ class SessionModule(Protocol):
         user_id: uuid.UUID | None,
         flight_plan: dict[str, Any],
         language: str = "en",
+        org_id: uuid.UUID | None = None,
     ) -> SessionSnapshot: ...
 
     async def send(self, command: SendTransmissionCommand) -> ExchangeResult: ...
 
     async def await_instructor(
         self,
-        org_id: uuid.UUID,
+        org_id: uuid.UUID | None,
         session_id: int,
         instructor_response: str | None = None,
     ) -> ExchangeResult | None: ...

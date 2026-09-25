@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
 from dataclasses import replace
 from typing import Any
 
@@ -190,11 +191,9 @@ def test_no_module_global_llm() -> None:
     assert not hasattr(module, "_llm")
 
 
-@pytest.mark.asyncio
-async def test_validation_graph_records_retrieved_chunk_ids() -> None:
-    retriever = RecordingRetriever()
-    graph = build_validation_graph(retriever)
-    state: HorusState = {
+def _validation_state() -> HorusState:
+    """A minimal state that reaches the weather node's retrieval call."""
+    return {
         "flight_plan": {
             "departure_icao": "KLAX",
             "arrival_icao": "KSFO",
@@ -213,7 +212,13 @@ async def test_validation_graph_records_retrieved_chunk_ids() -> None:
         "validation_results": [],
     }
 
-    result = await graph.ainvoke(state)
+
+@pytest.mark.asyncio
+async def test_validation_graph_records_retrieved_chunk_ids() -> None:
+    retriever = RecordingRetriever()
+    graph = build_validation_graph(retriever)
+
+    result = await graph.ainvoke(_validation_state())
 
     assert result["retrieved_chunk_ids"] == ["chunk-weather-1"]
     assert len(retriever.queries) == 1
@@ -221,6 +226,49 @@ async def test_validation_graph_records_retrieved_chunk_ids() -> None:
     assert "departure_icao KLAX" in query_text
     assert "arrival_icao KSFO" in query_text
     assert "flight_rules VFR" in query_text
+
+
+@pytest.mark.asyncio
+async def test_validation_graph_scopes_retrieval_to_the_session_tenant() -> None:
+    """The tenant must reach the retriever, not a hardcoded ``None``.
+
+    ``org_id`` is only in the graph's hands if ``HorusState`` declares it, so
+    this also proves the state key survives the compiled graph.
+    """
+    retriever = RecordingRetriever()
+    graph = build_validation_graph(retriever)
+    org_id = uuid.uuid4()
+
+    await graph.ainvoke(_validation_state() | {"org_id": str(org_id)})
+
+    assert retriever.queries[0].org_id == org_id
+
+
+@pytest.mark.asyncio
+async def test_validation_graph_restricts_retrieval_to_scene_knowledge_refs() -> None:
+    retriever = RecordingRetriever()
+    graph = build_validation_graph(retriever)
+
+    await graph.ainvoke(
+        _validation_state()
+        | {"knowledge_refs": ["keflavik-approach.md", "keflavik-minima.md"]}
+    )
+
+    assert retriever.queries[0].knowledge_refs == [
+        "keflavik-approach.md",
+        "keflavik-minima.md",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_validation_graph_retrieval_is_tenantless_without_an_org() -> None:
+    """No tenant in scope means global chunks only, never another tenant's."""
+    retriever = RecordingRetriever()
+    graph = build_validation_graph(retriever)
+
+    await graph.ainvoke(_validation_state())
+
+    assert retriever.queries[0].org_id is None
 
 
 def test_scoring_graph_compiles() -> None:

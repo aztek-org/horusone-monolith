@@ -9,6 +9,7 @@ from langchain_community.llms import Ollama
 from ollama import Client
 
 from app.config import LLMSettings
+from app.llm.health import probe_endpoint
 from app.llm.scene_constraints import SceneConstraints, merge
 from app.llm.types import (
     EmbeddingResult,
@@ -86,3 +87,8 @@ class OllamaAdapter:
             model=self.settings.embedding_model,
             dimensions=len(vectors[0]) if vectors else 0,
         )
+
+    async def probe(self) -> str:
+        """Report reachability using Ollama's own ``/api/tags`` route."""
+        base = self.settings.base_url.rstrip("/")
+        return await probe_endpoint(f"{base}/api/tags")

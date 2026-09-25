@@ -8,8 +8,9 @@ the training Session module keeps everything in one place.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import Enum
-from typing import Annotated, TypedDict
+from typing import Annotated, Any, TypedDict
 
 from langgraph.graph.message import add_messages
 
@@ -50,6 +51,30 @@ class Urgency(str, Enum):
     ROUTINE = "routine"
     PRIORITY = "priority"
     EMERGENCY = "emergency"
+
+
+def advance_exchange(state: Mapping[str, Any]) -> dict[str, Any]:
+    """Apply the one exchange-count and phase-transition policy.
+
+    Both writers of a completed exchange — the live graph's
+    ``evaluate_exchange`` node and the Session module's instructor-release path
+    — call this, so the rules live in exactly one place.  The two rules are:
+    the exchange counter advances by one, and a session still in its briefing
+    moves to taxi.
+
+    Returns:
+        The partial state to merge: the new counter, the new phase detail, and
+        ``phase`` set to ``active``.
+    """
+    exchange_count = int(state.get("exchange_count", 0) or 0) + 1
+    session_phase = str(state.get("session_phase_detail") or "cruise")
+    if session_phase == "briefing":
+        session_phase = "taxi"
+    return {
+        "exchange_count": exchange_count,
+        "session_phase_detail": session_phase,
+        "phase": SessionPhase.ACTIVE.value,
+    }
 
 
 # ── Sub-state TypedDicts ──────────────────────────────────────────────
@@ -162,6 +187,7 @@ class HorusState(TypedDict, total=False):
     messages: Annotated[list, add_messages]
     session_id: str | None
     user_id: str | None
+    org_id: str | None          # owning tenant; None means no tenant is in scope
     phase: str                  # SessionPhase value
 
     # ── Flight plan & validation
@@ -192,6 +218,7 @@ class HorusState(TypedDict, total=False):
     context: dict               # flight context (callsign, altitude, etc.)
     scene_version: str
     prompt_version: str
+    knowledge_refs: list[str]   # documents this session's Scene may cite
     retrieved_chunk_ids: list[str]
     llm_provider: str
     llm_model: str

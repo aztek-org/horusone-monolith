@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 
 from app.config import LLMSettings
+from app.llm.health import probe_endpoint
 from app.llm.scene_constraints import SceneConstraints, merge
 from app.llm.types import (
     EmbeddingResult,
@@ -96,4 +97,11 @@ class NvidiaNIMAdapter:
             provider=self.provider,
             model=self.settings.embedding_model,
             dimensions=len(vectors[0]) if vectors else 0,
+        )
+
+    async def probe(self) -> str:
+        """Report reachability using NIM's own authenticated models route."""
+        return await probe_endpoint(
+            f"{self.base_url}/v1/models",
+            headers=self._headers(),
         )

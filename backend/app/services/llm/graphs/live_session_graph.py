@@ -25,7 +25,7 @@ from langgraph.graph import END, StateGraph
 from app.llm import GenerationRequest, LLMModule
 from app.services.llm.agents.emergency_agent import detect_emergency, handle_emergency
 from app.services.llm.scenes.registry import SceneConfig
-from app.services.llm.state import HorusState, SessionPhase
+from app.services.llm.state import HorusState, advance_exchange
 
 logger = logging.getLogger(__name__)
 _CONTROLLED_PROMPT_KEYS = frozenset({"pilot_message"})
@@ -152,16 +152,9 @@ def _generate_atc_response_factory(llm: LLMModule, scene: SceneConfig):
 
 def _evaluate_exchange(state: HorusState) -> dict[str, Any]:
     """Evaluate the exchange and update session counters."""
-    exchange_count = state.get("exchange_count", 0) + 1
-    session_phase = state.get("session_phase_detail", "cruise")
-    if session_phase == "briefing" and exchange_count >= 1:
-        session_phase = "taxi"
-
     return {
-        "exchange_count": exchange_count,
-        "session_phase_detail": session_phase,
+        **advance_exchange(state),
         "performance_notes": list(state.get("performance_notes") or []),
-        "phase": SessionPhase.ACTIVE.value,
     }
 
 
