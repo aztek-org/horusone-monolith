@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from fastapi import HTTPException
 
 from app.api.v1 import sessions
 from app.middleware.auth import TokenUser
@@ -15,6 +17,7 @@ from app.models.training_session import TrainingSession
 from app.models.training_session_event import TrainingSessionEvent
 from app.schemas.training_session import TrainingSessionCreate
 from app.services.llm.scenes.default_scene import DEFAULT_SCENE
+from app.services.llm.scenes.registry import SceneRegistry
 from app.services.training_sessions.types import Debrief
 from tests.conftest import FakeSessionModule
 
@@ -52,9 +55,22 @@ def _build_student(org_id: uuid.UUID) -> TokenUser:
     )
 
 
-def _fake_request(session_module: FakeSessionModule) -> SimpleNamespace:
+def _fake_request(
+    session_module: FakeSessionModule,
+    *,
+    scenes: SceneRegistry | None = None,
+    environment: str = "testing",
+) -> SimpleNamespace:
     """Stand in for a request whose app has the composition root installed."""
-    return SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(session_module=session_module)))
+    return SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(
+                session_module=session_module,
+                scene_registry=scenes or SceneRegistry({DEFAULT_SCENE.version: DEFAULT_SCENE}),
+                settings=SimpleNamespace(environment=environment),
+            )
+        )
+    )
 
 
 @pytest.mark.asyncio
@@ -120,7 +136,15 @@ async def test_create_session_passes_requested_scene_version() -> None:
             scene_version="storm-v2",
             flight_plan={"departure_icao": "KLAX"},
         ),
-        request=_fake_request(session_module),
+        request=_fake_request(
+            session_module,
+            scenes=SceneRegistry(
+                {
+                    DEFAULT_SCENE.version: DEFAULT_SCENE,
+                    "storm-v2": replace(DEFAULT_SCENE, version="storm-v2"),
+                }
+            ),
+        ),
         user=_build_student(uuid.uuid4()),
         _seat=object(),
         org_id=None,
@@ -311,6 +335,88 @@ async def test_create_session_keeps_its_audit_event_when_start_fails() -> None:
     commit_index = session.calls.index("commit")
     assert "add:TrainingSession" in session.calls[:commit_index]
     assert "add:TrainingSessionEvent" in session.calls[:commit_index]
+
+
+@pytest.mark.asyncio
+async def test_create_session_rejects_an_unknown_scene_before_writing_anything() -> None:
+    """An unknown Scene is a client error, and must not strand a committed row.
+
+    ``start()`` resolves the Scene itself, so without this check the row and its
+    ``created`` event commit and the caller only ever sees a 500.
+    """
+    session = _UnitOfWorkStub()
+    session_module = FakeSessionModule()
+
+    with pytest.raises(HTTPException) as excinfo:
+        await sessions.create_session(
+            data=TrainingSessionCreate(language="en", scene_version="ghost-v9"),
+            request=_fake_request(session_module),
+            user=_build_student(uuid.uuid4()),
+            _seat=object(),
+            org_id=uuid.uuid4(),
+            local_user=SimpleNamespace(id=uuid.uuid4()),
+            session=session,
+        )
+
+    assert excinfo.value.status_code == 404
+    assert "ghost-v9" in excinfo.value.detail
+    assert session.calls == []
+    assert session_module.started == []
+
+
+@pytest.mark.asyncio
+async def test_create_session_rejects_a_token_without_an_organization() -> None:
+    """A tenant-less token must be refused up front where a tenant is required.
+
+    ``RequireActiveSeat`` exempts platform-admins, so this is an ordinary
+    supported caller, and the Session module would otherwise raise
+    ``MissingOrgError`` — a ``PermissionError`` — only after the commit.
+    """
+    session = _UnitOfWorkStub()
+    session_module = FakeSessionModule()
+
+    with pytest.raises(HTTPException) as excinfo:
+        await sessions.create_session(
+            data=TrainingSessionCreate(scenario_id=3, language="en"),
+            request=_fake_request(session_module, environment="production"),
+            user=_build_student(uuid.uuid4()),
+            _seat=object(),
+            org_id=None,
+            local_user=SimpleNamespace(id=uuid.uuid4()),
+            session=session,
+        )
+
+    assert excinfo.value.status_code == 403
+    assert session.calls == []
+    assert session_module.started == []
+
+
+@pytest.mark.asyncio
+async def test_create_session_discards_the_row_when_start_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed start must be compensated for, exactly as the voice route does."""
+    session = _UnitOfWorkStub()
+    session_module = FakeSessionModule(start_error=RuntimeError("graph unavailable"))
+    discarded: list[int] = []
+
+    async def _record(session_id: int) -> None:
+        discarded.append(session_id)
+
+    monkeypatch.setattr(sessions, "discard_unstarted_session", _record)
+
+    with pytest.raises(RuntimeError, match="graph unavailable"):
+        await sessions.create_session(
+            data=TrainingSessionCreate(scenario_id=3, language="en"),
+            request=_fake_request(session_module),
+            user=_build_student(uuid.uuid4()),
+            _seat=object(),
+            org_id=uuid.uuid4(),
+            local_user=SimpleNamespace(id=uuid.uuid4()),
+            session=session,
+        )
+
+    assert discarded == [77]
 
 
 @pytest.mark.asyncio

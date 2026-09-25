@@ -14,13 +14,13 @@ from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.permissions import can_access_org, has_role, is_platform_admin
 from app.db.repositories.waypoint_repository import WaypointRepository
-from app.db.session import get_db_session
+from app.db.session import get_db_session, get_session_factory
 from app.middleware.auth import CurrentUser, TokenUser
 from app.middleware.org_context import RequireActiveSeat, get_authenticated_user, get_org_id
 from app.models.training_session import TrainingSession
@@ -41,6 +41,7 @@ from app.schemas.training_session import (
     TrainingSessionResponse,
 )
 from app.services.llm.scenes.default_scene import DEFAULT_SCENE
+from app.services.llm.scenes.registry import SceneRegistry
 from app.services.training_sessions.audit import (
     record_session_created,
     record_session_event,
@@ -54,6 +55,25 @@ from app.services.training_sessions.types import (
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 waypoint_repo = WaypointRepository()
+
+
+async def discard_unstarted_session(db_session_id: int) -> None:
+    """Remove a session row that could not be started, so no orphan is left behind.
+
+    The row must be committed before the Session module can record anything
+    against it, so a failed start is compensated for by deleting the row here
+    rather than leaving a session that claims to exist but was never started.
+    The voice route imports this so both creation paths compensate the same way.
+    """
+    try:
+        session_factory = get_session_factory()
+        async with session_factory() as db:
+            await db.execute(
+                delete(TrainingSession).where(TrainingSession.id == db_session_id)
+            )
+            await db.commit()
+    except Exception as e:
+        logger.warning("Could not discard training session %s: %s", db_session_id, e)
 
 
 @router.get("/", response_model=list[TrainingSessionResponse])
@@ -131,8 +151,13 @@ async def create_session(
     a session can never exist without the event that explains it.  The Session
     module then starts the session through its own unit of work, which requires
     the row to be visible first.
+
+    Everything ``start()`` would reject is rejected here first, before the
+    commit, so a client error cannot leave a row that claims to exist but was
+    never started.
     """
     scene_version = data.scene_version or DEFAULT_SCENE.version
+    _reject_unstartable_session(request, scene_version, org_id)
     training_session = TrainingSession(
         **data.model_dump(exclude={"scene_version", "flight_plan"}),
         user_id=local_user.id,
@@ -144,18 +169,60 @@ async def create_session(
     await session.refresh(training_session)
     record_session_created(session, training_session, user_id=local_user.id)
     await session.commit()
-    await request.app.state.session_module.start(
-        StartSessionCommand(
-            org_id=org_id,
-            user_id=local_user.id,
-            session_id=training_session.id,
-            scene_version=scene_version,
-            language=data.language,
-            flight_plan=data.flight_plan or {},
+    try:
+        await request.app.state.session_module.start(
+            StartSessionCommand(
+                org_id=org_id,
+                user_id=local_user.id,
+                session_id=training_session.id,
+                scene_version=scene_version,
+                language=data.language,
+                flight_plan=data.flight_plan or {},
+            )
         )
-    )
+    except Exception:
+        # The row is already durable, so a start that never happened would
+        # otherwise stay behind as an active session with nothing running in it.
+        await discard_unstarted_session(training_session.id)
+        raise
     logger.info("Created training session: %s (user=%s)", training_session.id, local_user.id)
     return training_session  # type: ignore[return-value]
+
+
+def _reject_unstartable_session(
+    request: Request, scene_version: str, org_id: UUID | None
+) -> None:
+    """Refuse inputs the Session module could not start, before anything is written.
+
+    ``start()`` resolves the Scene and the tenant itself, so an unknown Scene
+    version or a token with no organization would otherwise surface only after
+    the row and its ``created`` event had committed.  Both are client errors, and
+    the catch-all error middleware flattens them to a 500.
+    """
+    registry: SceneRegistry = request.app.state.scene_registry
+    try:
+        registry.get(scene_version)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Scene '{scene_version}' not found",
+        ) from exc
+
+    if org_id is None and _requires_tenant(request):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No organization associated with your account",
+        )
+
+
+def _requires_tenant(request: Request) -> bool:
+    """Whether this deployment refuses tenant-less sessions.
+
+    Mirrors the rule the composition root gives the Session module, which would
+    otherwise raise ``MissingOrgError`` — a ``PermissionError`` — after the commit.
+    """
+    environment: str = request.app.state.settings.environment
+    return environment == "production"
 
 
 @router.get("/{session_id}", response_model=TrainingSessionResponse)
