@@ -25,14 +25,14 @@ ADR-008 and ADR-009, which added what this database hosts).
 
 ADR-001 through ADR-005 predate the work that produced ADR-006 through
 ADR-009, and are the more likely to be stale. Where a later decision changes an
-earlier one, the later ADR says so in its `Supersedes` header and the earlier
-ADR links forward.
+earlier one, the later ADR says so — ADR-006 carries an explicit `Supersedes`
+header — and the earlier ADR links forward.
 
 - **ADR-006** supersedes part of ADR-004: the orchestrator class, the
   process-local session store, and the module-level LLM global are gone. The
   graph *topology* in ADR-004 still stands.
-- **ADR-007** supersedes the provider choice embedded in ADR-004: graphs now
-  take an injected `LLMModule` and no call site names Ollama.
+- **ADR-007** supersedes the provider choice embedded in ADR-004: graph nodes
+  now take an injected `LLMModule` and none of them names a provider.
 - **ADR-008** extends ADR-002: the same PostgreSQL now hosts pgvector.
 - **ADR-009** adds operational telemetry to the provenance trace recorded in
   ADR-006, and does not replace it.
