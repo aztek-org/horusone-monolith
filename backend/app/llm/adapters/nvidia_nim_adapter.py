@@ -26,7 +26,7 @@ class NvidiaNIMAdapter:
 
     def __init__(self, settings: LLMSettings) -> None:
         if not settings.api_key:
-            raise LLMUsageError("GROQ_API_KEY is required")
+            raise LLMUsageError("NVIDIA_NIM_API_KEY is required")
         self.settings = settings
         self.base_url = settings.base_url.rstrip("/")
         self._base_constraints = SceneConstraints(

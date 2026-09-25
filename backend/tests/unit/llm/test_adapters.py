@@ -203,6 +203,11 @@ def test_groq_adapter_requires_api_key() -> None:
         GroqAdapter(_settings("groq", base_url="https://api.groq.test"))
 
 
+def test_nvidia_nim_adapter_requires_its_api_key() -> None:
+    with pytest.raises(LLMUsageError, match="NVIDIA_NIM_API_KEY is required"):
+        NvidiaNIMAdapter(_settings("nvidia-nim", base_url="http://nim.test"))
+
+
 @pytest.mark.asyncio
 async def test_groq_generate_uses_configured_client_and_constraints() -> None:
     adapter = GroqAdapter(
