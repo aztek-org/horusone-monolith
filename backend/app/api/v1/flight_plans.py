@@ -19,7 +19,6 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
 from app.db.repositories.flight_plan_repository import FlightPlanRepository
 from app.db.session import get_db_session
 from app.middleware.auth import CurrentUser
@@ -41,12 +40,12 @@ plan_repo = FlightPlanRepository()
 
 
 def _get_parser() -> FlightPlanParser:
-    """Construct a ``FlightPlanParser`` from current settings."""
-    settings = get_settings()
-    return FlightPlanParser(
-        ollama_base_url=settings.ollama_base_url,
-        model=settings.ollama_llm_model,
-    )
+    """Construct a ``FlightPlanParser``.
+
+    The parser reads ``LLM_*`` itself and ignores the retired
+    ``ollama_base_url``/``ollama_llm_model`` names, so nothing is passed to it.
+    """
+    return FlightPlanParser()
 
 
 # ── List / Create ──────────────────────────────────────────────────
@@ -295,6 +294,7 @@ async def validate_flight_plan(
     request: Request,
     user: CurrentUser,
     _seat: RequireActiveSeat,
+    org_id: uuid.UUID | None = Depends(get_org_id),
     local_user: User = Depends(get_authenticated_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
@@ -303,6 +303,12 @@ async def validate_flight_plan(
     Runs the full Gatekeeper validation pipeline (weather, fuel, route,
     airspace, performance) through the composed Session module.  Falls back to
     a basic structural check when the pipeline is unavailable.
+
+    The caller's organization is passed to the module so the validation's
+    knowledge retrieval resolves this tenant's own manuals rather than only the
+    globally published ones.  It stays optional: a platform admin may have no
+    organization, and a validation with no tenant is global-only rather than
+    refused.
     """
     plan = await plan_repo.get_flight_plan(db, plan_id, local_user.id)
     if plan is None:
@@ -332,6 +338,7 @@ async def validate_flight_plan(
         snapshot = await request.app.state.session_module.validate(
             user_id=local_user.id,
             flight_plan=flight_plan_data,
+            org_id=org_id,
         )
         validation_passed = bool(snapshot.state.get("validation_passed", False))
 
