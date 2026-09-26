@@ -14,12 +14,14 @@ class TrainingSessionBase(BaseModel):
 
 
 class TrainingSessionCreate(TrainingSessionBase):
-    pass
+    scene_version: str | None = Field(default=None, max_length=50)
+    flight_plan: dict[str, Any] | None = None
 
 
 class TrainingSessionResponse(TrainingSessionBase):
     id: int
     status: str
+    scene_version: str | None = None
     started_at: datetime
     ended_at: datetime | None
 
@@ -134,6 +136,22 @@ class ReplayScoring(BaseModel):
     badges: list[ReplayBadge] = Field(default_factory=list)
 
 
+class ProvenanceEvent(BaseModel):
+    """Provenance fields emitted for one training-session event."""
+
+    event_type: str
+    created_at: datetime
+    graph: str | None = None
+    node: str | None = None
+    scene_version: str | None = None
+    prompt_version: str | None = None
+    llm_provider: str | None = None
+    llm_model: str | None = None
+    llm_fallback_used: bool | None = None
+    retrieved_chunk_ids: list[str] = Field(default_factory=list)
+    instructor_overridden: bool | None = None
+
+
 class TrainingSessionReplayResponse(BaseModel):
     """Aggregated payload returned by ``GET /sessions/{id}/replay``."""
 
@@ -149,3 +167,4 @@ class TrainingSessionReplayResponse(BaseModel):
     insights: list[ReplayInsight] = Field(default_factory=list)
     voice_logs: list[ReplayVoiceLog] = Field(default_factory=list)
     scoring: ReplayScoring | None = None
+    provenance: list[ProvenanceEvent] = Field(default_factory=list)

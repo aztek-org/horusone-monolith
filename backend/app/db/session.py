@@ -44,6 +44,18 @@ def get_session_factory():
     return _session_factory
 
 
+def reset_engine() -> None:
+    """Drop the process-global engine and session factory.
+
+    The pooled asyncpg connections belong to whichever event loop created them,
+    so they must not be reused after that loop is gone — for example between
+    two ``TestClient`` runs.
+    """
+    global _engine, _session_factory
+    _engine = None
+    _session_factory = None
+
+
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency that yields an async database session.
 

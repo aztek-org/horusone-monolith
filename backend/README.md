@@ -92,6 +92,9 @@ WHISPER_LANGUAGE=auto  # en, es, or auto for auto-detection
 # TTS Configuration
 TTS_LANGUAGE=en  # en or es (overridden by detected language)
 
+# Scene registry (blank uses the packaged default-v1 Scene)
+SCENES_PATH=
+
 # Audio Processing
 SAMPLE_RATE=16000
 ENABLE_RADIO_EFFECTS=true

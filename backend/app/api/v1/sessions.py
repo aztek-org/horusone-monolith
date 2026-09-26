@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -27,6 +27,7 @@ from app.models.training_session import TrainingSession
 from app.models.training_session_event import TrainingSessionEvent
 from app.models.user import User
 from app.schemas.training_session import (
+    ProvenanceEvent,
     ReplayBadge,
     ReplayInsight,
     ReplayScoring,
@@ -38,6 +39,18 @@ from app.schemas.training_session import (
     TrainingSessionEventResponse,
     TrainingSessionReplayResponse,
     TrainingSessionResponse,
+)
+from app.services.llm.scenes.default_scene import DEFAULT_SCENE
+from app.services.llm.scenes.registry import SceneRegistry
+from app.services.training_sessions.audit import (
+    discard_unstarted_session,
+    record_session_created,
+    record_session_event,
+)
+from app.services.training_sessions.types import (
+    Debrief,
+    EndSessionCommand,
+    StartSessionCommand,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,6 +117,7 @@ async def list_sessions(
 @router.post("/", response_model=TrainingSessionResponse, status_code=status.HTTP_201_CREATED)
 async def create_session(
     data: TrainingSessionCreate,
+    request: Request,
     user: CurrentUser,
     _seat: RequireActiveSeat,
     org_id: UUID | None = Depends(get_org_id),
@@ -114,28 +128,83 @@ async def create_session(
 
     Requires an **active seat** in an organization.  Users without a seat
     can browse scenarios and view stats but cannot start training.
+
+    The row and its ``created`` audit event are written in one unit of work, so
+    a session can never exist without the event that explains it.  The Session
+    module then starts the session through its own unit of work, which requires
+    the row to be visible first.
+
+    Everything ``start()`` would reject is rejected here first, before the
+    commit, so a client error cannot leave a row that claims to exist but was
+    never started.
     """
+    scene_version = data.scene_version or DEFAULT_SCENE.version
+    _reject_unstartable_session(request, scene_version, org_id)
     training_session = TrainingSession(
-        **data.model_dump(),
+        **data.model_dump(exclude={"scene_version", "flight_plan"}),
         user_id=local_user.id,
         org_id=org_id,
+        scene_version=scene_version,
     )
     session.add(training_session)
     await session.flush()
     await session.refresh(training_session)
-    _record_session_event(
-        session=session,
-        training_session=training_session,
-        user_id=local_user.id,
-        event_type="created",
-        event_payload={
-            "scenario_id": training_session.scenario_id,
-            "language": training_session.language,
-            "status": training_session.status,
-        },
-    )
+    record_session_created(session, training_session, user_id=local_user.id)
+    await session.commit()
+    try:
+        await request.app.state.session_module.start(
+            StartSessionCommand(
+                org_id=org_id,
+                user_id=local_user.id,
+                session_id=training_session.id,
+                scene_version=scene_version,
+                language=data.language,
+                flight_plan=data.flight_plan or {},
+            )
+        )
+    except Exception:
+        # The row is already durable, so a start that never happened would
+        # otherwise stay behind as an active session with nothing running in it.
+        await discard_unstarted_session(training_session.id)
+        raise
     logger.info("Created training session: %s (user=%s)", training_session.id, local_user.id)
     return training_session  # type: ignore[return-value]
+
+
+def _reject_unstartable_session(
+    request: Request, scene_version: str, org_id: UUID | None
+) -> None:
+    """Refuse inputs the Session module could not start, before anything is written.
+
+    ``start()`` resolves the Scene and the tenant itself, so an unknown Scene
+    version or a token with no organization would otherwise surface only after
+    the row and its ``created`` event had committed.  Both are client errors, and
+    the catch-all error middleware flattens them to a 500.
+    """
+    registry: SceneRegistry = request.app.state.scene_registry
+    try:
+        registry.get(scene_version)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Scene '{scene_version}' not found",
+        ) from exc
+
+    if org_id is None and _requires_tenant(request):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No organization associated with your account",
+        )
+
+
+def _requires_tenant(request: Request) -> bool:
+    """Whether this deployment refuses tenant-less sessions.
+
+    Mirrors the rule the composition root gives the Session module, which would
+    otherwise raise ``MissingOrgError`` — a ``PermissionError`` — after the commit.
+    """
+    environment: str = request.app.state.settings.environment
+    return environment == "production"
 
 
 @router.get("/{session_id}", response_model=TrainingSessionResponse)
@@ -237,6 +306,16 @@ async def get_session_replay(
             detail="You do not have access to this session",
         )
 
+    events_result = await session.execute(
+        select(TrainingSessionEvent)
+        .where(TrainingSessionEvent.session_id == session_id)
+        .order_by(TrainingSessionEvent.created_at.asc())
+    )
+    provenance = [
+        _provenance_from_event(event)
+        for event in events_result.scalars().all()
+    ]
+
     track = await waypoint_repo.get_session_track(session, session_id)
     raw_track_points: list[dict[str, Any]] = track.track_points if track else []
     track_points = _normalize_replay_track_points(raw_track_points)
@@ -265,6 +344,7 @@ async def get_session_replay(
         insights=insights,
         voice_logs=voice_logs,
         scoring=scoring,
+        provenance=provenance,
     )
 
 
@@ -274,16 +354,16 @@ async def get_session_replay(
 )
 async def complete_session(
     session_id: int,
+    request: Request,
     user: CurrentUser,
     local_user: User = Depends(get_authenticated_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> TrainingSessionCompletionResponse:
-    """End a training session and trigger post-flight scoring.
+    """End a training session and run post-flight scoring.
 
-    Marks the session as ``completed``, records ``ended_at``, and runs
-    the LangGraph scoring pipeline (student evaluation + badge awards).
-    Falls back gracefully with a stub score when the orchestrator is
-    unavailable.
+    Marks the session as ``completed``, records ``ended_at``, and hands the
+    persisted session state to the Session module's scoring pipeline.
+    Completing an already-completed session is idempotent.
     """
     result = await session.execute(
         select(TrainingSession).where(TrainingSession.id == session_id)
@@ -315,7 +395,7 @@ async def complete_session(
         )
         return _build_completion_response(
             training_session=training_session,
-            scoring_result={},
+            debrief=None,
             already_completed=True,
         )
 
@@ -328,21 +408,32 @@ async def complete_session(
             ),
         )
 
+    # Score first: the Session module reads the graph state it persisted, not this
+    # row.  Keeping the status change in the route's own uncommitted unit of work
+    # means a scoring failure rolls the row back to "active" instead of stranding
+    # a completed session that can never produce a debrief.
+    debrief = await request.app.state.session_module.end(
+        EndSessionCommand(
+            org_id=training_session.org_id,
+            session_id=training_session.id,
+        )
+    )
+
     training_session.status = "completed"
     training_session.ended_at = datetime.now(timezone.utc)
     await session.flush()
     await session.refresh(training_session)
 
-    scoring_result = await _run_scoring(str(session_id))
     response = _build_completion_response(
         training_session=training_session,
-        scoring_result=scoring_result,
+        debrief=debrief,
         already_completed=False,
     )
-    _record_session_event(
-        session=session,
-        training_session=training_session,
+    record_session_event(
+        session,
+        session_id=training_session.id,
         user_id=local_user.id,
+        org_id=training_session.org_id,
         event_type="completed",
         event_payload={
             "grade": response.scoring.grade if response.scoring else None,
@@ -367,34 +458,15 @@ async def complete_session(
 # ---------------------------------------------------------------------------
 
 
-def _record_session_event(
-    session: AsyncSession,
-    training_session: TrainingSession,
-    user_id: UUID | None,
-    event_type: str,
-    event_payload: dict[str, Any],
-) -> None:
-    """Append an audit event for the session lifecycle."""
-    session.add(
-        TrainingSessionEvent(
-            session_id=training_session.id,
-            user_id=user_id,
-            org_id=training_session.org_id,
-            event_type=event_type,
-            event_payload=event_payload,
-        )
-    )
-
-
 def _build_completion_response(
     training_session: TrainingSession,
-    scoring_result: dict[str, Any],
+    debrief: Debrief | None,
     already_completed: bool,
 ) -> TrainingSessionCompletionResponse:
     """Build normalized completion payload for API responses."""
-    scoring = _normalize_completion_scoring(scoring_result.get("scoring"))
-    badges_earned = _normalize_badges(scoring_result.get("badges_earned"))
-    report = scoring_result.get("report", "")
+    scoring = _normalize_completion_scoring(debrief.scoring if debrief else None)
+    badges_earned = _normalize_badges(debrief.badges_earned if debrief else None)
+    report = debrief.report if debrief else ""
 
     return TrainingSessionCompletionResponse(
         session_id=training_session.id,
@@ -403,13 +475,13 @@ def _build_completion_response(
         already_completed=already_completed,
         scoring=scoring,
         badges_earned=badges_earned,
-        report=report if isinstance(report, str) else str(report),
+        report=report,
         replay_path=f"/session/{training_session.id}",
     )
 
 
 def _normalize_completion_scoring(raw_scoring: Any) -> dict[str, Any] | None:
-    """Normalize scoring payload returned by the orchestrator."""
+    """Normalize the scoring block produced by the Session module."""
     if not isinstance(raw_scoring, dict) or not raw_scoring:
         return None
 
@@ -445,6 +517,30 @@ def _to_float(value: Any, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _provenance_from_event(event: TrainingSessionEvent) -> ProvenanceEvent:
+    """Expose persisted provenance while tolerating legacy lifecycle events."""
+    payload = event.event_payload
+    raw_chunk_ids = payload.get("retrieved_chunk_ids")
+    retrieved_chunk_ids = (
+        [str(chunk_id) for chunk_id in raw_chunk_ids]
+        if isinstance(raw_chunk_ids, list)
+        else []
+    )
+    return ProvenanceEvent(
+        event_type=event.event_type,
+        created_at=event.created_at,
+        graph=payload.get("graph"),
+        node=payload.get("node"),
+        scene_version=payload.get("scene_version"),
+        prompt_version=payload.get("prompt_version"),
+        llm_provider=payload.get("provider"),
+        llm_model=payload.get("model"),
+        llm_fallback_used=payload.get("fallback_used"),
+        retrieved_chunk_ids=retrieved_chunk_ids,
+        instructor_overridden=payload.get("instructor_overridden"),
+    )
 
 
 def _can_view_session(
@@ -716,64 +812,3 @@ def _build_replay_scoring(
         ),
         badges=badges,
     )
-
-
-# ---------------------------------------------------------------------------
-# Scoring integration
-# ---------------------------------------------------------------------------
-
-
-async def _run_scoring(session_id: str) -> dict[str, Any]:
-    """Attempt to run the LangGraph scoring pipeline.
-
-    Falls back to a stub result when the orchestrator is unavailable
-    (e.g. LangGraph / Ollama not running).
-    """
-    try:
-        from app.services.llm.orchestrator import HorusOrchestrator
-
-        orchestrator = HorusOrchestrator()
-        state = orchestrator.get_session_state(session_id)
-
-        if state is not None:
-            # Session exists in orchestrator memory — run scoring
-            result = await orchestrator.end_session(session_id)
-            logger.info("Scoring pipeline completed for session %s", session_id)
-            return result
-
-        logger.info(
-            "Session %s not in orchestrator memory — returning default scoring",
-            session_id,
-        )
-        return _default_scoring()
-
-    except Exception:
-        logger.warning(
-            "Scoring pipeline unavailable for session %s — using defaults",
-            session_id,
-            exc_info=True,
-        )
-        return _default_scoring()
-
-
-def _default_scoring() -> dict[str, Any]:
-    """Return a safe default when the scoring pipeline is unavailable."""
-    return {
-        "scoring": {
-            "communication_score": 0,
-            "decision_score": 0,
-            "procedure_score": 0,
-            "overall_score": 0,
-            "grade": "N/A",
-            "strengths": [],
-            "improvements": [
-                "Scoring unavailable — session data not found in pipeline",
-            ],
-            "summary": (
-                "Scoring could not be computed. "
-                "Review session recording manually."
-            ),
-        },
-        "badges_earned": [],
-        "report": "Scoring pipeline was not available for this session.",
-    }

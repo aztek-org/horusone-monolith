@@ -18,26 +18,44 @@ We needed an architecture that:
 2. Supports a **multi-phase training lifecycle** — ingestion, validation, live ATC
    session, post-flight evaluation, and scoring.
 3. Allows **human-in-the-loop (HITL)** so instructors can override AI-generated ATC
-   responses before they reach the student.
+   responses before they reach the student. *(This is the requirement. What is
+   built and what is actually reachable today are recorded in the HITL section
+   below: the mechanism exists and is tested, and it is switched off.)*
 4. Keeps state in a single, typed object so every agent can read context set by earlier
    agents (e.g., the fuel agent can reference route distances from the route agent).
 
 ## Decision
 
-We adopt **LangGraph `StateGraph`** as the orchestration framework, with a top-level
-`HorusOrchestrator` class that composes **three compiled sub-graphs** and **nine
-specialized reasoning agents**.
+We adopt **LangGraph `StateGraph`** as the orchestration framework. **Three compiled
+sub-graphs** and **nine specialized reasoning agents** run inside a single
+caller-facing Session module.
 
-### Orchestrator
+> **Partly superseded.** The graph topology recorded below is current. The
+> *composition* described in the original text is not: the `HorusOrchestrator`
+> class and its `orchestrator.py` module were retired, and graphs are now built
+> by factories that take an injected `LLMModule`. See
+> [ADR-006](./ADR-006-scene-session-and-persistent-langgraph.md) for the Session
+> module that replaced the orchestrator and for how state is persisted, and
+> [ADR-007](./ADR-007-llm-provider-adapters.md) for provider injection.
 
-The `HorusOrchestrator` (`backend/app/services/llm/orchestrator.py`) exposes three
-lifecycle methods:
+### Session module (was: `HorusOrchestrator`)
+
+`TrainingSessionModule` (`backend/app/services/training_sessions/session_module.py`)
+is the single lifecycle seam. It is constructed once in the composition root,
+`backend/app/main.py`, and exposes:
 
 | Method | Pipeline phase | Sub-graph invoked |
 |--------|---------------|-------------------|
-| `start_session()` | Ingestion → Validation → Pre-flight | `validation_graph` |
-| `process_message()` | Live ATC exchange | `live_session_graph` |
-| `end_session()` | Post-flight → Scoring → Badges | `scoring_graph` |
+| `start()` | Ingestion → Validation → Pre-flight | `build_validation_graph()` |
+| `validate()` | Pre-flight only, nothing persisted | `build_validation_graph()` |
+| `send()` | Live ATC exchange | `build_live_session_graph()` |
+| `await_instructor()` | Completes a held exchange (override, or resume non-interrupting) | `build_live_session_graph()` |
+| `end()` | Post-flight → Scoring → Badges | `build_scoring_graph()` |
+| `snapshot()` | — | none (reads the persisted state) |
+
+The validation and scoring graphs are built once in the module's constructor.
+Live graphs are built per `(scene_version, interrupt_before_response)` pair and
+cached, because the injected LLM and Scene are fixed per graph.
 
 Each session's state is a single `HorusState` TypedDict that flows through every node.
 
@@ -120,8 +138,8 @@ graph TD
 
 **File**: `backend/app/services/llm/graphs/live_session_graph.py`
 
-Handles a **single pilot → ATC exchange**. The orchestrator invokes this once per pilot
-transmission; conversation history accumulates in `HorusState.messages`.
+Handles a **single pilot → ATC exchange**. The Session module invokes this once
+per pilot transmission; conversation history accumulates in `HorusState.messages`.
 
 ```mermaid
 graph TD
@@ -138,14 +156,37 @@ graph TD
 |------|---------------|
 | `understand_input` | Classify pilot transmission: detect phraseology errors, positive patterns, and emergency keywords |
 | `emergency_handler` | Classify emergency type (MAYDAY, PAN PAN, engine failure, etc.) and generate procedural ATC response from templates |
-| `generate_atc_response` | Build context-aware prompt and invoke Ollama LLM for standard ATC response |
+| `generate_atc_response` | Build context-aware prompt from the Scene and invoke the injected `LLMModule` for a standard ATC response |
 | `evaluate_exchange` | Increment exchange counter, update session phase detail (taxi → takeoff → cruise → …) |
 
-#### Human-in-the-Loop (HITL)
+#### Human-in-the-Loop (HITL) — built, not exposed
 
-When compiled with `interrupt_before=["generate_atc_response"]`, the graph pauses
-before the ATC response node. An instructor can inspect and modify the state, then
-resume the graph. This is controlled by the `enable_hitl` flag on `HorusOrchestrator`.
+When compiled with `interrupt_before_response=True`,
+`build_live_session_graph()` pauses before the ATC response node *and* before the
+emergency handler, so a MAYDAY cannot slip past the review. An instructor can
+then inspect the state and either supply their own response or release the
+graph's own; `await_instructor()` is what completes a held exchange, and because
+the state is checkpointed a pending review survives a backend restart.
+
+**None of that is reachable in a deployment today.** The capability is real and
+tested; the switch is not, and there is no endpoint to throw.
+
+- The flag is a constructor argument of `TrainingSessionModule`
+  (`app/services/training_sessions/session_module.py:61`) whose default is
+  `False`. This ADR previously said "callers do not set it themselves", which
+  described a flag that *nobody* sets: the composition root `app/main.py:176-184`
+  does not pass it, no `Settings` field sources it, and no `.env` template
+  declares it. `ATCAgent` passes `False` explicitly.
+- No route calls `await_instructor`, so a held exchange could not be released
+  even if the flag were set.
+
+So in every deployment `instructor_overridden` is always `False` and the
+`awaiting_instructor` event is never emitted. Turning it on needs a config
+field, an authorized response route behind the existing seat/role/tenant checks,
+and a frontend pending state — see
+[#3](https://github.com/martinsgmx/horusone-mvp/issues/3) and
+[ADR-006](./ADR-006-scene-session-and-persistent-langgraph.md#not-yet-exposed-instructor-override-hitl).
+Treat it as built-and-deliberately-off until all three land.
 
 ### Sub-Graph 3: Scoring Graph
 
@@ -182,8 +223,10 @@ graph TD
 | 9 | **Gamification** | Scoring | No | Badge criteria evaluation (12 badges across 4 categories) |
 
 > The `generate_atc_response` node in the live session graph is the **only node that
-> calls the LLM** (Ollama). All other agents use deterministic logic, calculation tools,
-> or stub data — making them fast, predictable, and independently testable.
+> calls the LLM**. All other agents use deterministic logic, calculation tools,
+> or stub data — making them fast, predictable, and independently testable. The
+> provider behind that one call is chosen by configuration, not by the graph; see
+> [ADR-007](./ADR-007-llm-provider-adapters.md).
 
 ### Full Pipeline Overview
 
@@ -191,36 +234,36 @@ graph TD
 sequenceDiagram
     participant Student
     participant API as FastAPI
-    participant Orch as HorusOrchestrator
+    participant Orch as TrainingSessionModule
     participant VG as Validation Graph
     participant LG as Live Session Graph
     participant SG as Scoring Graph
 
     Student->>API: POST /flight-plans (create plan)
     Student->>API: POST /sessions (start session)
-    API->>Orch: start_session(flight_plan)
+    API->>Orch: start(StartSessionCommand)
     Orch->>VG: ainvoke(state)
     Note over VG: Gatekeeper → Weather → Fuel<br/>→ Route → Airspace → Performance
     VG-->>Orch: validated state
-    Orch-->>API: session_id + validation results
+    Orch-->>API: SessionSnapshot + validation results
 
     loop Each radio exchange
         Student->>API: WebSocket pilot_message
-        API->>Orch: process_message(session_id, text)
+        API->>Orch: send(SendTransmissionCommand)
         Orch->>LG: ainvoke(state)
         Note over LG: Understand → Emergency?<br/>→ ATC Response → Evaluate
-        LG-->>Orch: atc_response
+        LG-->>Orch: ExchangeResult
         Orch-->>API: ATC audio response
         API-->>Student: WebSocket audio
     end
 
     Student->>API: End session
-    API->>Orch: end_session(session_id)
+    API->>Orch: end(EndSessionCommand)
     Orch->>SG: ainvoke(state)
     Note over SG: StudentTier → Badges → Report
     SG-->>Orch: scoring + badges + report
-    Orch-->>API: post-flight report
-    API-->>Student: Session results
+    Orch-->>API: Debrief
+    API-->>Student: post-flight report
 ```
 
 ## Consequences
@@ -232,8 +275,12 @@ sequenceDiagram
   writing a function and inserting a node in the graph.
 - **Independent testability** — agents are pure functions of `HorusState` → partial
   state dict. Unit tests don't need the LLM or any external service.
-- **Human-in-the-loop** — the live session graph natively supports instructor override
-  via LangGraph's `interrupt_before` mechanism.
+- **Human-in-the-loop** — the live session graph natively supports instructor
+  override via LangGraph's `interrupt_before` mechanism, on the ATC-response and
+  emergency nodes. Built and tested; **switched off in every deployment**, with
+  no config field and no route to release a held exchange. See the HITL section
+  above and
+  [#3](https://github.com/martinsgmx/horusone-mvp/issues/3).
 - **Deterministic validation** — 8 of 9 agents use no LLM, making pre-flight checks
   fast (~50ms) and reproducible.
 - **Typed state** — `HorusState` TypedDict catches field-name typos at type-check time.
@@ -243,14 +290,21 @@ sequenceDiagram
 
 ### Negative
 
-- **In-memory session store** — session state is stored in a Python dict. This limits
-  the system to a single process. Production deployment should swap this for Redis or
-  PostgreSQL-backed state.
 - **Sequential validation** — validation agents run in series. If agents don't depend
   on each other's output, they could be parallelized with LangGraph fan-out nodes.
-- **Module-level LLM reference** — the live session graph uses a global `_llm` variable
-  set at build time. This works for single-model deployments but would need refactoring
-  for multi-model setups.
+- **In-memory session store** — *resolved.* Session state was once a process-local
+  Python dict, which limited the system to a single process. It is now persisted
+  through a LangGraph checkpointer
+  (`backend/app/services/training_sessions/postgres_session_store.py` in
+  production, `InMemorySessionStore` in tests), keyed by a `thread_id` derived
+  from `(org_id, session_id)`. See
+  [ADR-006](./ADR-006-scene-session-and-persistent-langgraph.md).
+- **Module-level LLM reference** — *resolved.* The live session graph no longer
+  holds a global `_llm`; the LLM is injected at graph-build time by
+  `_generate_atc_response_factory(llm, scene)`. Provider selection and the
+  Scene override path are decided in config, not at a call site. See
+  [ADR-006](./ADR-006-scene-session-and-persistent-langgraph.md) and
+  [ADR-007](./ADR-007-llm-provider-adapters.md).
 
 ### Neutral
 
@@ -266,3 +320,6 @@ sequenceDiagram
 - [LangGraph StateGraph API](https://langchain-ai.github.io/langgraph/reference/graphs/#langgraph.graph.StateGraph)
 - Related ADR: [ADR-001: Monorepo Structure](./ADR-001-monorepo-structure.md)
 - Related ADR: [ADR-005: Flight Plan Pipeline](./ADR-005-flight-plan-pipeline.md)
+- Related ADR: [ADR-006: Scene/Session Split and Persistent LangGraph State](./ADR-006-scene-session-and-persistent-langgraph.md)
+- Related ADR: [ADR-007: LLM Provider Adapters](./ADR-007-llm-provider-adapters.md)
+- Index: [ARCHITECTURE-INDEX.md](./ARCHITECTURE-INDEX.md)

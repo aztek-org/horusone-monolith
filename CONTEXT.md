@@ -9,7 +9,8 @@ A reusable training plan and initial context: aircraft, airports, route, weather
 _Avoid_: Scenario template, flight plan (a Flight Plan is the pilot's own plan, not the Scene), session
 
 **Session**:
-One user's interaction with a Scene: transmissions, ATC responses, decisions taken, instructor overrides, and the resulting debrief. A Session is tenant-scoped and fully traceable after it ends.
+One user's interaction with a Scene: transmissions, ATC responses, the decisions taken, the resulting debrief, and the provenance of every step. A Session is tenant-scoped and fully traceable after it ends.
+_Not part of a Session today_: instructor overrides. The capability is built and tested but switched off in every deployment — no config field arms it and no route releases a held exchange, so `instructor_overridden` is always false. See [ADR-004](docs/architecture/ADR-004-langgraph-multi-agent.md#human-in-the-loop-hitl--built-not-exposed) and issue [#3](https://github.com/martinsgmx/horusone-mvp/issues/3).
 _Avoid_: conversation, chat, run, session state (state is an implementation detail of a Session)
 
 **Flight Plan**:
@@ -25,7 +26,7 @@ A retrievable span of a Knowledge Document, carrying its embedding and citation 
 _Avoid_: embedding, vector (a vector is the numeric representation, not the content)
 
 **Citation**:
-A link from a Session exchange or debrief statement back to the exact Knowledge Chunk that informed it.
+A link from a Session exchange or debrief statement back to the exact Knowledge Chunk that informed it. This entry defines the term, not a shipped capability: nothing produces a Citation today. `ExchangeResult.citations` is always `[]`, and the chunk a step used is recorded as provenance (`retrieved_chunk_ids`) instead. See [ADR-008](docs/architecture/ADR-008-tenant-scoped-knowledge-and-pgvector-retrieval.md).
 _Avoid_: source, reference, provenance (provenance is the broader trace record; a Citation is one pointer inside it)
 
 **Provenance**:

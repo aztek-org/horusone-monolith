@@ -5,6 +5,7 @@ from app.models.content import ContentArticle, ContentCategory
 from app.models.flight_plan import FlightPlan, FlightPlanLeg
 from app.models.gamification import Badge, LeaderboardSnapshot, UserBadge
 from app.models.instructor import InstructorProfile
+from app.models.knowledge_document import ContentChunk, ContentDocument, IngestEvent
 from app.models.organization import Organization
 from app.models.scenario import Scenario
 from app.models.seat import Seat
@@ -27,11 +28,14 @@ __all__ = [
     "Badge",
     "ContentArticle",
     "ContentCategory",
+    "ContentChunk",
+    "ContentDocument",
     "FlightHourLog",
     "FlightInsight",
     "FlightPlan",
     "FlightPlanLeg",
     "InstructorProfile",
+    "IngestEvent",
     "KnowledgeAssessment",
     "LeaderboardSnapshot",
     "ManeuverLog",

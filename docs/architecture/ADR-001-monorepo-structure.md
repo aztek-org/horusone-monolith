@@ -31,3 +31,7 @@ The root level contains shared tooling (`.editorconfig`, `package.json` convenie
 - **Backend** → Private VPS via Docker Compose
 
 These are **never co-deployed** in the same container or process.
+
+## References
+
+- Index: [ARCHITECTURE-INDEX.md](./ARCHITECTURE-INDEX.md)

@@ -406,7 +406,7 @@ Deleted files: `backend/app/services/llm/orchestrator.py` only.
 
 - [ ] **Step 5: Write `ollama_adapter.py`, `groq_adapter.py`, `nvidia_nim_adapter.py`**
 
-  `OllamaAdapter.generate` constructs `langchain_community.llms.Ollama(base_url=settings.base_url, model=settings.model, temperature=..., num_predict=...)` once in `__init__` (not per call) and wraps `asyncio.TimeoutError` and `httpx.TransportError` in `LLMTransientError`; other exceptions become `LLMUsageError`. `embed` calls `ollama.Client(settings.base_url).embed(model=settings.embedding_model, input=texts)` and returns `EmbeddingResult`. `GroqAdapter` uses `langchain_groq.ChatGroq(api_key=..., model=..., max_retries=0, timeout=settings.timeout_seconds)`; `NvidiaNIMAdapter` uses `httpx.AsyncClient` against `{base_url}/v1/chat/completions` and `{base_url}/v1/embeddings` with `Authorization: Bearer`. Both raise `LLMUsageError("GROQ_API_KEY is required")` at `__init__` when the key is missing.
+  `OllamaAdapter.generate` constructs `langchain_community.llms.Ollama(base_url=settings.base_url, model=settings.model, temperature=..., num_predict=...)` once in `__init__` (not per call) and wraps `asyncio.TimeoutError` and `httpx.TransportError` in `LLMTransientError`; other exceptions become `LLMUsageError`. `embed` calls `ollama.Client(settings.base_url).embed(model=settings.embedding_model, input=texts)` and returns `EmbeddingResult`. `GroqAdapter` uses `langchain_groq.ChatGroq(api_key=..., model=..., max_retries=0, timeout=settings.timeout_seconds)`; `NvidiaNIMAdapter` uses `httpx.AsyncClient` against `{base_url}/v1/chat/completions` and `{base_url}/v1/embeddings` with `Authorization: Bearer`. Each adapter raises `LLMUsageError` naming **its own** missing credential at `__init__` — `GROQ_API_KEY is required` for Groq, `NVIDIA_NIM_API_KEY is required` for NVIDIA NIM. (Corrected 2026-09-25: the plan originally mandated the Groq string for both, which sent operators to the wrong provider's configuration.)
 
 - [ ] **Step 6: Add dependency and adapter tests**
 
@@ -658,7 +658,7 @@ Deleted files: `backend/app/services/llm/orchestrator.py` only.
 - Create: `backend/app/services/llm/scenes/__init__.py`, `default_scene.py`, `registry.py`, `backend/app/services/training_sessions/graphs.py`
 - Create: `docs/architecture/scene-config.example.yaml`
 - Modify: `backend/app/services/llm/graphs/live_session_graph.py` (remove `_llm`, accept `llm: LLMModule` and `scene: SceneConfig`)
-- Modify: `backend/app/services/llm/graphs/validation_graph.py`, `scoring_graph.py` (accept optional `knowledge`, keep node functions unchanged)
+- Modify: `backend/app/services/llm/graphs/validation_graph.py` (accept optional `knowledge` retriever; keep node functions otherwise unchanged). **`scoring_graph.py` is intentionally NOT modified** — the plan previously listed it here, but the task body only ever specified `build_scoring_graph()` as unchanged, so the file-list entry was a planning error. (Corrected 2026-09-25 after the Task 5 review.)
 - Modify: `backend/app/services/llm/atc_agent.py` (become a thin adapter over the live graph; remove its private `AgentState`/`SessionPhase`/understand-respond-evaluate graph and its Ollama construction)
 - Modify: `backend/app/services/llm/state.py` (add `scene_version: str`, `prompt_version: str`, `retrieved_chunk_ids: list[str]`, `llm_provider: str`, `llm_model: str`, `llm_fallback_used: bool`, `pending_instructor: bool`)
 - Modify: `backend/app/core/audio_pipeline.py` (accept `llm: LLMModule`, `scene: SceneConfig`; construct `ATCAgent(llm, scene)`)

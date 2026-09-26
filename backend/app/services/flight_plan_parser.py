@@ -1,15 +1,12 @@
 """Flight plan parser — AI-powered extraction from text and images.
 
-Uses Ollama (via ``httpx``) to parse free-text flight plan descriptions
-into structured data.  Falls back gracefully to basic keyword extraction
-when the LLM is unavailable.
+Extraction runs through the provider-independent ``LLMModule`` with
+``purpose="flight_plan_parse"``, so any configured provider works.  Falls back
+gracefully to basic keyword extraction when the provider is unavailable.
 
 Usage::
 
-    parser = FlightPlanParser(
-        ollama_base_url="http://localhost:11434",
-        model="llama3:latest",
-    )
+    parser = FlightPlanParser(llm)
     result = await parser.from_text("VFR from KJFK to KBOS at 5500 in a C172")
 """
 
@@ -20,15 +17,18 @@ import logging
 import re
 from typing import Any
 
-import httpx
-
+from app.config import get_settings
+from app.llm import GenerationRequest, SceneConstraints, build_llm
+from app.llm.types import LLMModule
 from app.services.external.ocr_service import OCRService
 from app.services.llm.prompts import FLIGHT_PLAN_PARSE_PROMPT
 
 logger = logging.getLogger(__name__)
 
-# Timeout for Ollama requests — generous because LLM inference is slow.
-_OLLAMA_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
+# Sampling and budget for a parse.  A parse must be near-deterministic and the
+# whole JSON document must fit, so these are stated once here and travel as
+# request constraints rather than as literals inside a provider's wire payload.
+PARSE_CONSTRAINTS = SceneConstraints(temperature=0.1, max_output_tokens=500)
 
 # Fields we expect from the LLM JSON response.
 _EXPECTED_FIELDS = {
@@ -47,13 +47,35 @@ class FlightPlanParser:
     """Parse flight plans from various sources using AI.
 
     Args:
-        ollama_base_url: Ollama REST API base URL.
-        model: Model name to use (e.g. ``"llama3:latest"``).
+        llm: Provider-independent language-model module.  When omitted, the
+            module configured by the ``LLM_*`` settings is built on demand, which
+            is what the not-yet-migrated route relies on.
+        constraints: Sampling and token budget for a parse.  Defaults to
+            :data:`PARSE_CONSTRAINTS`.
+        language: Language of the parse prompt, carried on every request.
+        ollama_base_url: Accepted only so the unmigrated caller keeps working.
+            Redundant with ``LLM_BASE_URL`` and never used; the provider is
+            chosen by ``LLM_PROVIDER``.
+        model: Accepted for the same reason; redundant with ``LLM_MODEL``.
     """
 
-    def __init__(self, ollama_base_url: str, model: str) -> None:
-        self.ollama_base_url = ollama_base_url.rstrip("/")
-        self.model = model
+    def __init__(
+        self,
+        llm: LLMModule | None = None,
+        *,
+        constraints: SceneConstraints | None = None,
+        language: str = "en",
+        ollama_base_url: str | None = None,
+        model: str | None = None,
+    ) -> None:
+        if ollama_base_url is not None or model is not None:
+            logger.debug(
+                "FlightPlanParser ignores ollama_base_url/model; the configured "
+                "LLM provider supplies both"
+            )
+        self.llm = llm if llm is not None else build_llm(get_settings())
+        self.constraints = PARSE_CONSTRAINTS if constraints is None else constraints
+        self.language = language
         self._ocr = OCRService()
 
     # ------------------------------------------------------------------
@@ -75,7 +97,7 @@ class FlightPlanParser:
         prompt = FLIGHT_PLAN_PARSE_PROMPT.format(free_text=text)
 
         try:
-            raw_response = await self._call_ollama(prompt)
+            raw_response = await self._generate(prompt)
             parsed = self._extract_json(raw_response)
             if parsed:
                 logger.info("Flight plan parsed via LLM: %s", list(parsed.keys()))
@@ -119,35 +141,28 @@ class FlightPlanParser:
         return await self.from_text(ocr_text)
 
     # ------------------------------------------------------------------
-    # Ollama integration
+    # Provider integration
     # ------------------------------------------------------------------
 
-    async def _call_ollama(self, prompt: str) -> str:
-        """Send a prompt to the Ollama ``/api/generate`` endpoint.
+    async def _generate(self, prompt: str) -> str:
+        """Ask the configured provider to parse the plan.
 
         Returns:
-            The model's text response.
+            The model's text response, which :pymethod:`_extract_json` parses.
 
         Raises:
-            httpx.HTTPStatusError: On non-2xx responses.
-            httpx.ConnectError: If Ollama is unreachable.
+            LLMUnavailableError: No permitted provider could answer.
+            LLMUsageError: The provider rejected the request.
         """
-        url = f"{self.ollama_base_url}/api/generate"
-        payload = {
-            "model": self.model,
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "temperature": 0.1,
-                "num_predict": 500,
-            },
-        }
-
-        async with httpx.AsyncClient(timeout=_OLLAMA_TIMEOUT) as client:
-            response = await client.post(url, json=payload)
-            response.raise_for_status()
-            data = response.json()
-            return str(data.get("response", ""))
+        result = await self.llm.generate(
+            GenerationRequest(
+                prompt=prompt,
+                purpose="flight_plan_parse",
+                scene_constraints=self.constraints,
+                language=self.language,
+            )
+        )
+        return result.text
 
     # ------------------------------------------------------------------
     # Response extraction helpers

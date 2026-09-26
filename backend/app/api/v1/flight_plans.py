@@ -16,10 +16,9 @@ import logging
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
 from app.db.repositories.flight_plan_repository import FlightPlanRepository
 from app.db.session import get_db_session
 from app.middleware.auth import CurrentUser
@@ -40,13 +39,27 @@ router = APIRouter(prefix="/flight-plans", tags=["Flight Plans"])
 plan_repo = FlightPlanRepository()
 
 
-def _get_parser() -> FlightPlanParser:
-    """Construct a ``FlightPlanParser`` from current settings."""
-    settings = get_settings()
-    return FlightPlanParser(
-        ollama_base_url=settings.ollama_base_url,
-        model=settings.ollama_llm_model,
-    )
+def _get_parser(request: Request) -> FlightPlanParser:
+    """Construct a ``FlightPlanParser`` around the application's LLM module.
+
+    The parser used to be built with no ``llm``, so it ran
+    ``build_llm(get_settings())`` per request: every ``/from-text`` and
+    ``/from-image`` call constructed a fresh provider adapter, and both
+    ``ChatGroq`` and ``ollama.Client`` own an httpx client that is never closed,
+    so each request leaked one.  The composition root already builds a single
+    module and publishes it on ``app.state.llm`` (``app/main.py``), so the route
+    hands that to the parser instead of building a second one.
+
+    The parser reads ``LLM_*`` itself and ignores the retired
+    ``ollama_base_url``/``ollama_llm_model`` names, so nothing else is passed.
+
+    Args:
+        request: The inbound request, whose application owns the LLM module.
+
+    Returns:
+        A parser bound to the application's LLM module.
+    """
+    return FlightPlanParser(request.app.state.llm)
 
 
 # ── List / Create ──────────────────────────────────────────────────
@@ -113,6 +126,7 @@ async def create_flight_plan(
 )
 async def create_flight_plan_from_text(
     data: FlightPlanFromText,
+    request: Request,
     user: CurrentUser,
     _seat: RequireActiveSeat,
     local_user: User = Depends(get_authenticated_user),
@@ -121,14 +135,15 @@ async def create_flight_plan_from_text(
 ) -> FlightPlanRead:
     """Create a flight plan by parsing free-text input via AI.
 
-    Uses the Ollama LLM to extract structured fields from the free-text
-    description.  Falls back to keyword-based extraction when the LLM
-    is unavailable.
+    Uses the configured LLM provider to extract structured fields from the
+    free-text description.  Falls back to keyword-based extraction when the LLM
+    is unavailable — including when the parser itself cannot be constructed, so
+    a provider that refuses to build yields a stub plan rather than a 500.
     """
     effective_org = data.org_id or org_id
-    parser = _get_parser()
 
     try:
+        parser = _get_parser(request)
         parsed = await parser.from_text(data.text)
     except Exception:
         logger.warning("Flight plan text parsing failed — creating stub plan", exc_info=True)
@@ -160,6 +175,7 @@ async def create_flight_plan_from_text(
 )
 async def create_flight_plan_from_image(
     file: UploadFile,
+    request: Request,
     user: CurrentUser,
     _seat: RequireActiveSeat,
     local_user: User = Depends(get_authenticated_user),
@@ -169,11 +185,11 @@ async def create_flight_plan_from_image(
     """Create a flight plan from an uploaded image (OCR + AI parsing).
 
     Pipeline: read image bytes → OCR text extraction → LLM parsing
-    into structured fields.  Falls back gracefully at each stage.
+    into structured fields.  Falls back gracefully at each stage, including when
+    the parser cannot be constructed at all.
     """
     filename = file.filename or "unknown"
     content_type = file.content_type or "unknown"
-    parser = _get_parser()
 
     try:
         image_bytes = await file.read()
@@ -185,6 +201,7 @@ async def create_flight_plan_from_image(
         )
 
     try:
+        parser = _get_parser(request)
         parsed = await parser.from_image(image_bytes)
     except Exception:
         logger.warning("Flight plan image parsing failed — creating stub plan", exc_info=True)
@@ -292,16 +309,24 @@ async def delete_flight_plan(
 @router.post("/{plan_id}/validate", response_model=ValidationResponse)
 async def validate_flight_plan(
     plan_id: uuid.UUID,
+    request: Request,
     user: CurrentUser,
     _seat: RequireActiveSeat,
+    org_id: uuid.UUID | None = Depends(get_org_id),
     local_user: User = Depends(get_authenticated_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
     """Trigger LangGraph validation of a flight plan.
 
     Runs the full Gatekeeper validation pipeline (weather, fuel, route,
-    airspace, performance).  Falls back to a basic structural check when
-    the orchestrator or LLM is unavailable.
+    airspace, performance) through the composed Session module.  Falls back to
+    a basic structural check when the pipeline is unavailable.
+
+    The caller's organization is passed to the module so the validation's
+    knowledge retrieval resolves this tenant's own manuals rather than only the
+    globally published ones.  It stays optional: a platform admin may have no
+    organization, and a validation with no tenant is global-only rather than
+    refused.
     """
     plan = await plan_repo.get_flight_plan(db, plan_id, local_user.id)
     if plan is None:
@@ -328,35 +353,33 @@ async def validate_flight_plan(
     }
 
     try:
-        from app.services.llm.orchestrator import HorusOrchestrator
-
-        orchestrator = HorusOrchestrator()
-        result = await orchestrator.start_session(
-            flight_plan_data=flight_plan_data,
-            user_id=str(local_user.id),
-            language="en",
+        snapshot = await request.app.state.session_module.validate(
+            user_id=local_user.id,
+            flight_plan=flight_plan_data,
+            org_id=org_id,
         )
+        validation_passed = bool(snapshot.state.get("validation_passed", False))
 
         # Update plan status based on validation outcome
-        new_status = "validated" if result.get("validation_passed") else "draft"
+        new_status = "validated" if validation_passed else "draft"
         await plan_repo.update_status(db, plan_id, new_status, local_user.id)
 
         logger.info(
             "Validation for plan %s: %s",
             plan_id,
-            "PASSED" if result.get("validation_passed") else "FAILED",
+            "PASSED" if validation_passed else "FAILED",
         )
 
         return ValidationResponse(
             plan_id=str(plan_id),
-            valid=result.get("validation_passed", False),
-            results=result.get("validation_results", []),
-            weather=result.get("weather"),
-            fuel_state=result.get("fuel_state"),
-            route_info=result.get("route_info"),
-            airspace_info=result.get("airspace_info"),
-            aircraft_performance=result.get("aircraft_performance"),
-            session_id=result.get("session_id"),
+            valid=validation_passed,
+            results=snapshot.state.get("validation_results", []),
+            weather=snapshot.state.get("weather"),
+            fuel_state=snapshot.state.get("fuel_state"),
+            route_info=snapshot.state.get("route_info"),
+            airspace_info=snapshot.state.get("airspace_info"),
+            aircraft_performance=snapshot.state.get("aircraft_performance"),
+            session_id=None,
         )
 
     except Exception:

@@ -67,11 +67,12 @@ Horus uses a 5-layer architecture:
 
 ### LangGraph Multi-Agent System
 
-Horus uses a LangGraph `StateGraph` orchestrator with 3 sub-graphs and 9 specialized agents:
+Horus composes three `StateGraph` sub-graphs behind a single Session module
+(`TrainingSessionModule`) with 9 specialized agents:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         HorusOrchestrator                              │
+│                        TrainingSessionModule                            │
 ├─────────────────┬──────────────────────────┬────────────────────────────┤
 │  Validation     │  Live Session            │  Scoring                   │
 │  Graph          │  Graph                   │  Graph                     │
@@ -91,8 +92,21 @@ Horus uses a LangGraph `StateGraph` orchestrator with 3 sub-graphs and 9 special
 - **Live session graph** — per-exchange: classify input → emergency or LLM ATC → evaluate
 - **Scoring graph** — post-flight: student evaluation → badge awards → report generation
 
-The orchestrator supports **human-in-the-loop (HITL)** — instructors can interrupt and
-override AI responses before they reach the student.
+`HorusOrchestrator`, which used to compose these, was retired; `ATCAgent` remains
+as a thin adapter for the `AudioPipeline` interface. See
+[ADR-006](architecture/ADR-006-scene-session-and-persistent-langgraph.md).
+
+**Human-in-the-loop (HITL) is built and deliberately switched off.** The live
+graph can be compiled to pause before the ATC response and before the emergency
+handler, and `TrainingSessionModule.await_instructor()` can release a held
+exchange with the instructor's own words or with the graph's — with the pending
+state checkpointed, so a review survives a restart. But no config field sets
+`interrupt_before_response`, no route calls `await_instructor`, and the frontend
+renders no pending state, so **no deployment has instructor override available**.
+Turning it on needs all three; tracked in
+[#3](https://github.com/martinsgmx/horusone-mvp/issues/3). Don't debug HITL as if
+it were live: if you are reading this expecting to override a response, the flag
+is `False` and the path is unreachable.
 
 📖 Full details: [ADR-004: LangGraph Multi-Agent Architecture](architecture/ADR-004-langgraph-multi-agent.md)
 
@@ -137,15 +151,20 @@ horus-mvp/
 │   │   ├── schemas/                # Pydantic request/response schemas
 │   │   └── services/               # STT, TTS, LLM, audio effects
 │   │       └── llm/                # LangGraph multi-agent system
-│   │           ├── orchestrator.py  # HorusOrchestrator (3 sub-graphs)
+│   │           ├── atc_agent.py      # ATCAgent: adapter over the live-session graph
 │   │           ├── state.py         # HorusState shared TypedDict
 │   │           ├── agents/          # 9 specialist agents
-│   │           ├── graphs/          # 3 compiled sub-graphs
+│   │           ├── graphs/          # 3 compiled sub-graphs (builder functions)
+│   │           ├── scenes/          # Scene registry + packaged default Scene
 │   │           ├── tools/           # Weather, airspace, calculation tools
 │   │           └── prompts.py       # ATC prompt templates
+│   │       ├── training_sessions/  # Session module: lifecycle, store, events, trace
+│   │       ├── knowledge/          # Ingest, chunking, pgvector + fake retrievers
+│   │       └── observability/      # OpenTelemetry wiring + privacy scrubber
 │   ├── tests/                      # pytest test suite (unit/ + integration/)
 │   ├── alembic/                    # Database migrations
-│   ├── scripts/                    # seed.py, deploy.sh, backup.sh, restore.sh
+│   ├── scripts/                    # seed.py, deploy.sh, backup.sh, restore.sh,
+│   │                               # prune_session_events.py (ADR-009 retention cron)
 │   ├── docker/                     # Dockerfile + keycloak-import/
 │   ├── docker-compose.yml          # Base service definitions
 │   ├── docker-compose.dev.yml      # Dev overrides (exposed ports, hot reload)
@@ -171,12 +190,20 @@ horus-mvp/
 │   ├── README.md                   # Documentation index (canonical doc map)
 │   ├── development.md              # Main developer guide
 │   ├── OLLAMA_SETUP.md             # LLM configuration guide
+│   ├── knowledge/                  # Operator manuals for the knowledge path
+│   │   ├── INGEST.md               # Ingest formats, chunking, dimensions, tenancy
+│   │   └── RETRIEVAL.md            # pgvector retrieval, HNSW, hybrid search
 │   └── architecture/               # Architecture Decision Records (ADRs)
+│       ├── ARCHITECTURE-INDEX.md   # Decision -> ADR -> status
 │       ├── ADR-001-monorepo-structure.md
 │       ├── ADR-002-database-postgresql.md
 │       ├── ADR-003-deployment-architecture.md
 │       ├── ADR-004-langgraph-multi-agent.md
-│       └── ADR-005-flight-plan-pipeline.md
+│       ├── ADR-005-flight-plan-pipeline.md
+│       ├── ADR-006-scene-session-and-persistent-langgraph.md
+│       ├── ADR-007-llm-provider-adapters.md
+│       ├── ADR-008-tenant-scoped-knowledge-and-pgvector-retrieval.md
+│       └── ADR-009-opentelemetry-and-postgres-trace.md
 │
 └── setup.sh                        # One-time project setup script
 ```
@@ -200,8 +227,8 @@ Key variables to set for local dev:
 |----------|---------|-------------|
 | `DATABASE_URL` | `postgresql+asyncpg://horus:horus@localhost:5432/horus_db` | PostgreSQL connection string |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection string |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_LLM_MODEL` | `llama3.2:3b` | LLM model name for ATC responses |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint. **Legacy name** — overrides `LLM_BASE_URL` when both are set (see [Legacy environment names](#legacy-environment-names)) |
+| `OLLAMA_LLM_MODEL` | `llama3.2:3b` | LLM model name for ATC responses. **Legacy name** — overrides `LLM_MODEL` |
 | `AUTH_ENABLED` | `true` | **Set to `false` to skip Keycloak locally** |
 | `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001,http://localhost:3002,http://127.0.0.1:3000` | Allowed frontend origins |
 | `WHISPER_MODEL` | `base` | Whisper model size (tiny/base/small/medium/large) |
@@ -568,6 +595,9 @@ uv run ruff check app/                     # lint
 uv run ruff check app/ --fix               # auto-fix lint issues
 uv run ruff format app/                    # format
 uv run mypy app/                           # type check
+
+uv sync --extra otel                       # install the optional OTLP exporter
+uv run pytest tests/unit/test_telemetry.py # the OTLP happy path is skipped without it
 ```
 
 **Testing rules:**
@@ -707,13 +737,28 @@ All variables are configured in `backend/.env`. Defaults are suitable for local 
 | `KEYCLOAK_ISSUER_URL` | `http://localhost:8180/realms/horus` | Keycloak realm issuer URL |
 | `KEYCLOAK_CLIENT_ID` | `horus-api` | Keycloak client ID for the API |
 | **LLM / AI** | | |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_LLM_MODEL` | `llama3.2:3b` | LLM model for ATC responses |
-| `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
+| `LLM_BASE_URL` | _(blank; provider default applies)_ | Base URL for the primary LLM provider |
+| `LLM_MODEL` | _(blank; provider default applies)_ | Primary LLM model |
+| `LLM_EMBEDDING_MODEL` | _(blank; provider default applies)_ | Embedding model |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint. **Legacy name for `LLM_BASE_URL`** |
+| `OLLAMA_LLM_MODEL` | `llama3.2:3b` | LLM model for ATC responses. **Legacy name for `LLM_MODEL`** |
+| `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model. **Legacy name for `LLM_EMBEDDING_MODEL`** |
 | **Speech** | | |
 | `WHISPER_MODEL` | `base` | Whisper model size (`tiny` / `base` / `small` / `medium` / `large`) |
 | `WHISPER_LANGUAGE` | `en` | STT language |
 | `TTS_LANGUAGE` | `en` | TTS language |
+| `SCENES_PATH` | _(blank)_ | Scene registry YAML; blank uses the packaged `default-v1` Scene |
+| **Knowledge** | | |
+| `KNOWLEDGE_CHUNK_SIZE` | `1000` | Ingest chunk window in tokens (contract: 1000/150) |
+| `KNOWLEDGE_CHUNK_OVERLAP` | `150` | Tokens of overlap between consecutive chunks |
+| `KNOWLEDGE_EMBEDDING_DIMENSIONS` | `768` | Expected embedding width; a mismatch is a hard ingest failure |
+| `KNOWLEDGE_TOP_K` | `5` | Chunks returned per retrieval query |
+| `KNOWLEDGE_DEFAULT_CHUNK_QUOTA` | `10` | Per-scope chunk budget, checked before embedding |
+| **Telemetry** | | |
+| `TRACE_RETENTION_DAYS` | `90` | Days of provenance events kept before the prune cron runs |
+| `TRACE_LOG_LEVEL` | `INFO` | Log level for the telemetry module |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | _(unset)_ | OTLP collector endpoint; unset means the console exporter |
+| `LLM_ALLOW_EXTERNAL_FALLBACK` | `false` | Permit falling back to an off-VPS provider (e.g. Groq) |
 | **Audio** | | |
 | `SAMPLE_RATE` | `16000` | Audio sample rate (Hz) |
 | `CHUNK_SIZE` | `1024` | Audio chunk size |
@@ -724,14 +769,80 @@ All variables are configured in `backend/.env`. Defaults are suitable for local 
 | **CORS** | | |
 | `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001,http://localhost:3002,http://127.0.0.1:3000` | Comma-separated allowed origins |
 
+### Legacy environment names
+
+Settings used to be flat. Three names predate the grouping and are still
+accepted, in both `.env` files and the process environment:
+
+| Legacy name | Grouped name it feeds |
+|---|---|
+| `OLLAMA_BASE_URL` | `LLM_BASE_URL` → `llm.base_url` |
+| `OLLAMA_LLM_MODEL` | `LLM_MODEL` → `llm.model` |
+| `OLLAMA_EMBEDDING_MODEL` | `LLM_EMBEDDING_MODEL` → `llm.embedding_model` |
+
+**The legacy name wins when both are set.** The loader applies the grouped names
+first and the legacy names second (`_LEGACY_ENV` in
+`backend/app/settings_loader.py`, applied in `_settings_input`), so
+`OLLAMA_BASE_URL` silently shadows `LLM_BASE_URL` — with no warning, and no
+entry in the log saying which one took effect.
+
+That is deliberate. An operator upgrading from a pre-grouping release with
+`OLLAMA_BASE_URL` still in their `.env` keeps the endpoint they configured,
+rather than having it silently replaced by a newly-introduced `LLM_BASE_URL`
+value. The cost is that the two names are not interchangeable while both are
+present.
+
+**To upgrade cleanly: delete the `OLLAMA_*` name and set the `LLM_*` one.**
+Nothing in `backend/app/` reads the legacy names any more. If you need to
+confirm which value is live, read the grouped field — `settings.llm.base_url` —
+rather than the environment.
+
+The same precedence applies to the flat *keyword* arguments accepted by
+`Settings` in code (`ollama_base_url=...`), via `_LEGACY_GROUP_FIELDS` in
+`backend/app/config.py`, which merges the legacy value over the grouped one. The
+read-only `settings.ollama_base_url` property is a different thing entirely: it
+only ever reports `llm.base_url`, and cannot introduce a legacy value.
+
 ---
 
 ## Architecture Decisions
 
-See `docs/architecture/` for Architecture Decision Records (ADRs):
+See `docs/architecture/ARCHITECTURE-INDEX.md` for the full decision → ADR → status
+table. The records are:
 
 - [ADR-001: Monorepo Structure](architecture/ADR-001-monorepo-structure.md)
 - [ADR-002: Database Selection](architecture/ADR-002-database-postgresql.md)
 - [ADR-003: Deployment Architecture](architecture/ADR-003-deployment-architecture.md)
 - [ADR-004: LangGraph Multi-Agent Architecture](architecture/ADR-004-langgraph-multi-agent.md)
 - [ADR-005: Flight Plan Pipeline](architecture/ADR-005-flight-plan-pipeline.md)
+- [ADR-006: Scene/Session Split and Persistent LangGraph State](architecture/ADR-006-scene-session-and-persistent-langgraph.md)
+- [ADR-007: LLM Provider Adapters](architecture/ADR-007-llm-provider-adapters.md)
+- [ADR-008: Tenant-Scoped Knowledge and pgvector Retrieval](architecture/ADR-008-tenant-scoped-knowledge-and-pgvector-retrieval.md)
+- [ADR-009: OpenTelemetry and Postgres Trace](architecture/ADR-009-opentelemetry-and-postgres-trace.md)
+
+## Session Lifecycle and the Composition Root
+
+There is no `HorusOrchestrator`. The caller-facing lifecycle seam is
+`TrainingSessionModule` in `backend/app/services/training_sessions/session_module.py`,
+with six public methods:
+
+| Method | Purpose |
+|---|---|
+| `start(StartSessionCommand)` | Run validation, persist state, return a `SessionSnapshot` |
+| `validate(*, user_id, flight_plan, language, org_id)` | Run pre-flight validation for a flight plan with no session and nothing persisted. `org_id` is optional; a `None` tenant makes retrieval fail-closed to platform-wide chunks only |
+| `send(SendTransmissionCommand)` | Run one pilot → ATC exchange |
+| `await_instructor(org_id, session_id, instructor_response)` | Complete a held exchange — with the instructor's text if given, otherwise by resuming the graph non-interrupting |
+| `end(EndSessionCommand)` | Run scoring, return a `Debrief` |
+| `snapshot(session_id, org_id)` | Read the persisted state |
+
+Callers never see `HorusState`, a LangGraph `thread_id`, or `interrupt_before`.
+
+**`backend/app/main.py` is the composition root.** Its `lifespan` builds every
+long-lived collaborator exactly once and publishes it on `app.state`: the
+`LLMModule`, the `SessionStore`, the Scene registry, the `KnowledgeRetriever`,
+the trace recorder, and finally the `TrainingSessionModule`. Nothing below
+`main.py` constructs a session store or an LLM client. In production the store
+is `PostgresSessionStore` (a LangGraph PostgreSQL checkpointer); in every other
+environment it is `InMemorySessionStore`.
+
+See [ADR-006](architecture/ADR-006-scene-session-and-persistent-langgraph.md).
