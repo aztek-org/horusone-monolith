@@ -1,1258 +1,1727 @@
 {
+  "/home/denim/repos/horus-mvp/setup.sh": {
+    "mtime": 1778675695.999664,
+    "ast_hash": "66e611a6129e092a292004e2d536e2c7",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/frontend/turbo.json": {
+    "mtime": 1774723074.201999,
+    "ast_hash": "c40d49fa4576e20ec19d52110f5cd5e4",
+    "semantic_hash": ""
+  },
   "/home/denim/repos/horus-mvp/frontend/vitest.config.ts": {
     "mtime": 1774722415.661999,
-    "hash": "0ac3d68389accdbd38d10391836f2aa4"
+    "ast_hash": "0ac3d68389accdbd38d10391836f2aa4",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/frontend/package.json": {
+    "mtime": 1775958635.7031066,
+    "ast_hash": "318ede5122909bb059c718d500f05d0d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/nuxt.config.ts": {
     "mtime": 1774730527.2850451,
-    "hash": "6e215d3433140f08ec0b1245785d78a8"
+    "ast_hash": "6e215d3433140f08ec0b1245785d78a8",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/eslint.config.mjs": {
     "mtime": 1774725097.868,
-    "hash": "37113cfb8099772200a3df5421d1481e"
+    "ast_hash": "37113cfb8099772200a3df5421d1481e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/tailwind.config.ts": {
     "mtime": 1774730527.3980987,
-    "hash": "0833f5b3f3afcf2b1e971bd141c3b0b8"
+    "ast_hash": "0833f5b3f3afcf2b1e971bd141c3b0b8",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/prettier.config.mjs": {
     "mtime": 1774720226.614827,
-    "hash": "ac808cfc60ba879454d81e91d8d0e893"
+    "ast_hash": "ac808cfc60ba879454d81e91d8d0e893",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/frontend/tsconfig.json": {
+    "mtime": 1774722540.963,
+    "ast_hash": "eaac67468b3dfce0959e512e1e57fe9f",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/frontend/packages/core/package.json": {
+    "mtime": 1774722447.966,
+    "ast_hash": "ac71ffa9aa6f90475906bb72cf954dcb",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/nuxt.config.ts": {
     "mtime": 1775958987.5348065,
-    "hash": "6e612e19605804ce31ff51a6f928618d"
+    "ast_hash": "6e612e19605804ce31ff51a6f928618d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/tailwind.config.ts": {
     "mtime": 1774720226.730999,
-    "hash": "0833f5b3f3afcf2b1e971bd141c3b0b8"
+    "ast_hash": "0833f5b3f3afcf2b1e971bd141c3b0b8",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/app.vue": {
     "mtime": 1774720226.157999,
-    "hash": "3f001549dedf356fcd9134b916a288f2"
+    "ast_hash": "3f001549dedf356fcd9134b916a288f2",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useFlightData.ts": {
     "mtime": 1774720226.351,
-    "hash": "ee4b9caac9ddd15c2962856fdffe0ba0"
+    "ast_hash": "ee4b9caac9ddd15c2962856fdffe0ba0",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useAuth.test.ts": {
     "mtime": 1775434240.104213,
-    "hash": "3ca566d3df1801255b56eab5d2eb4353"
+    "ast_hash": "3ca566d3df1801255b56eab5d2eb4353",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useAdmin.ts": {
-    "mtime": 1774720226.306999,
-    "hash": "f86f03024e116261b6f4da2e00029a8d"
+    "mtime": 1781029313.7848577,
+    "ast_hash": "4ea48ba2ffe304b274eaa9257d73c99f",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useWaypoints.ts": {
     "mtime": 1774720226.362999,
-    "hash": "982d1edfa566e2a3bef8a84cb32e92d7"
+    "ast_hash": "982d1edfa566e2a3bef8a84cb32e92d7",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useAuthRouting.ts": {
     "mtime": 1775428792.6521022,
-    "hash": "8ba6c041cbf024d8d0b4c1d35f9a39e3"
+    "ast_hash": "8ba6c041cbf024d8d0b4c1d35f9a39e3",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useInstructor.ts": {
-    "mtime": 1774720226.355,
-    "hash": "af8de4a38386ee7f0953441aefd10ceb"
+    "mtime": 1781029293.542938,
+    "ast_hash": "dd7506ec1212c2a5fe6064c3341360b6",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useAICopilot.ts": {
     "mtime": 1774720226.302999,
-    "hash": "556072d2e6149013af1976a7a4cd8bda"
+    "ast_hash": "556072d2e6149013af1976a7a4cd8bda",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useVoiceComm.test.ts": {
     "mtime": 1775434256.7030923,
-    "hash": "5fcfd346cbd1cd8a1f36b515429bbd10"
+    "ast_hash": "5fcfd346cbd1cd8a1f36b515429bbd10",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useVoiceComm.ts": {
-    "mtime": 1774720226.362999,
-    "hash": "d37220f31a2d6cdc9b8bc99e42d16d03"
+    "mtime": 1781029938.5023293,
+    "ast_hash": "f340ca9ee1fc73aaad652f4cb1765b95",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useSimulationState.ts": {
     "mtime": 1774720226.358999,
-    "hash": "1c5e908be55eb9b20a4df6b45e2b2b93"
+    "ast_hash": "1c5e908be55eb9b20a4df6b45e2b2b93",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useContent.ts": {
     "mtime": 1775955736.7950432,
-    "hash": "9d5dd5880b0da188c09febfc023cb2b0"
+    "ast_hash": "9d5dd5880b0da188c09febfc023cb2b0",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useWeatherData.ts": {
     "mtime": 1774720226.362999,
-    "hash": "b63bb5310dabf04c04dd036d7d59e012"
+    "ast_hash": "b63bb5310dabf04c04dd036d7d59e012",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useApi.test.ts": {
     "mtime": 1774720226.319,
-    "hash": "0e072496005b5817b5b1ecc795958932"
+    "ast_hash": "0e072496005b5817b5b1ecc795958932",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useAssessments.ts": {
-    "mtime": 1774720226.335,
-    "hash": "f52e55928f6c969318fc8cc9961f2a3d"
+    "mtime": 1781029303.4124713,
+    "ast_hash": "287b41da2217b138ed8eda8dbcbdc9e6",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useFlightPlans.ts": {
     "mtime": 1774720226.351,
-    "hash": "a438e7ea02335696b9eea2ebceb47f7b"
+    "ast_hash": "a438e7ea02335696b9eea2ebceb47f7b",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useChecklist.ts": {
     "mtime": 1774720226.351,
-    "hash": "52cf532ff60537c77bb3122bdddad622"
+    "ast_hash": "52cf532ff60537c77bb3122bdddad622",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/usePreferences.ts": {
     "mtime": 1774720226.358999,
-    "hash": "c1f8b227f6897ab475167030b9ba6a9b"
+    "ast_hash": "c1f8b227f6897ab475167030b9ba6a9b",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useChartLayers.ts": {
     "mtime": 1774720226.351,
-    "hash": "4b5173d94af5ca6077433a5e77d4c585"
+    "ast_hash": "4b5173d94af5ca6077433a5e77d4c585",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useApi.ts": {
     "mtime": 1774720226.331,
-    "hash": "6fb26719533c5953bdc6c70da1704af3"
+    "ast_hash": "6fb26719533c5953bdc6c70da1704af3",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useAuth.ts": {
-    "mtime": 1774720226.351,
-    "hash": "6b0b2abe1b1da1a167df4f9d231e5e28"
+    "mtime": 1781030182.0629098,
+    "ast_hash": "6aab4d5edbd1021672fc21d62d9205b0",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useStats.ts": {
     "mtime": 1775443711.2345726,
-    "hash": "f8af5adfa3060d6d4d38a39a242b1d40"
+    "ast_hash": "f8af5adfa3060d6d4d38a39a242b1d40",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useCommsLog.ts": {
     "mtime": 1774720226.351,
-    "hash": "34d634b49f914943ccdf314d620a76bc"
+    "ast_hash": "34d634b49f914943ccdf314d620a76bc",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useKeyboardShortcuts.ts": {
     "mtime": 1774720226.355,
-    "hash": "af2fb866fa305599c03e7a177896a611"
+    "ast_hash": "af2fb866fa305599c03e7a177896a611",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useKeyboardShortcuts.test.ts": {
     "mtime": 1774720226.355,
-    "hash": "df3e7972c4fe61c09fb97c90af397832"
+    "ast_hash": "df3e7972c4fe61c09fb97c90af397832",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useGamification.ts": {
-    "mtime": 1774720226.355,
-    "hash": "ffcafa742cbcc5dce471f467a55316f4"
+    "mtime": 1781029301.847266,
+    "ast_hash": "6be3332394662d34cac0a8af47138111",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useSessionReplay.ts": {
     "mtime": 1775439273.0837696,
-    "hash": "6dfaff64505382086193ac0235229f4a"
+    "ast_hash": "6dfaff64505382086193ac0235229f4a",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/frontend/packages/core/app/composables/useFeatureFlags.ts": {
+    "mtime": 1781030172.5043716,
+    "ast_hash": "f341c603f3b8c9125e8c4f3583f21ac6",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/middleware/auth.ts": {
     "mtime": 1774848257.7502744,
-    "hash": "3b9f0c1db8ff8aa5ee3ec0c763374322"
+    "ast_hash": "3b9f0c1db8ff8aa5ee3ec0c763374322",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/middleware/instructor.ts": {
     "mtime": 1774720226.423,
-    "hash": "847f05a8a68e27704822fb6027e20425"
+    "ast_hash": "847f05a8a68e27704822fb6027e20425",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/middleware/admin.ts": {
     "mtime": 1774720226.403,
-    "hash": "5a40d492970f3582a3c5f38f863fab0b"
+    "ast_hash": "5a40d492970f3582a3c5f38f863fab0b",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/layouts/mission.vue": {
     "mtime": 1774720226.382999,
-    "hash": "e9a1e231e60d220092aa71f3abff0664"
+    "ast_hash": "e9a1e231e60d220092aa71f3abff0664",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/layouts/admin.vue": {
     "mtime": 1774720226.367,
-    "hash": "26c201a3167556c4108775fa49923e93"
+    "ast_hash": "26c201a3167556c4108775fa49923e93",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/layouts/default.vue": {
     "mtime": 1774725579.509,
-    "hash": "399d00aaddfb6ff3178226e415893ba0"
+    "ast_hash": "399d00aaddfb6ff3178226e415893ba0",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/instructor/StudentRoster.vue": {
     "mtime": 1774720226.186,
-    "hash": "605dc68400a0283f255905c489aaca5d"
+    "ast_hash": "605dc68400a0283f255905c489aaca5d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/mission-hub/MissionChecklist.vue": {
     "mtime": 1774720226.186,
-    "hash": "c95572d10d085fc09312c22585300514"
+    "ast_hash": "c95572d10d085fc09312c22585300514",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/mission-hub/TrainingInterface.vue": {
     "mtime": 1774720226.186,
-    "hash": "2260cdb7483a7f034f60dd144a68a4e7"
+    "ast_hash": "2260cdb7483a7f034f60dd144a68a4e7",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/mission-hub/FlightDynamics.vue": {
     "mtime": 1774720226.186,
-    "hash": "eb5c4deae257279dcd0ecb87636f633e"
+    "ast_hash": "eb5c4deae257279dcd0ecb87636f633e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/mission-hub/WeatherEcosystem.vue": {
     "mtime": 1774720226.186,
-    "hash": "bfec027870e46a00324b176d01c713ba"
+    "ast_hash": "bfec027870e46a00324b176d01c713ba",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/mission-hub/DecisionMatrix.vue": {
     "mtime": 1774720226.186,
-    "hash": "3fd37efdf1f7313862dc153ceafbeacb"
+    "ast_hash": "3fd37efdf1f7313862dc153ceafbeacb",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/mission-hub/SystemStatusGrid.vue": {
     "mtime": 1774720226.186,
-    "hash": "35bfb41564c4eaeb034da6158bd25098"
+    "ast_hash": "35bfb41564c4eaeb034da6158bd25098",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/shared/AppSidebar.vue": {
     "mtime": 1774725288.21,
-    "hash": "7d0147da155f09d26c1fb93544c264b0"
+    "ast_hash": "7d0147da155f09d26c1fb93544c264b0",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/shared/AdminSidebar.vue": {
     "mtime": 1774720226.201999,
-    "hash": "bdba47a5025a8c2edecce73c7af4f1bd"
+    "ast_hash": "bdba47a5025a8c2edecce73c7af4f1bd",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/shared/AppHeader.vue": {
     "mtime": 1774725288.21,
-    "hash": "6f4e64efb2ffb0b10bf5f9acb5d641e7"
+    "ast_hash": "6f4e64efb2ffb0b10bf5f9acb5d641e7",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/shared/AboutModal.vue": {
     "mtime": 1774725288.213999,
-    "hash": "d73b7ad0d89e1474247910b818d921de"
+    "ast_hash": "d73b7ad0d89e1474247910b818d921de",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/shared/AppFooter.vue": {
     "mtime": 1774720226.201999,
-    "hash": "d37a28456c6d4b2ae5a5f36f2e15a658"
+    "ast_hash": "d37a28456c6d4b2ae5a5f36f2e15a658",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/shared/VoiceCommBubble.vue": {
     "mtime": 1774720226.234999,
-    "hash": "8b4537421b549c0bd353482877af0e60"
+    "ast_hash": "8b4537421b549c0bd353482877af0e60",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/shared/AppSettingsWorkspace.vue": {
     "mtime": 1775435291.1777587,
-    "hash": "c5829c8d9a89fd57f919e151a0037ef7"
+    "ast_hash": "c5829c8d9a89fd57f919e151a0037ef7",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/flight-plan/FlightPlanMap.vue": {
     "mtime": 1774720226.177999,
-    "hash": "b7f6d9185ff29fa000870db24ea6fbf6"
+    "ast_hash": "b7f6d9185ff29fa000870db24ea6fbf6",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/flight-plan/ValidationPanel.vue": {
     "mtime": 1774720226.177999,
-    "hash": "79b3b7d0233986047ebcd7dac3e46a90"
+    "ast_hash": "79b3b7d0233986047ebcd7dac3e46a90",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HArticleCard.test.ts": {
     "mtime": 1774720226.250999,
-    "hash": "dfab4936e552bf6e828b130df97723a5"
+    "ast_hash": "dfab4936e552bf6e828b130df97723a5",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HChecklistItem.vue": {
     "mtime": 1774720226.266999,
-    "hash": "0223c90559550fe2c32fac4d1c5a73ef"
+    "ast_hash": "0223c90559550fe2c32fac4d1c5a73ef",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HStatsCard.test.ts": {
     "mtime": 1774720226.299,
-    "hash": "ee432a0725aea45655a4769dab156852"
+    "ast_hash": "ee432a0725aea45655a4769dab156852",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HLogEntry.vue": {
     "mtime": 1774720226.266999,
-    "hash": "9ea0a0c6862f39662c310c3bebbb1436"
+    "ast_hash": "9ea0a0c6862f39662c310c3bebbb1436",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HSection.vue": {
     "mtime": 1774720226.266999,
-    "hash": "2dccdd2d42ab344eb3caee6edc953f73"
+    "ast_hash": "2dccdd2d42ab344eb3caee6edc953f73",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HStatusPill.vue": {
     "mtime": 1774720226.302999,
-    "hash": "bd31071283abd2dfeac8a4bc12001ca2"
+    "ast_hash": "bd31071283abd2dfeac8a4bc12001ca2",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HButton.vue": {
     "mtime": 1774720226.266999,
-    "hash": "8afb9fdcea6f346effe01a53aec45145"
+    "ast_hash": "8afb9fdcea6f346effe01a53aec45145",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HShortcutsModal.vue": {
     "mtime": 1774720226.286999,
-    "hash": "64240870b39b8ea5a892fb6f45d8fb1a"
+    "ast_hash": "64240870b39b8ea5a892fb6f45d8fb1a",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HBadge.vue": {
     "mtime": 1774720226.263,
-    "hash": "2c869ef4559a441add98e6d2238e3a35"
+    "ast_hash": "2c869ef4559a441add98e6d2238e3a35",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HLeaderboardTable.vue": {
     "mtime": 1774720226.266999,
-    "hash": "9df2e393756936a823220a7880894c10"
+    "ast_hash": "9df2e393756936a823220a7880894c10",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HButton.test.ts": {
     "mtime": 1774720226.266999,
-    "hash": "9a32cb40d79a357bc9c55dc1738bc345"
+    "ast_hash": "9a32cb40d79a357bc9c55dc1738bc345",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HShortcutsModal.test.ts": {
     "mtime": 1774720226.286999,
-    "hash": "db9af412d0fd3d6e3e8b724d62b6c0c4"
+    "ast_hash": "db9af412d0fd3d6e3e8b724d62b6c0c4",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HDropdown.vue": {
     "mtime": 1774720226.266999,
-    "hash": "0a405f7c3d7531acd1c4fe54a5da5e00"
+    "ast_hash": "0a405f7c3d7531acd1c4fe54a5da5e00",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HStatusIndicator.vue": {
     "mtime": 1774720226.302999,
-    "hash": "1d14ba2aaad22dbc7b651833eb2d9df5"
+    "ast_hash": "1d14ba2aaad22dbc7b651833eb2d9df5",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HDataPanel.vue": {
     "mtime": 1774720226.266999,
-    "hash": "ddcc6c4cee5e0c61588e40e92c8b36f7"
+    "ast_hash": "ddcc6c4cee5e0c61588e40e92c8b36f7",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HCheckbox.vue": {
     "mtime": 1774720226.266999,
-    "hash": "f08825be66ae1d92096047f70d7081e3"
+    "ast_hash": "f08825be66ae1d92096047f70d7081e3",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HCard.vue": {
     "mtime": 1774720226.266999,
-    "hash": "f75dc4a70da2d4a3e267015b8c068d9f"
+    "ast_hash": "f75dc4a70da2d4a3e267015b8c068d9f",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HButtonGroup.vue": {
     "mtime": 1774720226.266999,
-    "hash": "72f70a8f2f94d926faf6dbfd424a7625"
+    "ast_hash": "72f70a8f2f94d926faf6dbfd424a7625",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HRadioGroup.vue": {
     "mtime": 1774720226.266999,
-    "hash": "2c958451cdf4e48d840c9dd0c7192505"
+    "ast_hash": "2c958451cdf4e48d840c9dd0c7192505",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HStatsCard.vue": {
     "mtime": 1774720226.302999,
-    "hash": "4abcdb0058c858b638a9cd5b75a16882"
+    "ast_hash": "4abcdb0058c858b638a9cd5b75a16882",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HBadgeCard.vue": {
     "mtime": 1774720226.266999,
-    "hash": "94cbb9d5de472320f577663ed73889b6"
+    "ast_hash": "94cbb9d5de472320f577663ed73889b6",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HArticleCard.vue": {
     "mtime": 1774720226.263,
-    "hash": "12670bf96014f6b84bd73fd5586051d5"
+    "ast_hash": "12670bf96014f6b84bd73fd5586051d5",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HProgress.vue": {
     "mtime": 1774720226.266999,
-    "hash": "d884e4bb5d4af9f820c20d44a1a5762f"
+    "ast_hash": "d884e4bb5d4af9f820c20d44a1a5762f",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/ui/HSlider.vue": {
     "mtime": 1774720226.286999,
-    "hash": "ed0719b85a488e66f350506d3bea9343"
+    "ast_hash": "ed0719b85a488e66f350506d3bea9343",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/scenario-architect/ChartLayers.vue": {
     "mtime": 1774720226.19,
-    "hash": "5599bb128fdeb0b584f48df05ba1c51e"
+    "ast_hash": "5599bb128fdeb0b584f48df05ba1c51e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/scenario-architect/RouteChecklist.vue": {
     "mtime": 1774720226.19,
-    "hash": "e076ba480b73f6ceeb79ea91b97df131"
+    "ast_hash": "e076ba480b73f6ceeb79ea91b97df131",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/scenario-architect/AICopilotParams.vue": {
     "mtime": 1774720226.186,
-    "hash": "16cbd72a88e7b62dea5a6bbcc7c7ecf7"
+    "ast_hash": "16cbd72a88e7b62dea5a6bbcc7c7ecf7",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/scenario-architect/MapVisualization.vue": {
     "mtime": 1775958387.0373485,
-    "hash": "a5f3fb4c68394885611f51bcd5dcf9f6"
+    "ast_hash": "a5f3fb4c68394885611f51bcd5dcf9f6",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/session/TrackReplayControls.vue": {
     "mtime": 1774720226.194,
-    "hash": "f85bbc729248fce69f6c80fa076ee73a"
+    "ast_hash": "f85bbc729248fce69f6c80fa076ee73a",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/app/components/session/TranscriptTimeline.vue": {
     "mtime": 1774720226.194,
-    "hash": "fee7c432ae1a1ce8bbff6d63e51ea417"
+    "ast_hash": "fee7c432ae1a1ce8bbff6d63e51ea417",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/frontend/apps/hangar/package.json": {
+    "mtime": 1774727091.743999,
+    "ast_hash": "bcc7438eb22815bac83f454dd7fb6b2d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/nuxt.config.ts": {
     "mtime": 1775428803.8690205,
-    "hash": "d8795ad40edd2a136d67fb19e5d89712"
+    "ast_hash": "d8795ad40edd2a136d67fb19e5d89712",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/frontend/apps/hangar/tsconfig.json": {
+    "mtime": 1774722506.069999,
+    "ast_hash": "710075d0d1960547b5be0c881fc1f7a5",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/performance.vue": {
     "mtime": 1775445329.6845756,
-    "hash": "35b119f86729f8ea4b4ca523c2aef000"
+    "ast_hash": "35b119f86729f8ea4b4ca523c2aef000",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/settings.vue": {
     "mtime": 1775435301.5009398,
-    "hash": "8bae798d5da04651eb8934ac8a100441"
+    "ast_hash": "8bae798d5da04651eb8934ac8a100441",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/knowledge.vue": {
     "mtime": 1775955880.6597872,
-    "hash": "6454be1443ad92022f7e5d90d2b206f3"
+    "ast_hash": "6454be1443ad92022f7e5d90d2b206f3",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/dashboard.vue": {
     "mtime": 1775439986.1719675,
-    "hash": "ccf35646d419a1854c6237fa05cb2b38"
+    "ast_hash": "ccf35646d419a1854c6237fa05cb2b38",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/library.vue": {
     "mtime": 1774720226.555,
-    "hash": "0d51b814863db8390969262f16bcb16f"
+    "ast_hash": "0d51b814863db8390969262f16bcb16f",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/assessments.vue": {
     "mtime": 1774720226.447,
-    "hash": "3370e1629728589625bc43626027bc2b"
+    "ast_hash": "3370e1629728589625bc43626027bc2b",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/login.vue": {
     "mtime": 1775959591.3686886,
-    "hash": "1ee49e02c8d43712628eb3466b1ae7e1"
+    "ast_hash": "1ee49e02c8d43712628eb3466b1ae7e1",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/badges.vue": {
     "mtime": 1774720226.503,
-    "hash": "3778012e0d62562167bb7ed58bd93a9b"
+    "ast_hash": "3778012e0d62562167bb7ed58bd93a9b",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/index.vue": {
     "mtime": 1774846884.4183364,
-    "hash": "cfe81a16835626154c0daf640cadc972"
+    "ast_hash": "cfe81a16835626154c0daf640cadc972",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/stats.vue": {
     "mtime": 1775443725.9864204,
-    "hash": "c5e51a5691b73612d7c98178afd6adba"
+    "ast_hash": "c5e51a5691b73612d7c98178afd6adba",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/leaderboard.vue": {
     "mtime": 1774720226.535,
-    "hash": "98137e06e28b862a62209a48ec5a0b17"
+    "ast_hash": "98137e06e28b862a62209a48ec5a0b17",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/configurator.vue": {
     "mtime": 1774720226.519,
-    "hash": "742fe7369028337146ad11e185f7942a"
+    "ast_hash": "742fe7369028337146ad11e185f7942a",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/auth/callback.vue": {
     "mtime": 1775428749.5145247,
-    "hash": "c6cd368535ac6a6b0fa124f603758287"
+    "ast_hash": "c6cd368535ac6a6b0fa124f603758287",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/instructor/[...slug].vue": {
     "mtime": 1775441319.2613447,
-    "hash": "931b558dac98701fb8c675d6969a962d"
+    "ast_hash": "931b558dac98701fb8c675d6969a962d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/admin/[...slug].vue": {
     "mtime": 1775441314.516392,
-    "hash": "931b558dac98701fb8c675d6969a962d"
+    "ast_hash": "931b558dac98701fb8c675d6969a962d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/flight-plan/index.vue": {
     "mtime": 1774720226.530999,
-    "hash": "dfa1a975f7e1cf0c9f0fc26e9fc26b65"
+    "ast_hash": "dfa1a975f7e1cf0c9f0fc26e9fc26b65",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/flight-plan/[id].vue": {
     "mtime": 1774720226.523,
-    "hash": "12fe2dda20102274ffa07c02bccb0711"
+    "ast_hash": "12fe2dda20102274ffa07c02bccb0711",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/mission/[id].vue": {
     "mtime": 1775429596.1285837,
-    "hash": "9048176d40daa8ef1a82e1b0eeaba796"
+    "ast_hash": "9048176d40daa8ef1a82e1b0eeaba796",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/hangar/app/pages/session/[id].vue": {
     "mtime": 1775441932.5823164,
-    "hash": "50baaf60945424634c8091ce5896f983"
+    "ast_hash": "50baaf60945424634c8091ce5896f983",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/frontend/apps/tower/package.json": {
+    "mtime": 1774722483.357,
+    "ast_hash": "040e040657c7edc1008181036120c597",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/tower/nuxt.config.ts": {
     "mtime": 1775428803.8690205,
-    "hash": "f45d8192522aa41bfa4b82d0c919ec3f"
+    "ast_hash": "f45d8192522aa41bfa4b82d0c919ec3f",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/frontend/apps/tower/tsconfig.json": {
+    "mtime": 1774722503.467,
+    "ast_hash": "710075d0d1960547b5be0c881fc1f7a5",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/tower/app/pages/[...slug].vue": {
     "mtime": 1775428094.0785031,
-    "hash": "3b0f333d56ca4845ab649b80a49b028d"
+    "ast_hash": "3b0f333d56ca4845ab649b80a49b028d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/tower/app/pages/settings.vue": {
     "mtime": 1775435307.1902509,
-    "hash": "fe5ce478d2168a208a1026596afde3e7"
+    "ast_hash": "fe5ce478d2168a208a1026596afde3e7",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/tower/app/pages/dashboard.vue": {
     "mtime": 1775438230.6035774,
-    "hash": "b14438b37a87e6d310d857f421d20ae0"
+    "ast_hash": "b14438b37a87e6d310d857f421d20ae0",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/tower/app/pages/login.vue": {
     "mtime": 1775959598.4376132,
-    "hash": "1107aa42a5963d87704cc5e17e4f2110"
+    "ast_hash": "1107aa42a5963d87704cc5e17e4f2110",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/tower/app/pages/index.vue": {
     "mtime": 1775428086.2508094,
-    "hash": "357ac1753e14f31db2c6db5fadebdc19"
+    "ast_hash": "357ac1753e14f31db2c6db5fadebdc19",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/tower/app/pages/auth/callback.vue": {
     "mtime": 1775428760.691283,
-    "hash": "bf9d60467a269289c1c662c97b928b64"
+    "ast_hash": "bf9d60467a269289c1c662c97b928b64",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/frontend/apps/squawk/package.json": {
+    "mtime": 1774722474.164,
+    "ast_hash": "fa75ab3ab6b76420d6303d7427b7d784",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/squawk/nuxt.config.ts": {
     "mtime": 1775428803.8690205,
-    "hash": "f661a9d9696b1c243ad56ebc34754937"
+    "ast_hash": "f661a9d9696b1c243ad56ebc34754937",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/frontend/apps/squawk/tsconfig.json": {
+    "mtime": 1774722500.584,
+    "ast_hash": "710075d0d1960547b5be0c881fc1f7a5",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/squawk/app/pages/[...slug].vue": {
     "mtime": 1775428098.3409183,
-    "hash": "3b0f333d56ca4845ab649b80a49b028d"
+    "ast_hash": "3b0f333d56ca4845ab649b80a49b028d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/squawk/app/pages/settings.vue": {
     "mtime": 1775435311.6582656,
-    "hash": "b7ced9cebac07166172b06c096f19272"
+    "ast_hash": "b7ced9cebac07166172b06c096f19272",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/squawk/app/pages/dashboard.vue": {
     "mtime": 1775438527.5144947,
-    "hash": "435555297adb2a0965e1deea245cd462"
+    "ast_hash": "435555297adb2a0965e1deea245cd462",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/squawk/app/pages/login.vue": {
     "mtime": 1775959598.4376132,
-    "hash": "561e4245038c01db8bf90c0042ac5709"
+    "ast_hash": "561e4245038c01db8bf90c0042ac5709",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/squawk/app/pages/index.vue": {
     "mtime": 1775428090.1044893,
-    "hash": "357ac1753e14f31db2c6db5fadebdc19"
+    "ast_hash": "357ac1753e14f31db2c6db5fadebdc19",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/apps/squawk/app/pages/auth/callback.vue": {
     "mtime": 1775428777.759955,
-    "hash": "5e8682aae9a5b2f16726cd9192899c3e"
+    "ast_hash": "5e8682aae9a5b2f16726cd9192899c3e",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/backend/run_backend.sh": {
+    "mtime": 1775493513.4649427,
+    "ast_hash": "1ab13f84028ec6676facc532ff9a177b",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/backend/docker/init-multiple-dbs.sh": {
+    "mtime": 1775493542.9855812,
+    "ast_hash": "a64544c6952c618435c5389c911690a6",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/backend/docker/keycloak-import/horus-realm.json": {
+    "mtime": 1774849716.435267,
+    "ast_hash": "d4a5655181ae705efdede7aad137d0ad",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/backend/docker/keycloak/horus-realm.json": {
+    "mtime": 1774077004.5895977,
+    "ast_hash": "06b4de82ca83938a496473fd80937044",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/alembic/env.py": {
     "mtime": 1774299934.7759044,
-    "hash": "457eda54522e4fdbea5bd7b3b1b73d51"
+    "ast_hash": "457eda54522e4fdbea5bd7b3b1b73d51",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/alembic/versions/f1b6c3d9a712_add_badges_org_scope.py": {
     "mtime": 1775437272.6196258,
-    "hash": "0bc73c5cbf32190176082e5ceed661c1"
+    "ast_hash": "0bc73c5cbf32190176082e5ceed661c1",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/backend/alembic/versions/a1b2c3d4e5f6_add_enabled_features.py": {
+    "mtime": 1781030026.6047244,
+    "ast_hash": "7102af2b101fe6f076885307f2a17e0b",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/alembic/versions/fac62be749f8_add_training_content_stats_plans_.py": {
     "mtime": 1774299864.131613,
-    "hash": "23c0b2f0d1e6930bae6f32442ffb8ae1"
+    "ast_hash": "23c0b2f0d1e6930bae6f32442ffb8ae1",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/alembic/versions/c7d3a9e1f4b5_add_training_session_events.py": {
     "mtime": 1775439210.5398586,
-    "hash": "42e495ddffba420a1075288da75078a0"
+    "ast_hash": "42e495ddffba420a1075288da75078a0",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/alembic/versions/b2c4e6f8a0d1_add_user_org_seat.py": {
     "mtime": 1773532125.2721756,
-    "hash": "5631f1133bfe83310e9a9c6df5159fb6"
+    "ast_hash": "5631f1133bfe83310e9a9c6df5159fb6",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/alembic/versions/a057912b7338_initial_schema.py": {
     "mtime": 1772859445.9914155,
-    "hash": "aadf604111fc2233dcf15f4df401c516"
+    "ast_hash": "aadf604111fc2233dcf15f4df401c516",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/backend/alembic/versions/dcc247c7ad05_merge_migration_branches.py": {
+    "mtime": 1786835773.8462777,
+    "ast_hash": "cb6a3321de373680c08251a455e26efa",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/alembic/versions/c3a7f9d1e5b2_add_training_modules.py": {
     "mtime": 1774064502.235878,
-    "hash": "1bfc9acf577a0d9eeef469cb451174be"
+    "ast_hash": "1bfc9acf577a0d9eeef469cb451174be",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/alembic/versions/ee0e6be2458f_add_user_preferences.py": {
     "mtime": 1773558321.8278666,
-    "hash": "bc6d94bb20776ac9f7b275eb10129cde"
+    "ast_hash": "bc6d94bb20776ac9f7b275eb10129cde",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/alembic/versions/9d1f4ab6c2e3_add_org_billing_fields.py": {
     "mtime": 1775436184.2126029,
-    "hash": "f5de6f773e3b99378c4adee781df3ecf"
+    "ast_hash": "f5de6f773e3b99378c4adee781df3ecf",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/main.py": {
     "mtime": 1775957830.7935102,
-    "hash": "83c78eb62e14d3f9b625f0632ab8a5d7"
+    "ast_hash": "83c78eb62e14d3f9b625f0632ab8a5d7",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/config.py": {
     "mtime": 1775431320.0803819,
-    "hash": "458e94e22c410dcc52015fadec2b6dcb"
+    "ast_hash": "458e94e22c410dcc52015fadec2b6dcb",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/__init__.py": {
     "mtime": 1771391710.5847023,
-    "hash": "8b309f9aca1df15a91137d87c417f7c4"
+    "ast_hash": "8b309f9aca1df15a91137d87c417f7c4",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/middleware/auth.py": {
     "mtime": 1775100114.2602525,
-    "hash": "0d9908166b2e69e587c7aaee9ed198a7"
+    "ast_hash": "0d9908166b2e69e587c7aaee9ed198a7",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/middleware/org_context.py": {
     "mtime": 1775957246.7179103,
-    "hash": "28ab0ddaf2ffb3de9edfee681bdd0f6a"
+    "ast_hash": "28ab0ddaf2ffb3de9edfee681bdd0f6a",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/middleware/__init__.py": {
     "mtime": 1773531585.7809365,
-    "hash": "c6d1ffdc1428c37cdf40855a1bec699e"
+    "ast_hash": "c6d1ffdc1428c37cdf40855a1bec699e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/user_sync.py": {
     "mtime": 1774305741.596457,
-    "hash": "01e31e7d29d21247ff125822f451423e"
+    "ast_hash": "01e31e7d29d21247ff125822f451423e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/flight_plan_parser.py": {
     "mtime": 1774302611.6806624,
-    "hash": "daa2a3affcd33ce65af9a6d75b421558"
+    "ast_hash": "daa2a3affcd33ce65af9a6d75b421558",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/__init__.py": {
     "mtime": 1771391739.1857586,
-    "hash": "ad05f5e2d385e0eec086585ca3bdeb5d"
+    "ast_hash": "ad05f5e2d385e0eec086585ca3bdeb5d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/orchestrator.py": {
     "mtime": 1774300720.8277752,
-    "hash": "6f3244d1c3f0591483e99d1dfe4f4730"
+    "ast_hash": "6f3244d1c3f0591483e99d1dfe4f4730",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/state.py": {
     "mtime": 1774300394.5958784,
-    "hash": "da13bf008986575415a04488cab0f5ed"
+    "ast_hash": "da13bf008986575415a04488cab0f5ed",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/prompts.py": {
     "mtime": 1774308522.1588385,
-    "hash": "c62141c74c3abedc1094329a3e634e31"
+    "ast_hash": "c62141c74c3abedc1094329a3e634e31",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/atc_agent.py": {
     "mtime": 1774064986.7036977,
-    "hash": "d512fbbb2dfd1d01ddb6eff53c568bc3"
+    "ast_hash": "d512fbbb2dfd1d01ddb6eff53c568bc3",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/__init__.py": {
     "mtime": 1771391739.7364337,
-    "hash": "063d5e6333cb482aaccc0b96efdcb2f6"
+    "ast_hash": "063d5e6333cb482aaccc0b96efdcb2f6",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/graphs/scoring_graph.py": {
     "mtime": 1774300681.662595,
-    "hash": "fe7515b593bc548dfdc9018072213c7e"
+    "ast_hash": "fe7515b593bc548dfdc9018072213c7e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/graphs/validation_graph.py": {
     "mtime": 1774300681.662595,
-    "hash": "d27163d5045434408dbe9b556c14d50c"
+    "ast_hash": "d27163d5045434408dbe9b556c14d50c",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/graphs/live_session_graph.py": {
     "mtime": 1774300681.662595,
-    "hash": "770eb17900af9958e842257bb71734be"
+    "ast_hash": "770eb17900af9958e842257bb71734be",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/graphs/__init__.py": {
     "mtime": 1774300681.662595,
-    "hash": "7799f607e1e603283242f4c1ae9ffcc2"
+    "ast_hash": "7799f607e1e603283242f4c1ae9ffcc2",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/tools/airspace_tools.py": {
     "mtime": 1774300394.5958784,
-    "hash": "f9425fef95ae3cfb58759047c2bca139"
+    "ast_hash": "f9425fef95ae3cfb58759047c2bca139",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/tools/calculation_tools.py": {
     "mtime": 1774300394.5958784,
-    "hash": "dbb798ae695a04142d00c202ce0cc37e"
+    "ast_hash": "dbb798ae695a04142d00c202ce0cc37e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/tools/weather_tools.py": {
     "mtime": 1774300394.5958784,
-    "hash": "a11ac9c233de44c7fdcbc0fb6d4b7d69"
+    "ast_hash": "a11ac9c233de44c7fdcbc0fb6d4b7d69",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/tools/__init__.py": {
     "mtime": 1774300394.5958784,
-    "hash": "2b90414cf286a9d2bd08e1a8c962e54d"
+    "ast_hash": "2b90414cf286a9d2bd08e1a8c962e54d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/agents/emergency_agent.py": {
     "mtime": 1774300612.5216444,
-    "hash": "3a6d9d25a049c4095cb15d7a8a1f9381"
+    "ast_hash": "3a6d9d25a049c4095cb15d7a8a1f9381",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/agents/weather_agent.py": {
     "mtime": 1774300612.5216444,
-    "hash": "0bde215a4c7b39a182ef9752a088f2bc"
+    "ast_hash": "0bde215a4c7b39a182ef9752a088f2bc",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/agents/gatekeeper.py": {
     "mtime": 1774300612.5216444,
-    "hash": "e957bc45b957e8f32af4fee061aaa58a"
+    "ast_hash": "e957bc45b957e8f32af4fee061aaa58a",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/agents/performance_agent.py": {
     "mtime": 1774300612.5216444,
-    "hash": "fbae7cb33255724be7413ae4ad2cdde9"
+    "ast_hash": "fbae7cb33255724be7413ae4ad2cdde9",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/agents/student_tier.py": {
     "mtime": 1774300612.5216444,
-    "hash": "427a28c6c2270eb44d3f564ecf1d7091"
+    "ast_hash": "427a28c6c2270eb44d3f564ecf1d7091",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/agents/route_agent.py": {
     "mtime": 1774300612.5216444,
-    "hash": "767cbc0f63745db731d04dacb6bdd52d"
+    "ast_hash": "767cbc0f63745db731d04dacb6bdd52d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/agents/fuel_agent.py": {
     "mtime": 1774300612.5216444,
-    "hash": "a1431178e0caa66db84819cf8b39ac7e"
+    "ast_hash": "a1431178e0caa66db84819cf8b39ac7e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/agents/airspace_agent.py": {
     "mtime": 1774300612.5216444,
-    "hash": "22195f6fd3b30acb3fd8fc24c52f4530"
+    "ast_hash": "22195f6fd3b30acb3fd8fc24c52f4530",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/agents/gamification.py": {
     "mtime": 1774300612.5216444,
-    "hash": "98f93021b3363d7c99eaf511954dfda1"
+    "ast_hash": "98f93021b3363d7c99eaf511954dfda1",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/agents/__init__.py": {
     "mtime": 1774300612.5216444,
-    "hash": "8d8bd75264e56e8f6a5b81552fb98d95"
+    "ast_hash": "8d8bd75264e56e8f6a5b81552fb98d95",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/llm/scenarios/__init__.py": {
     "mtime": 1771611225.5047495,
-    "hash": "e7be1dd15e51d61e73807a7ba48680bf"
+    "ast_hash": "e7be1dd15e51d61e73807a7ba48680bf",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/external/airspace_service.py": {
     "mtime": 1774302665.751139,
-    "hash": "9139a41b7a1dcbc5dc6c09a8804417a3"
+    "ast_hash": "9139a41b7a1dcbc5dc6c09a8804417a3",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/external/ocr_service.py": {
     "mtime": 1774302665.751139,
-    "hash": "5893e23632ced21532f754eb1ff9db80"
+    "ast_hash": "5893e23632ced21532f754eb1ff9db80",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/external/__init__.py": {
     "mtime": 1774302665.751139,
-    "hash": "d70fc9999eef551124734d22853e59ce"
+    "ast_hash": "d70fc9999eef551124734d22853e59ce",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/external/weather_service.py": {
     "mtime": 1774302665.751139,
-    "hash": "4142a8418f40f9e9c9c0cb0d6a8e08d5"
+    "ast_hash": "4142a8418f40f9e9c9c0cb0d6a8e08d5",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/stt/whisper_service.py": {
-    "mtime": 1774064986.6599548,
-    "hash": "06e83c18d84f8a50682560a6a79dde57"
+    "mtime": 1781029769.675808,
+    "ast_hash": "3a812ccdecfa71ffae68eae3e15683d0",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/stt/__init__.py": {
     "mtime": 1771391763.8520699,
-    "hash": "ca875fa604f4ce0bf0e741283d125b53"
+    "ast_hash": "ca875fa604f4ce0bf0e741283d125b53",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/audio_effects/filters.py": {
     "mtime": 1774064986.7196043,
-    "hash": "b75f7e26fe60126164e60f058a3fcba5"
+    "ast_hash": "b75f7e26fe60126164e60f058a3fcba5",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/audio_effects/__init__.py": {
     "mtime": 1771391791.8713944,
-    "hash": "d695479369baa5b2c2455c9fa13ab1c9"
+    "ast_hash": "d695479369baa5b2c2455c9fa13ab1c9",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/tts/tts_service.py": {
     "mtime": 1774064986.7196043,
-    "hash": "12bab5a33f4772ddb1002ad3f75ab582"
+    "ast_hash": "12bab5a33f4772ddb1002ad3f75ab582",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/services/tts/__init__.py": {
     "mtime": 1771391776.261386,
-    "hash": "ac931b2fd8779060e38475497b16d408"
+    "ast_hash": "ac931b2fd8779060e38475497b16d408",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/voice_log.py": {
     "mtime": 1774064986.6559782,
-    "hash": "4d3bb5e731c437d6de85aec2666892de"
+    "ast_hash": "4d3bb5e731c437d6de85aec2666892de",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/content.py": {
     "mtime": 1775956462.296819,
-    "hash": "d8c030b58265d6107a8e8cee35cda929"
+    "ast_hash": "d8c030b58265d6107a8e8cee35cda929",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/analytics.py": {
     "mtime": 1775438473.1758316,
-    "hash": "47a504227654856feb610c2259442aa1"
+    "ast_hash": "47a504227654856feb610c2259442aa1",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/user_preferences.py": {
     "mtime": 1773558234.6364908,
-    "hash": "bbe75ce257df932648de770fef232de9"
+    "ast_hash": "bbe75ce257df932648de770fef232de9",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/flight_plan.py": {
-    "mtime": 1774299210.6843412,
-    "hash": "1a5c8517eac20add6eb3af6f2e6c8cd0"
+    "mtime": 1781029499.8821836,
+    "ast_hash": "ef5a16ade8e57c5cfad06aa61356513c",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/waypoint.py": {
     "mtime": 1774299303.4403303,
-    "hash": "70496f4e3758808ecbfda8c6c0e0862c"
+    "ast_hash": "70496f4e3758808ecbfda8c6c0e0862c",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/training_session.py": {
     "mtime": 1775439228.6309118,
-    "hash": "eb89fae436fc6adf88002f8380039516"
+    "ast_hash": "eb89fae436fc6adf88002f8380039516",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/student_stats.py": {
     "mtime": 1774299303.1359458,
-    "hash": "8db1039351c9dccb3ca493cb5a04a796"
+    "ast_hash": "8db1039351c9dccb3ca493cb5a04a796",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/user.py": {
     "mtime": 1774064986.6559782,
-    "hash": "78237646fc705dcf408367aacfca1252"
+    "ast_hash": "78237646fc705dcf408367aacfca1252",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/organization.py": {
     "mtime": 1775436161.5670235,
-    "hash": "f5ac30c2b8410f9b7e5142ce96b8e9a9"
+    "ast_hash": "f5ac30c2b8410f9b7e5142ce96b8e9a9",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/training_module.py": {
     "mtime": 1774064614.0857234,
-    "hash": "4ff17aafa6cb157fc99ef976cbed4e42"
+    "ast_hash": "4ff17aafa6cb157fc99ef976cbed4e42",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/scenario.py": {
     "mtime": 1775955642.2918088,
-    "hash": "b0d3d7416f5f2584394a8e4ccc7719f7"
+    "ast_hash": "b0d3d7416f5f2584394a8e4ccc7719f7",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/gamification.py": {
-    "mtime": 1775436981.8570929,
-    "hash": "8bbe1c3fe20de1fd9a0bce81e560ff6a"
+    "mtime": 1781029462.5226552,
+    "ast_hash": "74b0ae356c061bf67f8c9d2683a07c44",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/seat.py": {
     "mtime": 1774064986.6559782,
-    "hash": "0ed087dfdd2014e6306d7d4cc79f8e16"
+    "ast_hash": "0ed087dfdd2014e6306d7d4cc79f8e16",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/instructor.py": {
-    "mtime": 1774299210.6843412,
-    "hash": "d85476ba41f04b722abcaa9922e54ef1"
+    "mtime": 1781029454.0800142,
+    "ast_hash": "67245a34fe6b7e8040ce9e8d8e4d097b",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/__init__.py": {
     "mtime": 1772859317.978377,
-    "hash": "691fe4fbee79981d94cfbc14abf39d2a"
+    "ast_hash": "691fe4fbee79981d94cfbc14abf39d2a",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/assessment.py": {
     "mtime": 1774299210.6843412,
-    "hash": "0e90d51772a3a66a10c3472a09308e89"
+    "ast_hash": "0e90d51772a3a66a10c3472a09308e89",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/schemas/admin.py": {
-    "mtime": 1775436166.3931575,
-    "hash": "866df89b9e1f83c6086a3331a6b6b161"
+    "mtime": 1781030036.1028793,
+    "ast_hash": "f20d80809a3e92cf20c388e4297fb06a",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/__init__.py": {
     "mtime": 1771391811.272656,
-    "hash": "ae65d382e258d37202a0336822c14b1e"
+    "ast_hash": "ae65d382e258d37202a0336822c14b1e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/routes/voice.py": {
-    "mtime": 1775431744.169748,
-    "hash": "fde9c51f36bdc4ede65346590ba13622"
+    "mtime": 1781029843.7989836,
+    "ast_hash": "df67423f7f44cfb397f3a59475efd301",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/routes/health.py": {
-    "mtime": 1771391813.4858124,
-    "hash": "f558b132d0af8d8594d0e873f0e8f545"
+    "mtime": 1781029358.5233333,
+    "ast_hash": "bc69e466da26d1d48d4aabd3a8676a04",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/preferences.py": {
     "mtime": 1773558234.6364908,
-    "hash": "ef4ffbbc4f3b5c74420204fdbaf49295"
+    "ast_hash": "ef4ffbbc4f3b5c74420204fdbaf49295",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/content.py": {
     "mtime": 1775956491.5069785,
-    "hash": "e34480a2c8423681a57dedd6958827f4"
+    "ast_hash": "e34480a2c8423681a57dedd6958827f4",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/analytics.py": {
     "mtime": 1775438505.6694694,
-    "hash": "bf42c16f1824c4eed286c7861f10b1bd"
+    "ast_hash": "bf42c16f1824c4eed286c7861f10b1bd",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/auth.py": {
-    "mtime": 1774070312.2381036,
-    "hash": "deb83f875646b928f590bbc192574fef"
+    "mtime": 1781030119.5042477,
+    "ast_hash": "356458d6e7f3d2d92e03d60b443014d3",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/modules.py": {
     "mtime": 1775438123.9398232,
-    "hash": "e42757e1ba4304cab90e3f25faec50fa"
+    "ast_hash": "e42757e1ba4304cab90e3f25faec50fa",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/instructors.py": {
-    "mtime": 1774300696.454683,
-    "hash": "f68342ce50131069315f6d3650ec3210"
+    "mtime": 1786835690.2299194,
+    "ast_hash": "7a85695d06e519a47e8d4f2e24a59b9d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/stats.py": {
     "mtime": 1775442514.2580004,
-    "hash": "2f52d8c1d4b258362dc483eaaf375f25"
+    "ast_hash": "2f52d8c1d4b258362dc483eaaf375f25",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/flight_plans.py": {
-    "mtime": 1774303229.1199503,
-    "hash": "274ce5ddc379fe20232c9d6fc9cc7b1d"
+    "mtime": 1781029519.1487703,
+    "ast_hash": "6cd323d5ce21d74abb01fa55d31385bb",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/gamification.py": {
-    "mtime": 1775437258.1407795,
-    "hash": "eeb2e887a56d002c6ca6833a2b75be9c"
+    "mtime": 1781029477.6218398,
+    "ast_hash": "1738f55e571d5e135eebc923d9783f64",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/assessments.py": {
     "mtime": 1774300632.8627496,
-    "hash": "af6e51c2569230afde89f1471aca69dd"
+    "ast_hash": "af6e51c2569230afde89f1471aca69dd",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/sessions.py": {
     "mtime": 1775439881.708085,
-    "hash": "35aae5857a4ed96d50ad787cbfe0b498"
+    "ast_hash": "35aae5857a4ed96d50ad787cbfe0b498",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/__init__.py": {
     "mtime": 1772859341.2995214,
-    "hash": "0eee84d2fca31fddf38d897c55b48fed"
+    "ast_hash": "0eee84d2fca31fddf38d897c55b48fed",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/waypoints.py": {
     "mtime": 1774300715.8912115,
-    "hash": "0894e835341ba70fc437b04c486600fe"
+    "ast_hash": "0894e835341ba70fc437b04c486600fe",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/admin.py": {
-    "mtime": 1775436173.7221353,
-    "hash": "8d404a8eccd87f50beff4c56abefa9a8"
+    "mtime": 1781030065.8545387,
+    "ast_hash": "675352be421583269ab562e654b271c0",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/api/v1/scenarios.py": {
     "mtime": 1775955642.308237,
-    "hash": "24e0edd56c65f96f59f70c3a2da4ec25"
+    "ast_hash": "24e0edd56c65f96f59f70c3a2da4ec25",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/voice_log.py": {
     "mtime": 1773531937.0457327,
-    "hash": "643c22b9d98b6d497e5ecd609e1236c5"
+    "ast_hash": "643c22b9d98b6d497e5ecd609e1236c5",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/content.py": {
     "mtime": 1775955642.308237,
-    "hash": "d02cebd66c78e8e59005e5b156d7084a"
+    "ast_hash": "d02cebd66c78e8e59005e5b156d7084a",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/user_preferences.py": {
     "mtime": 1773558234.6364908,
-    "hash": "e4db798d61d7ce43edce77987d432060"
+    "ast_hash": "e4db798d61d7ce43edce77987d432060",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/flight_plan.py": {
     "mtime": 1774299109.9118397,
-    "hash": "8a2c73d147d2c760102e45b22e58cc38"
+    "ast_hash": "8a2c73d147d2c760102e45b22e58cc38",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/waypoint.py": {
     "mtime": 1774299282.9913623,
-    "hash": "d6827d0f8c0b5a65fb7220a3cd1f7994"
+    "ast_hash": "d6827d0f8c0b5a65fb7220a3cd1f7994",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/training_session.py": {
     "mtime": 1775439140.4572158,
-    "hash": "1e130e47ceb7ce40c91579b65660c1d4"
+    "ast_hash": "1e130e47ceb7ce40c91579b65660c1d4",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/training_session_event.py": {
     "mtime": 1775439122.2576535,
-    "hash": "cde90f538a1f08c833d1a44b0563be11"
+    "ast_hash": "cde90f538a1f08c833d1a44b0563be11",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/student_stats.py": {
     "mtime": 1774299282.6323862,
-    "hash": "3acbbb4432b6c9d4af3671891debe24d"
+    "ast_hash": "3acbbb4432b6c9d4af3671891debe24d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/user.py": {
     "mtime": 1773558234.6364908,
-    "hash": "5acb1132abea5bf2e8e72c0e75c73343"
+    "ast_hash": "5acb1132abea5bf2e8e72c0e75c73343",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/organization.py": {
-    "mtime": 1775436151.389173,
-    "hash": "c285f9743d3a8ff0192dcce3914cc7dd"
+    "mtime": 1781030002.1235454,
+    "ast_hash": "7af92174dcd71e408b4873b0c91a76c4",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/training_module.py": {
     "mtime": 1774064614.0857234,
-    "hash": "5fc3c1bd3beca9baf8d86c618a46fbb3"
+    "ast_hash": "5fc3c1bd3beca9baf8d86c618a46fbb3",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/scenario.py": {
     "mtime": 1774299123.4599264,
-    "hash": "a6281f591dbfdd653090532e48472492"
+    "ast_hash": "a6281f591dbfdd653090532e48472492",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/gamification.py": {
     "mtime": 1775437248.709962,
-    "hash": "dfb94b9f85124751591b8236930df242"
+    "ast_hash": "dfb94b9f85124751591b8236930df242",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/seat.py": {
     "mtime": 1773531931.696039,
-    "hash": "06c970e587356f69631bdd5a83fc1ee1"
+    "ast_hash": "06c970e587356f69631bdd5a83fc1ee1",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/instructor.py": {
     "mtime": 1774299109.9118397,
-    "hash": "a44cab56ed06472fa3d859d0c623243d"
+    "ast_hash": "a44cab56ed06472fa3d859d0c623243d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/__init__.py": {
     "mtime": 1775439170.8705204,
-    "hash": "f481c0a3b4c35cc97ba459a786a92c92"
+    "ast_hash": "f481c0a3b4c35cc97ba459a786a92c92",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/models/assessment.py": {
     "mtime": 1774299109.907799,
-    "hash": "1bae987dfce00ce464a4afec33daa4fe"
+    "ast_hash": "1bae987dfce00ce464a4afec33daa4fe",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/core/websocket_manager.py": {
     "mtime": 1774064986.6559782,
-    "hash": "0e4f0f00a8a051df0b642b076b4e48cd"
+    "ast_hash": "0e4f0f00a8a051df0b642b076b4e48cd",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/core/permissions.py": {
     "mtime": 1774064761.202419,
-    "hash": "1c8725e5cf733f40e906be8c6423edac"
+    "ast_hash": "1c8725e5cf733f40e906be8c6423edac",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/core/audio_pipeline.py": {
-    "mtime": 1774308226.5782702,
-    "hash": "4f93b43791bd2ec92dd81c127621c73f"
+    "mtime": 1781029779.9815555,
+    "ast_hash": "fb0d4ac6bc4c52d774b19c28e66d9477",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/core/__init__.py": {
     "mtime": 1771391723.8722515,
-    "hash": "e29c8720be9dd76f8728808ed6a191a7"
+    "ast_hash": "e29c8720be9dd76f8728808ed6a191a7",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/core/redis.py": {
     "mtime": 1773558076.413013,
-    "hash": "60ec9eb456a28ca7df0f209c7719ddcb"
+    "ast_hash": "60ec9eb456a28ca7df0f209c7719ddcb",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/registry.py": {
     "mtime": 1775439593.0302863,
-    "hash": "69171ab2d02c5bf5fe8fc60fc0a927bb"
+    "ast_hash": "69171ab2d02c5bf5fe8fc60fc0a927bb",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/base.py": {
     "mtime": 1774064986.6559782,
-    "hash": "63c9fd711c440df04408bfb0f017d751"
+    "ast_hash": "63c9fd711c440df04408bfb0f017d751",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/__init__.py": {
     "mtime": 1772859292.1424341,
-    "hash": "34cb404ce11d70c8508df41391ee8971"
+    "ast_hash": "34cb404ce11d70c8508df41391ee8971",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/session.py": {
     "mtime": 1774064986.6559782,
-    "hash": "8ae6d38c58b46587ca56fd215051e355"
+    "ast_hash": "8ae6d38c58b46587ca56fd215051e355",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/assessment_repository.py": {
     "mtime": 1774300466.4067736,
-    "hash": "5aa2468e413e4d7b70b024737ffc8784"
+    "ast_hash": "5aa2468e413e4d7b70b024737ffc8784",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/session_repo.py": {
     "mtime": 1774064986.6559782,
-    "hash": "325b0eeeef5a95532e35aa011b70366f"
+    "ast_hash": "325b0eeeef5a95532e35aa011b70366f",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/voice_log_repo.py": {
     "mtime": 1774064986.6559782,
-    "hash": "c1dbe72b0d03ec09c2570359b272ff0f"
+    "ast_hash": "c1dbe72b0d03ec09c2570359b272ff0f",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/scenario_repo.py": {
     "mtime": 1774064986.6559782,
-    "hash": "c2b6532407b3d9c822123ea7075d2df1"
+    "ast_hash": "c2b6532407b3d9c822123ea7075d2df1",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/gamification_repository.py": {
     "mtime": 1775437253.7305164,
-    "hash": "a28c282788d5bdb641aa0e6a93e0f7ac"
+    "ast_hash": "a28c282788d5bdb641aa0e6a93e0f7ac",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/training_module_repo.py": {
     "mtime": 1774064614.0857234,
-    "hash": "a9d211e9b4e273a9bc7840f2c478236f"
+    "ast_hash": "a9d211e9b4e273a9bc7840f2c478236f",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/content_repository.py": {
     "mtime": 1775955642.3821645,
-    "hash": "1a9a0a5a843d1069c89e981d3893f00f"
+    "ast_hash": "1a9a0a5a843d1069c89e981d3893f00f",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/organization_repo.py": {
     "mtime": 1774064986.6559782,
-    "hash": "e57aa790f233de902d0f76b2275127e8"
+    "ast_hash": "e57aa790f233de902d0f76b2275127e8",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/base.py": {
     "mtime": 1774064986.6559782,
-    "hash": "3b4a3984592f64d55da74121e5778758"
+    "ast_hash": "3b4a3984592f64d55da74121e5778758",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/instructor_repository.py": {
     "mtime": 1774300413.1511347,
-    "hash": "d248a193a4400f40cfaa6a1ea93806a7"
+    "ast_hash": "d248a193a4400f40cfaa6a1ea93806a7",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/flight_plan_repository.py": {
-    "mtime": 1774300397.7943208,
-    "hash": "3b6b363b1c5a36cd583886cd1dc9446a"
+    "mtime": 1781029383.7366922,
+    "ast_hash": "b3c9e4f3cab10c3770bfc42dc387ad20",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/seat_repo.py": {
     "mtime": 1774064986.6559782,
-    "hash": "4ade71c774a18e0c2033f3bf52ee7a5e"
+    "ast_hash": "4ade71c774a18e0c2033f3bf52ee7a5e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/user_repo.py": {
     "mtime": 1774064986.6559782,
-    "hash": "a280b9e8f0454fea8f66b71764595309"
+    "ast_hash": "a280b9e8f0454fea8f66b71764595309",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/user_preferences_repo.py": {
     "mtime": 1773558234.6364908,
-    "hash": "172cc5034f307e0a84021b9c526162c8"
+    "ast_hash": "172cc5034f307e0a84021b9c526162c8",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/waypoint_repository.py": {
     "mtime": 1774300375.6704037,
-    "hash": "edbbc34fdb6d10a193dd958057653b41"
+    "ast_hash": "edbbc34fdb6d10a193dd958057653b41",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/__init__.py": {
     "mtime": 1772859292.1424341,
-    "hash": "42a1e5f8d80cc7b777bf972bea122f1f"
+    "ast_hash": "42a1e5f8d80cc7b777bf972bea122f1f",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/app/db/repositories/student_stats_repository.py": {
     "mtime": 1775442505.3785365,
-    "hash": "6b6a081a2ba6304985105a31fdcd0016"
+    "ast_hash": "6b6a081a2ba6304985105a31fdcd0016",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/conftest.py": {
     "mtime": 1772859027.364457,
-    "hash": "9c578f65e31452067c1616ad77daa6da"
+    "ast_hash": "9c578f65e31452067c1616ad77daa6da",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/__init__.py": {
     "mtime": 1772859022.133037,
-    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/test_gamification_schema.py": {
     "mtime": 1775437044.5097353,
-    "hash": "8e7983f56ddaaaafe973dfacb2c4137a"
+    "ast_hash": "8e7983f56ddaaaafe973dfacb2c4137a",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/test_scenario_schema.py": {
     "mtime": 1775436583.3679419,
-    "hash": "37b65c517b724198e296a383a690581d"
+    "ast_hash": "37b65c517b724198e296a383a690581d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/test_config.py": {
     "mtime": 1775431415.0846648,
-    "hash": "f248ce7df247da2997b3ea7c2366a776"
+    "ast_hash": "f248ce7df247da2997b3ea7c2366a776",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/test_audio_effects.py": {
     "mtime": 1772859054.4548643,
-    "hash": "6b1ee218786271716a61ef402fa62044"
+    "ast_hash": "6b1ee218786271716a61ef402fa62044",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/test_organization_schema.py": {
     "mtime": 1775436340.0887382,
-    "hash": "19827cc48acd8f302c883eaa6d5835d8"
+    "ast_hash": "19827cc48acd8f302c883eaa6d5835d8",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/__init__.py": {
     "mtime": 1772859022.133037,
-    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/middleware/test_org_context.py": {
     "mtime": 1773532557.5149996,
-    "hash": "de1e7de75978276ce76b751f00d2af50"
+    "ast_hash": "de1e7de75978276ce76b751f00d2af50",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/middleware/__init__.py": {
     "mtime": 1773532421.9315605,
-    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/middleware/test_auth.py": {
     "mtime": 1775100644.5747385,
-    "hash": "7663e606588fc012ecfa8d50e388782c"
+    "ast_hash": "7663e606588fc012ecfa8d50e388782c",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/services/test_user_sync.py": {
     "mtime": 1775100741.166802,
-    "hash": "6548af77591479a6f79b6d2827b21b47"
+    "ast_hash": "6548af77591479a6f79b6d2827b21b47",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/services/__init__.py": {
     "mtime": 1773532421.9315605,
-    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/services/llm/test_atc_agent.py": {
     "mtime": 1773532557.5149996,
-    "hash": "38faadaa263a97921b03816192d82117"
+    "ast_hash": "38faadaa263a97921b03816192d82117",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/services/llm/__init__.py": {
     "mtime": 1773532421.9315605,
-    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/repositories/test_repos.py": {
     "mtime": 1773532557.5149996,
-    "hash": "80902cc6a895c76aa03d7a7ba00258a6"
+    "ast_hash": "80902cc6a895c76aa03d7a7ba00258a6",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/repositories/test_student_stats_repository.py": {
     "mtime": 1775442637.0291893,
-    "hash": "ff72e9bb4a04ba964089758d094ddff9"
+    "ast_hash": "ff72e9bb4a04ba964089758d094ddff9",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/repositories/__init__.py": {
     "mtime": 1773532421.9315605,
-    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/api/test_sessions_filters.py": {
     "mtime": 1775440104.0657125,
-    "hash": "f6bf8973433da830f38c01bd771e3ebe"
+    "ast_hash": "f6bf8973433da830f38c01bd771e3ebe",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/api/test_sessions.py": {
     "mtime": 1775439569.5264263,
-    "hash": "7adb5f64cad0d964e45161bdd1679fa9"
+    "ast_hash": "7adb5f64cad0d964e45161bdd1679fa9",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/api/test_analytics.py": {
     "mtime": 1775438496.990362,
-    "hash": "993c9560d6ddc8a571e9299be7909650"
+    "ast_hash": "993c9560d6ddc8a571e9299be7909650",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/api/test_gamification.py": {
     "mtime": 1775437290.3691356,
-    "hash": "397c4e522fa9e74bf9143b94a598fce0"
+    "ast_hash": "397c4e522fa9e74bf9143b94a598fce0",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/api/test_modules.py": {
     "mtime": 1775438146.6536853,
-    "hash": "b09b83fb396b0c34714546e434f0e332"
+    "ast_hash": "b09b83fb396b0c34714546e434f0e332",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/unit/api/__init__.py": {
     "mtime": 1775435895.7872725,
-    "hash": "d972e89731baa71d9d61a39832e26138"
+    "ast_hash": "d972e89731baa71d9d61a39832e26138",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/integration/test_sessions_replay.py": {
     "mtime": 1775099964.5276048,
-    "hash": "c68a79dbc1d076efc1d44bbcd47f97dc"
+    "ast_hash": "c68a79dbc1d076efc1d44bbcd47f97dc",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/integration/test_sessions_complete.py": {
     "mtime": 1775439337.3406043,
-    "hash": "4ed324bb5abac7018818764beb13a55a"
+    "ast_hash": "4ed324bb5abac7018818764beb13a55a",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/integration/test_health.py": {
     "mtime": 1775431435.1660268,
-    "hash": "619016af8ca7bcf931f69e78e43d7aca"
+    "ast_hash": "619016af8ca7bcf931f69e78e43d7aca",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/tests/integration/__init__.py": {
     "mtime": 1772859022.133037,
-    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/backend/scripts/backup.sh": {
+    "mtime": 1775954231.4436655,
+    "ast_hash": "46b5b49331359a13a2197e8ee3d73288",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/backend/scripts/deploy.sh": {
+    "mtime": 1775493567.5792112,
+    "ast_hash": "24ca607bfabd46e729a02e66300e9521",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/backend/scripts/restore.sh": {
+    "mtime": 1775954239.3308673,
+    "ast_hash": "0020ff6b90bf209e6d7f2e984eead70b",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/scripts/__init__.py": {
     "mtime": 1773534650.8500235,
-    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/scripts/seed.py": {
     "mtime": 1774299714.9280875,
-    "hash": "418bbb02d3c29578c6e2b62ad15fa2ba"
+    "ast_hash": "418bbb02d3c29578c6e2b62ad15fa2ba",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/CREDS.md": {
     "mtime": 1775959208.619113,
-    "hash": "d8ad6f53cc723f37cad4f10e6d6fe14d"
+    "ast_hash": "d8ad6f53cc723f37cad4f10e6d6fe14d",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/GEMINI.md": {
+    "mtime": 1790316584.6048167,
+    "ast_hash": "38113126063a656220119cdfee72a16c",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/README.md": {
     "mtime": 1775954260.5978558,
-    "hash": "39c36cadaff2a1f9e01b2f2b17315456"
+    "ast_hash": "39c36cadaff2a1f9e01b2f2b17315456",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/AGENTS.md": {
-    "mtime": 1778675788.8594263,
-    "hash": "da79aa9343cd2b362206f03762160abc"
+    "mtime": 1790316584.5940166,
+    "ast_hash": "64ea78b168b41d293448052919934606",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/CONTEXT.md": {
+    "mtime": 1790319372.1260827,
+    "ast_hash": "ad60c1d48a380d1507ef969bda79d2c8",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/docs/README.md": {
     "mtime": 1775506998.3798726,
-    "hash": "0d2a30ff823b550117ef1efe61220d09"
+    "ast_hash": "0d2a30ff823b550117ef1efe61220d09",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/docs/development.md": {
     "mtime": 1775492863.6010668,
-    "hash": "fc4c0e5f985ee795374bd46f296ffa50"
+    "ast_hash": "fc4c0e5f985ee795374bd46f296ffa50",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/docs/OLLAMA_SETUP.md": {
     "mtime": 1771392697.452859,
-    "hash": "6248557eb512372dc3d65908b296e182"
+    "ast_hash": "6248557eb512372dc3d65908b296e182",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/docs/architecture/ADR-009-opentelemetry-and-postgres-trace.md": {
+    "mtime": 1790319421.4014785,
+    "ast_hash": "157ce05ae1665086d23db87a7cc26b23",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/docs/architecture/ADR-001-monorepo-structure.md": {
     "mtime": 1772859217.453001,
-    "hash": "ebb246e64e3071d785712086b43cec03"
+    "ast_hash": "ebb246e64e3071d785712086b43cec03",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/docs/architecture/ADR-005-flight-plan-pipeline.md": {
     "mtime": 1775492637.350156,
-    "hash": "923db8458f829ea015b12cfdade9a010"
+    "ast_hash": "923db8458f829ea015b12cfdade9a010",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/docs/architecture/ADR-006-scene-session-and-persistent-langgraph.md": {
+    "mtime": 1790319386.4612827,
+    "ast_hash": "6bd7fef842449d97cf7fea59d8cca4df",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/docs/architecture/ADR-008-tenant-scoped-knowledge-and-pgvector-retrieval.md": {
+    "mtime": 1790319412.9162784,
+    "ast_hash": "89daa1cb3d33fc20822314e586ec40d9",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/docs/architecture/ADR-003-deployment-architecture.md": {
     "mtime": 1772859217.453001,
-    "hash": "db91f68f2702ff98e6611da66219be2d"
+    "ast_hash": "db91f68f2702ff98e6611da66219be2d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/docs/architecture/ADR-002-database-postgresql.md": {
     "mtime": 1772859217.453001,
-    "hash": "dc857cf9c95e81560ee500adf92501f1"
+    "ast_hash": "dc857cf9c95e81560ee500adf92501f1",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/docs/architecture/ADR-004-langgraph-multi-agent.md": {
     "mtime": 1775492628.3523011,
-    "hash": "513bc0df01a00f35d5a15a8ec5d4e505"
+    "ast_hash": "513bc0df01a00f35d5a15a8ec5d4e505",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/docs/architecture/ADR-007-llm-provider-adapters.md": {
+    "mtime": 1790319398.478424,
+    "ast_hash": "5bfc24645ee39c8827eb552e183b6790",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/docs/superpowers/plans/2026-09-25-horus-production-architecture.md": {
+    "mtime": 1790319912.1923788,
+    "ast_hash": "5938426980bd338fba5edce938611210",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/docs/agents/domain.md": {
+    "mtime": 1786834851.925762,
+    "ast_hash": "c31f952210ca9679d691b8f31bc3f85f",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/docs/agents/issue-tracker.md": {
+    "mtime": 1786834848.1106749,
+    "ast_hash": "f554ea95282ab5fdc440d32d4a9d4c5d",
+    "semantic_hash": ""
+  },
+  "/home/denim/repos/horus-mvp/docs/agents/triage-labels.md": {
+    "mtime": 1786834849.5979304,
+    "ast_hash": "9847fe092d778931d2cf66cbc8f1dc31",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/docs/agent-contexts/FOLLOW_STEPS.md": {
     "mtime": 1775428190.7312317,
-    "hash": "8ef86c49253ece56c10af683784aa624"
+    "ast_hash": "8ef86c49253ece56c10af683784aa624",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/docs/agent-contexts/NEXT.md": {
     "mtime": 1774297864.181999,
-    "hash": "39aa51a0dc7c81f04dbdc6a61d996cac"
+    "ast_hash": "39aa51a0dc7c81f04dbdc6a61d996cac",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/docs/agent-contexts/START_MVP.md": {
     "mtime": 1773528765.516,
-    "hash": "16aeb0f4663abcbe53a4724b4244db0c"
+    "ast_hash": "16aeb0f4663abcbe53a4724b4244db0c",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/pnpm-workspace.yaml": {
     "mtime": 1774726617.398999,
-    "hash": "dda355d1abe189fe47c4cef22bcce2b5"
+    "ast_hash": "dda355d1abe189fe47c4cef22bcce2b5",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/public/robots.txt": {
     "mtime": 1774720226.730999,
-    "hash": "243b03ecba82dde9612cd5163145a86d"
+    "ast_hash": "243b03ecba82dde9612cd5163145a86d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/public/robots.txt": {
     "mtime": 1774730527.3980987,
-    "hash": "243b03ecba82dde9612cd5163145a86d"
+    "ast_hash": "243b03ecba82dde9612cd5163145a86d",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/README.md": {
     "mtime": 1771610679.5543,
-    "hash": "d983f80a0b2abd3a24ed7951979eab50"
+    "ast_hash": "d983f80a0b2abd3a24ed7951979eab50",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/docker-compose.yml": {
     "mtime": 1775493555.1593914,
-    "hash": "b11f2603422fbde2f97c08a5d7b1efdf"
+    "ast_hash": "b11f2603422fbde2f97c08a5d7b1efdf",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/DEPENDENCY_FIX.md": {
     "mtime": 1771392353.8663042,
-    "hash": "6c4b1cd87f13ede99789a483e4981c12"
+    "ast_hash": "6c4b1cd87f13ede99789a483e4981c12",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/docker-compose.prod.yml": {
     "mtime": 1773533860.9097972,
-    "hash": "59bad57f39d9aa6a88c9a8ea19f9175e"
+    "ast_hash": "59bad57f39d9aa6a88c9a8ea19f9175e",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/LANGUAGE_SUPPORT.md": {
     "mtime": 1771610679.5543,
-    "hash": "601e793273d2f8455a3fd9bab22d0574"
+    "ast_hash": "601e793273d2f8455a3fd9bab22d0574",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/backend/docker-compose.dev.yml": {
     "mtime": 1774845258.816889,
-    "hash": "7e2cab37dd89e723a4d797f05f149552"
+    "ast_hash": "7e2cab37dd89e723a4d797f05f149552",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/public/horusone_logo.png": {
     "mtime": 1774720226.690999,
-    "hash": "fdcf8f249da015d44188c6868252aded"
+    "ast_hash": "fdcf8f249da015d44188c6868252aded",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/public/horus_logo.png": {
     "mtime": 1774720226.667,
-    "hash": "a9261bc5ee6716d12c958d175e715377"
+    "ast_hash": "a9261bc5ee6716d12c958d175e715377",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/public/horus_fulllogo.svg": {
     "mtime": 1774720226.667,
-    "hash": "90b3d28635e781ca0864322ae5c56ded"
+    "ast_hash": "90b3d28635e781ca0864322ae5c56ded",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/public/logo.svg": {
     "mtime": 1774720226.730999,
-    "hash": "cb9b1e361e89569dbdba6a7b6ff492ec"
+    "ast_hash": "cb9b1e361e89569dbdba6a7b6ff492ec",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/packages/core/public/logo.png": {
     "mtime": 1774720226.719,
-    "hash": "69a9c6cb0b8bc7f06c37b3d1e5ec5fc1"
+    "ast_hash": "69a9c6cb0b8bc7f06c37b3d1e5ec5fc1",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/public/horusone_logo.png": {
     "mtime": 1774730527.3779106,
-    "hash": "fdcf8f249da015d44188c6868252aded"
+    "ast_hash": "fdcf8f249da015d44188c6868252aded",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/public/horus_logo.png": {
     "mtime": 1774730527.3536847,
-    "hash": "a9261bc5ee6716d12c958d175e715377"
+    "ast_hash": "a9261bc5ee6716d12c958d175e715377",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/public/horus_fulllogo.svg": {
     "mtime": 1774730527.349647,
-    "hash": "90b3d28635e781ca0864322ae5c56ded"
+    "ast_hash": "90b3d28635e781ca0864322ae5c56ded",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/public/logo.svg": {
     "mtime": 1774730527.3980987,
-    "hash": "cb9b1e361e89569dbdba6a7b6ff492ec"
+    "ast_hash": "cb9b1e361e89569dbdba6a7b6ff492ec",
+    "semantic_hash": ""
   },
   "/home/denim/repos/horus-mvp/frontend/public/logo.png": {
     "mtime": 1774730527.3859859,
-    "hash": "69a9c6cb0b8bc7f06c37b3d1e5ec5fc1"
+    "ast_hash": "69a9c6cb0b8bc7f06c37b3d1e5ec5fc1",
+    "semantic_hash": ""
   }
 }

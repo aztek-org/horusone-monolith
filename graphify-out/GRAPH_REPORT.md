@@ -1,16 +1,16 @@
-# Graph Report - horus-mvp  (2026-05-13)
+# Graph Report - horus-mvp  (2026-09-25)
 
 ## Corpus Check
-- 298 files · ~164,809 words
+- 329 files · ~184,521 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2687 nodes · 3467 edges · 358 communities (228 shown, 130 thin omitted)
-- Extraction: 79% EXTRACTED · 21% INFERRED · 0% AMBIGUOUS · INFERRED: 727 edges (avg confidence: 0.72)
+- 2841 nodes · 3618 edges · 386 communities (252 shown, 134 thin omitted)
+- Extraction: 80% EXTRACTED · 20% INFERRED · 0% AMBIGUOUS · INFERRED: 706 edges (avg confidence: 0.71)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `7e3adcf1`
+- Built from commit: `6cabb29b`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -297,6 +297,34 @@
 - [[_COMMUNITY_Community 354|Community 354]]
 - [[_COMMUNITY_Community 355|Community 355]]
 - [[_COMMUNITY_Community 357|Community 357]]
+- [[_COMMUNITY_Community 358|Community 358]]
+- [[_COMMUNITY_Community 359|Community 359]]
+- [[_COMMUNITY_Community 360|Community 360]]
+- [[_COMMUNITY_Community 361|Community 361]]
+- [[_COMMUNITY_Community 362|Community 362]]
+- [[_COMMUNITY_Community 363|Community 363]]
+- [[_COMMUNITY_Community 364|Community 364]]
+- [[_COMMUNITY_Community 365|Community 365]]
+- [[_COMMUNITY_Community 366|Community 366]]
+- [[_COMMUNITY_Community 367|Community 367]]
+- [[_COMMUNITY_Community 368|Community 368]]
+- [[_COMMUNITY_Community 369|Community 369]]
+- [[_COMMUNITY_Community 370|Community 370]]
+- [[_COMMUNITY_Community 371|Community 371]]
+- [[_COMMUNITY_Community 372|Community 372]]
+- [[_COMMUNITY_Community 373|Community 373]]
+- [[_COMMUNITY_Community 374|Community 374]]
+- [[_COMMUNITY_Community 375|Community 375]]
+- [[_COMMUNITY_Community 376|Community 376]]
+- [[_COMMUNITY_Community 377|Community 377]]
+- [[_COMMUNITY_Community 378|Community 378]]
+- [[_COMMUNITY_Community 379|Community 379]]
+- [[_COMMUNITY_Community 380|Community 380]]
+- [[_COMMUNITY_Community 381|Community 381]]
+- [[_COMMUNITY_Community 382|Community 382]]
+- [[_COMMUNITY_Community 383|Community 383]]
+- [[_COMMUNITY_Community 384|Community 384]]
+- [[_COMMUNITY_Community 385|Community 385]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `TokenUser` - 40 edges
@@ -304,23 +332,23 @@
 3. `User` - 31 edges
 4. `Base` - 30 edges
 5. `SeatRepository` - 29 edges
-6. `ATCAgent` - 22 edges
-7. `TrainingSession` - 22 edges
-8. `get_settings()` - 21 edges
-9. `UserRepository` - 21 edges
-10. `main()` - 20 edges
+6. `Organization` - 25 edges
+7. `ATCAgent` - 22 edges
+8. `TrainingSession` - 22 edges
+9. `get_settings()` - 21 edges
+10. `UserRepository` - 21 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Admin API Routes` --conceptually_related_to--> `Seat-Based RBAC`  [INFERRED]
-  backend/app/api/v1/admin.py → CREDS.md
-- `Admin API Routes` --conceptually_related_to--> `Multi-Tenant Architecture`  [INFERRED]
-  backend/app/api/v1/admin.py → README.md
 - `Analytics API Routes` --conceptually_related_to--> `Seat-Based RBAC`  [INFERRED]
   backend/app/api/v1/analytics.py → CREDS.md
 - `Analytics API Routes` --conceptually_related_to--> `Multi-Tenant Architecture`  [INFERRED]
   backend/app/api/v1/analytics.py → README.md
 - `Assessments API Routes` --conceptually_related_to--> `Seat-Based RBAC`  [INFERRED]
   backend/app/api/v1/assessments.py → CREDS.md
+- `Assessments API Routes` --conceptually_related_to--> `Multi-Tenant Architecture`  [INFERRED]
+  backend/app/api/v1/assessments.py → README.md
+- `Content API Routes` --conceptually_related_to--> `Seat-Based RBAC`  [INFERRED]
+  backend/app/api/v1/content.py → CREDS.md
 
 ## Hyperedges (group relationships)
 - **Initial Schema Tables** — migration_initial_schema, scenarios_table, training_sessions_table, voice_logs_table [EXTRACTED 1.00]
@@ -370,11 +398,11 @@
 - **Session Replay Data Model** — useSessionReplay_sessiondetail, useSessionReplay_trackpoint, useSessionReplay_flightinsight, useSessionReplay_voicelog, useSessionReplay_sessionscoring [EXTRACTED 1.00]
 - **Preferences Data Model** — usePreferences_preferencesdata, usePreferences_voicepreferences, usePreferences_displaypreferences [EXTRACTED 1.00]
 
-## Communities (358 total, 130 thin omitted)
+## Communities (386 total, 134 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.08
-Nodes (55): Alembic Environment, Health Routes, Voice WebSocket Routes, Admin API Routes, Analytics API Routes, Assessments API Routes, Auth API Routes, Content API Routes (+47 more)
+Nodes (51): Alembic Environment, Analytics API Routes, Assessments API Routes, Content API Routes, Assessment Results Table, Backend README, Badges Table, Organization Billing Fields (+43 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.06
@@ -385,16 +413,16 @@ Cohesion: 0.06
 Nodes (39): [], activeOrganizations, activeSessions, canSaveBilling(), clearActionBanners(), completedSessions, createOrganization(), deactivateOrganization() (+31 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.05
-Nodes (43): CatchAllErrorMiddleware, Main FastAPI application for Horus ATC Voice Communication API., Initialize services on startup., Root endpoint.      Returns:         API information, Convert unhandled exceptions into JSON 500 responses.      This runs *inside* th, Attach security-focused HTTP headers to every response., root(), SecurityHeadersMiddleware (+35 more)
+Cohesion: 0.08
+Nodes (27): _cache_key(), _deep_merge(), _dict_to_model(), Repository for user preferences with Redis caching., Create or deep-merge preferences for a user.          If a row already exists th, Remove the cached preferences for a user.          Args:             user_id: Th, Write a ``UserPreferences`` instance to Redis.          Args:             prefs:, Build the Redis cache key for a user's preferences.      Args:         user_id: (+19 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.05
-Nodes (43): do_run_migrations(), get_url(), include_object(), Alembic environment configuration., Filter objects for Alembic autogenerate comparison., Get database URL from application settings., Run migrations in 'offline' mode., Execute migrations with an active connection. (+35 more)
+Cohesion: 0.13
+Nodes (20): Application settings loaded from environment variables., Settings, BaseSettings, Tests for configuration management., Test CORS origins are correctly parsed from a comma-separated string., Test CORS origins with a single entry produces a one-element list., Test that whitespace around each origin is stripped., Test wildcard CORS is blocked in production. (+12 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.05
-Nodes (38): OCRService, OCR service — placeholder for flight-plan image text extraction.  In production,, Async interface for extracting text from flight-plan images.      The current im, Extract raw text from an image.          Args:             image_bytes: Raw imag, # TODO: Replace with real OCR call, e.g.:, Extract a structured flight plan from an image.          This is a higher-level, _extract_json(), FlightPlanParser (+30 more)
+Nodes (42): OCRService, OCR service — placeholder for flight-plan image text extraction.  In production,, Async interface for extracting text from flight-plan images.      The current im, Extract raw text from an image.          Args:             image_bytes: Raw imag, # TODO: Replace with real OCR call, e.g.:, Extract a structured flight plan from an image.          This is a higher-level, Response from the flight plan validation pipeline., ValidationResponse (+34 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.08
@@ -402,7 +430,7 @@ Nodes (43): get_active_seat(), get_authenticated_user(), get_org_id(), _platform
 
 ### Community 7 - "Community 7"
 Cohesion: 0.08
-Nodes (43): TokenUser, require_role, AssessmentResult, Badge, ContentArticle, ContentCategory, FlightHourLog, FlightInsight (+35 more)
+Nodes (41): TokenUser, require_role, AssessmentResult, Badge, ContentArticle, ContentCategory, FlightHourLog, FlightInsight (+33 more)
 
 ### Community 8 - "Community 8"
 Cohesion: 0.09
@@ -421,12 +449,12 @@ Cohesion: 0.13
 Nodes (24): _make_agent(), _make_state(), Unit tests for the LangGraph-based ATC agent., Create an ATCAgent with mocked LLM and settings., Tests for ATCAgent._clean_response()., test_active_phase_stays_active(), test_briefing_advances_to_active(), test_calls_llm_and_cleans_response() (+16 more)
 
 ### Community 12 - "Community 12"
-Cohesion: 0.07
-Nodes (34): Pydantic schemas for TrainingSession., Badge preview included in replay scoring payload., Per-category replay scoring breakdown., Replay scoring summary., Aggregated payload returned by ``GET /sessions/{id}/replay``., Audit event record for session lifecycle timeline., Normalized scoring block returned after completing a session., Single normalized track point used by session replay. (+26 more)
+Cohesion: 0.13
+Nodes (18): Pydantic schemas for TrainingSession., Badge preview included in replay scoring payload., Per-category replay scoring breakdown., Replay scoring summary., Audit event record for session lifecycle timeline., Normalized scoring block returned after completing a session., Response payload for ``POST /sessions/{id}/complete``., ReplayBadge (+10 more)
 
 ### Community 13 - "Community 13"
-Cohesion: 0.07
-Nodes (21): FlightInsight, Waypoint, scenario track, and flight insight ORM models., Recorded flight track for session replay.      Stores the complete trajectory as, AI-generated insight for a training session.      Insights flag deviations, perf, Ordered association between a scenario and its waypoints.      The ``sequence_or, ScenarioWaypoint, SessionTrack, _haversine_nm() (+13 more)
+Cohesion: 0.09
+Nodes (15): Ordered association between a scenario and its waypoints.      The ``sequence_or, ScenarioWaypoint, _haversine_nm(), Repository for waypoints, scenario waypoints, session tracks, and insights., Get a single waypoint by ID.          Args:             db: Async database sessi, Create a new waypoint.          Args:             db: Async database session., Get waypoints for a scenario ordered by sequence.          Args:             db:, Link a waypoint to a scenario at a given sequence position.          Args: (+7 more)
 
 ### Community 14 - "Community 14"
 Cohesion: 0.08
@@ -441,32 +469,32 @@ Cohesion: 0.08
 Nodes (18): Badge, LeaderboardSnapshot, Gamification ORM models — badges, user awards, and leaderboards., Record of a badge awarded to a user.      The unique constraint on ``(user_id, b, Point-in-time leaderboard snapshot.      Generated periodically (daily, weekly,, Achievement badge that can be awarded to users.      Badges are grouped by ``cat, UserBadge, GamificationRepository (+10 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.09
-Nodes (29): Response payload for ``POST /sessions/{id}/complete``., TrainingSessionCompletionResponse, _build_completion_response(), _can_view_session(), complete_session(), create_session(), _default_scoring(), get_session() (+21 more)
+Cohesion: 0.1
+Nodes (27): _build_completion_response(), _can_view_session(), complete_session(), create_session(), _default_scoring(), get_session(), get_session_events(), _normalize_badges() (+19 more)
 
 ### Community 18 - "Community 18"
 Cohesion: 0.07
 Nodes (29): Integration tests for health endpoints., Requests to undefined routes should return 404., Root endpoint should identify the API by name., Root endpoint should report operational status., Root endpoint should list key API endpoints., GET /health should return HTTP 200., GET /health should report a healthy status., GET /health should include the service identifier. (+21 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.09
-Nodes (27): BaseModel, FlightPlanCreate, FlightPlanFromImage, FlightPlanFromText, FlightPlanLegCreate, FlightPlanLegRead, FlightPlanRead, FlightPlanUpdate (+19 more)
+Cohesion: 0.13
+Nodes (20): BaseModel, OrganizationFeaturesUpdate, Request to enable/disable platform features for an organization., FlightPlanCreate, FlightPlanFromImage, FlightPlanFromText, FlightPlanLegCreate, FlightPlanLegRead (+12 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.09
-Nodes (28): _make_sine(), _mock_settings(), processor(), processor_disabled(), Tests for radio effects audio filters., add_transmission_clicks should prepend a 10 ms click to the audio., add_transmission_clicks should return a numpy array., _add_noise should alter the signal values. (+20 more)
+Cohesion: 0.11
+Nodes (24): _make_sine(), _mock_settings(), processor(), processor_disabled(), Tests for radio effects audio filters., add_transmission_clicks should prepend a 10 ms click to the audio., add_transmission_clicks should return a numpy array., _add_noise should alter the signal values. (+16 more)
 
 ### Community 21 - "Community 21"
-Cohesion: 0.11
-Nodes (22): Seat ORM model — join table between users and organizations., Organization seat representing a user's membership and role.      A seat ties a, Seat, Application user linked to a Keycloak identity.      Each user has a globally-un, User, create_session(), get_current_user_profile(), LogoutRequest (+14 more)
+Cohesion: 0.1
+Nodes (26): Organization, Organization ORM model., Organization (tenant) for multi-tenancy.      Every data-access query in the pla, Seat ORM model — join table between users and organizations., Organization seat representing a user's membership and role.      A seat ties a, Seat, Application user linked to a Keycloak identity.      Each user has a globally-un, User (+18 more)
 
 ### Community 22 - "Community 22"
 Cohesion: 0.1
 Nodes (16): Base, FlightHourLog, ManeuverLog, Student statistics ORM models., Individual maneuver practice record.      Captures a single maneuver attempt wit, Aggregated training statistics for a single user.      Maintains running totals, Individual flight hour entry for a user.      Records a discrete block of flight, StudentStats (+8 more)
 
 ### Community 23 - "Community 23"
-Cohesion: 0.09
-Nodes (25): Assert the user can access the given organization, or raise 403.      Args:, verify_org_access(), create_organization(), create_seat(), deactivate_organization(), deactivate_seat(), get_organization(), get_platform_stats() (+17 more)
+Cohesion: 0.14
+Nodes (14): Assert the user can access the given organization, or raise 403.      Args:, verify_org_access(), create_seat(), deactivate_seat(), get_organization(), list_seats(), Get organization details with live statistics.      Org-admins can only view the, Update an organization.      Org-admins can only update their own organization. (+6 more)
 
 ### Community 24 - "Community 24"
 Cohesion: 0.09
@@ -477,12 +505,12 @@ Cohesion: 0.13
 Nodes (18): _DummySession, _make_training_session(), _override_auth(), _override_db(), Integration tests for session completion endpoint., Calling completion twice returns success with already_completed=true., Completion endpoint rejects unsupported status transitions., Completion endpoint returns 404 when session does not exist. (+10 more)
 
 ### Community 26 - "Community 26"
-Cohesion: 0.12
-Nodes (26): Assessment Repository, Badge Criteria Evaluation Engine, Generic Base Repository, Content Repository, Fallback Graceful Degradation Pattern, Flight Plan Parser Service, Flight Plan Repository, Flight Plans API Router (+18 more)
+Cohesion: 0.14
+Nodes (19): Assessment Repository, Badge Criteria Evaluation Engine, Generic Base Repository, Content Repository, Gamification Repository, Instructor Repository, Training Modules API Router, Organization Scoping Pattern (+11 more)
 
 ### Community 27 - "Community 27"
-Cohesion: 0.08
-Nodes (26): API Response Transformer Pattern, Backend Sync with Local Cache Fallback, localStorage Persistence Pattern, Module-Level State Pattern, Session Replay Playback Architecture, WebSocket-Based Real-Time Voice Communication, useKeyboardShortcuts Composable, KeyBinding Type (+18 more)
+Cohesion: 0.17
+Nodes (12): API Response Transformer Pattern, Session Replay Playback Architecture, useSessionReplay Composable, FlightInsight Type, SessionDetail Type, SessionScoring Type, TrackPoint Type, VoiceLog Type (+4 more)
 
 ### Community 28 - "Community 28"
 Cohesion: 0.09
@@ -505,12 +533,12 @@ Cohesion: 0.11
 Nodes (11): ATCAgent, Generate the ATC response using Ollama., Evaluate the exchange and track performance metrics., Generate an ATC response to a pilot transmission.          Args:             pil, Clean and format the ATC response.          Args:             response: Raw LLM, Reset the conversation history., Get the conversation history.          Returns:             List of conversation, Air Traffic Controller agent powered by LangGraph and Ollama.      Uses a statef (+3 more)
 
 ### Community 33 - "Community 33"
-Cohesion: 0.13
-Nodes (13): Base, SQLAlchemy declarative base for all ORM models., Base class for all SQLAlchemy models., DeclarativeBase, FlightPlan, FlightPlanLeg, Flight plan ORM models., A single leg within a flight plan route.      Each leg connects two waypoints (o (+5 more)
+Cohesion: 0.09
+Nodes (19): Base, SQLAlchemy declarative base for all ORM models., Base class for all SQLAlchemy models., DeclarativeBase, FlightPlan, FlightPlanLeg, Flight plan ORM models., A single leg within a flight plan route.      Each leg connects two waypoints (o (+11 more)
 
 ### Community 34 - "Community 34"
-Cohesion: 0.13
-Nodes (15): OrganizationRepository, Organization repository., Repository for Organization CRUD operations.      Overrides the base ``get_by_id, Get an organization by UUID primary key., Delete an organization by UUID primary key., Look up an organization by its URL-safe slug., _mock_session(), Return an AsyncSession mock whose execute() returns a result proxy.      Args: (+7 more)
+Cohesion: 0.14
+Nodes (8): Repository for Seat CRUD operations.      Overrides the base ``get_by_id`` and `, Get a seat by UUID primary key., Delete a seat by UUID primary key., Get all seats (org memberships) for a user., Get all seats (members) for an organization., Get a specific user's seat within an organization., SeatRepository, test_delete_existing_returns_true()
 
 ### Community 35 - "Community 35"
 Cohesion: 0.14
@@ -521,8 +549,8 @@ Cohesion: 0.11
 Nodes (20): TrainingSession ORM Model, TrainingSessionEvent ORM Model, ReplayBadge Schema, ReplayInsight Schema, ReplayScoring Schema, ReplayScoringCategories Schema, ReplayTrackPoint Schema, ReplayVoiceLog Schema (+12 more)
 
 ### Community 37 - "Community 37"
-Cohesion: 0.11
-Nodes (17): auth, body, defaultClaims, fetchMock, freshJwt, jwt, jwt1, jwt2 (+9 more)
+Cohesion: 0.1
+Nodes (21): auth, authenticateWith(), body, createMockFetchTokenResponse(), createMockLocation(), createMockSessionStorage(), defaultClaims, fetchMock (+13 more)
 
 ### Community 38 - "Community 38"
 Cohesion: 0.11
@@ -549,8 +577,8 @@ Cohesion: 0.15
 Nodes (17): AdminStats, AdminUserUpdate, OrganizationWithStats, Pydantic schemas for admin API endpoints., Platform-wide statistics for the admin dashboard., Organization with aggregated statistics.      Extends the basic organization fie, Seat enriched with associated user details.      Includes the user's email and d, Request body to add a user to an organization by email.      The server looks up (+9 more)
 
 ### Community 44 - "Community 44"
-Cohesion: 0.13
-Nodes (11): AssessmentResult, KnowledgeAssessment, Knowledge assessment ORM models., Assessment definition containing questions and grading criteria.      Assessment, A user's attempt at completing a knowledge assessment.      Stores the individua, Organization, Organization ORM model., Organization (tenant) for multi-tenancy.      Every data-access query in the pla (+3 more)
+Cohesion: 0.14
+Nodes (9): test_delete_nonexistent_returns_false(), test_get_by_email_found(), test_get_by_keycloak_id_found(), Repository for User CRUD operations.      Overrides the base ``get_by_id`` and `, Get a user by UUID primary key., Delete a user by UUID primary key., Look up a user by their Keycloak subject identifier., Look up a user by email address. (+1 more)
 
 ### Community 45 - "Community 45"
 Cohesion: 0.11
@@ -569,12 +597,12 @@ Cohesion: 0.16
 Nodes (13): _DummySession, _override_auth(), _override_db(), Integration tests for session replay endpoint., Replay endpoint returns 404 when session does not exist., Replay endpoint denies users who do not own the session., Simple result proxy that mimics ``scalar_one_or_none``., Tiny async session stub for endpoint testing. (+5 more)
 
 ### Community 49 - "Community 49"
-Cohesion: 0.12
-Nodes (13): accessToken, activeSeat, AuthActions, AuthState, AuthUser, error, hasActiveSeat, idTokenValue (+5 more)
+Cohesion: 0.11
+Nodes (14): accessToken, activeSeat, AuthActions, AuthState, AuthUser, enabledFeatures, error, hasActiveSeat (+6 more)
 
 ### Community 50 - "Community 50"
 Cohesion: 0.12
-Nodes (11): Tests for UserRepository custom queries., test_get_by_email_not_found(), test_get_by_keycloak_id_found(), test_get_by_keycloak_id_not_found(), TestUserRepository, Repository for User CRUD operations.      Overrides the base ``get_by_id`` and `, Get a user by UUID primary key., Delete a user by UUID primary key. (+3 more)
+Nodes (15): BadgeCriteria, BadgeProgressRead, BadgeRead, LeaderboardEntryRead, LeaderboardSnapshotRead, Pydantic schemas for gamification — badges, awards, leaderboards., Schema for badge progress towards earning., Schema returned when reading a badge definition. (+7 more)
 
 ### Community 51 - "Community 51"
 Cohesion: 0.18
@@ -593,8 +621,8 @@ Cohesion: 0.16
 Nodes (9): RadioEffectsProcessor, Normalize audio to prevent clipping.          Args:             audio_data: Inpu, Add transmission start/end clicks.          Args:             audio_data: Input, Apply radio effects to audio for realistic ATC simulation., Initialize the effects processor., Apply radio effects to audio.          Args:             audio_data: Input audio, Apply band-pass filter to simulate radio frequency response.          Args:, Add background noise to audio.          Args:             audio_data: Input audi (+1 more)
 
 ### Community 55 - "Community 55"
-Cohesion: 0.13
-Nodes (9): Repository for Seat CRUD operations.      Overrides the base ``get_by_id`` and `, Get a seat by UUID primary key., Delete a seat by UUID primary key., Get all seats (org memberships) for a user., Get all seats (members) for an organization., Get a specific user's seat within an organization., SeatRepository, test_delete_existing_returns_true() (+1 more)
+Cohesion: 0.18
+Nodes (13): do_run_migrations(), get_url(), include_object(), Alembic environment configuration., Filter objects for Alembic autogenerate comparison., Get database URL from application settings., Run migrations in 'offline' mode., Execute migrations with an active connection. (+5 more)
 
 ### Community 56 - "Community 56"
 Cohesion: 0.19
@@ -621,8 +649,8 @@ Cohesion: 0.15
 Nodes (12): OrganizationCreate, OrganizationRead, OrganizationUpdate, Pydantic schemas for Organization., Schema for creating a new organization., Schema returned when reading an organization., Schema for partial organization updates., Unit tests for organization schema billing fields. (+4 more)
 
 ### Community 62 - "Community 62"
-Cohesion: 0.14
-Nodes (13): AnalyticsOverview, LeaderboardEntry, OrganizationLeaderboardEntry, PopularScenario, Pydantic schemas for analytics API endpoints., A single entry in the organization leaderboard.      Users are ranked by the num, Session count for a single calendar day., A scenario with its session count for popularity ranking. (+5 more)
+Cohesion: 0.2
+Nodes (9): AnalyticsOverview, LeaderboardEntry, PopularScenario, Pydantic schemas for analytics API endpoints., A single entry in the organization leaderboard.      Users are ranked by the num, Session count for a single calendar day., A scenario with its session count for popularity ranking., Organization-level analytics overview.      Contains aggregate counters, a 30-da (+1 more)
 
 ### Community 63 - "Community 63"
 Cohesion: 0.14
@@ -641,8 +669,8 @@ Cohesion: 0.15
 Nodes (13): check_badges(), create_badge(), get_leaderboard(), get_my_badges(), list_badges(), Gamification API routes — badges, awards, and leaderboards.  - ``GET  /badges``, Get all badges earned by the current user., Get the most recent leaderboard snapshot.      Returns the latest pre-computed s (+5 more)
 
 ### Community 67 - "Community 67"
-Cohesion: 0.15
-Nodes (8): AssessmentRepository, Repository for knowledge assessments and assessment results., Grade a user's submission and save the result.          Grading logic: for each, Data-access layer for knowledge assessments and grading., Get paginated assessment results for a user.          Args:             db: Asyn, List assessments with optional filters.          Args:             db: Async dat, Get a single assessment by ID.          Args:             db: Async database ses, Create a new knowledge assessment.          Args:             db: Async database
+Cohesion: 0.09
+Nodes (16): AssessmentResult, KnowledgeAssessment, Knowledge assessment ORM models., Assessment definition containing questions and grading criteria.      Assessment, A user's attempt at completing a knowledge assessment.      Stores the individua, TrainingModule ORM model and module_scenarios association table., A curated collection of scenarios grouped into a training module.      Modules c, TrainingModule (+8 more)
 
 ### Community 68 - "Community 68"
 Cohesion: 0.21
@@ -697,16 +725,16 @@ Cohesion: 0.22
 Nodes (7): checkMobile(), isMobile, isNavOpen, persistDesktopNavState(), savedDesktopNavState, syncNavStateToViewport(), toggleNav()
 
 ### Community 81 - "Community 81"
-Cohesion: 0.25
-Nodes (10): _build_user(), Unit tests for training module route authorization and org scoping., Non-platform module creation requires organization context., Non-admin users cannot fetch modules owned by another organization., Org-scoped modules can only include org-owned or shared scenarios., Only platform-admin can mutate shared modules., test_add_scenario_rejects_scenarios_outside_module_org_scope(), test_create_module_requires_org_context_for_non_platform_admin() (+2 more)
+Cohesion: 0.16
+Nodes (14): _build_user(), Unit tests for training module route authorization and org scoping., Non-platform module creation requires organization context., Non-admin users cannot fetch modules owned by another organization., Simple SQL result stub for scenario id/org lookup., Org-scoped modules can only include org-owned or shared scenarios., Only platform-admin can mutate shared modules., _ScenarioLookupResult (+6 more)
 
 ### Community 82 - "Community 82"
-Cohesion: 0.24
-Nodes (9): Pydantic schemas for Scenario., ScenarioBase, ScenarioCreate, ScenarioResponse, Unit tests for scenario schema extensions., ScenarioCreate should accept optional scenario_type and plan template metadata., ScenarioCreate should validate scenario_type against supported values., test_scenario_create_accepts_custom_plan_template() (+1 more)
+Cohesion: 0.15
+Nodes (14): Aggregated payload returned by ``GET /sessions/{id}/replay``., Insight item consumed by replay timeline UI., Voice transcript entry consumed by replay timeline UI., ReplayInsight, ReplayVoiceLog, TrainingSessionReplayResponse, _closest_track_index(), get_session_replay() (+6 more)
 
 ### Community 83 - "Community 83"
-Cohesion: 0.24
-Nodes (10): _mock_session_scalars(), Unit tests for User, Organization, and Seat repositories.  All database I/O is m, Tests for OrganizationRepository custom queries., Tests for SeatRepository custom queries., Return an AsyncSession mock for queries using ``result.scalars().all()``.      A, test_get_org_seats_returns_list(), test_get_user_seats_empty(), test_get_user_seats_returns_list() (+2 more)
+Cohesion: 0.17
+Nodes (10): CatchAllErrorMiddleware, Main FastAPI application for Horus ATC Voice Communication API., Initialize services on startup., Root endpoint.      Returns:         API information, Convert unhandled exceptions into JSON 500 responses.      This runs *inside* th, Attach security-focused HTTP headers to every response., root(), SecurityHeadersMiddleware (+2 more)
 
 ### Community 84 - "Community 84"
 Cohesion: 0.2
@@ -717,8 +745,8 @@ Cohesion: 0.2
 Nodes (7): fetchMock, mockGetAccessToken, mockIsAuthenticated, [, opts], payload, result, [url, opts]
 
 ### Community 86 - "Community 86"
-Cohesion: 0.2
-Nodes (9): FlightInsight, PlaybackSpeed, SessionAuditEvent, SessionBadge, SessionDetail, SessionScoring, TrackPoint, useSessionReplay() (+1 more)
+Cohesion: 0.22
+Nodes (8): FlightInsight, PlaybackSpeed, SessionAuditEvent, SessionBadge, SessionDetail, SessionScoring, TrackPoint, VoiceLog
 
 ### Community 87 - "Community 87"
 Cohesion: 0.2
@@ -734,11 +762,11 @@ Nodes (9): _classify_emergency(), detect_emergency(), handle_emergency(), Emerge
 
 ### Community 90 - "Community 90"
 Cohesion: 0.22
-Nodes (9): ModuleScenarioAction, Pydantic schemas for TrainingModule., Schema returned when reading a training module., Training module with its associated scenarios eagerly loaded., Schema for partial training module updates., Schema for adding / reordering a scenario within a module., TrainingModuleRead, TrainingModuleUpdate (+1 more)
+Nodes (10): Backend Sync with Local Cache Fallback, localStorage Persistence Pattern, Module-Level State Pattern, useKeyboardShortcuts Composable, KeyBinding Type, ShortcutMap Type, usePreferences Composable, DisplayPreferences Type (+2 more)
 
 ### Community 91 - "Community 91"
-Cohesion: 0.2
-Nodes (9): get_instructor_profile(), get_my_profile(), Instructor profile API routes.  - ``GET  /me/profile``         — own instructor, Search instructor profiles.      Results can be filtered by organisation (defaul, Get the current user's instructor profile.      Requires instructor role or high, Create or update the current user's instructor profile.      Requires instructor, Get the instructor profile for a given user.      Accessible to any authenticate, search_instructors() (+1 more)
+Cohesion: 0.11
+Nodes (17): get_instructor_profile(), get_my_instructor_stats(), get_my_profile(), get_my_students(), get_recent_instructor_sessions(), get_student_detail(), Instructor profile API routes.  - ``GET  /me/profile``         — own instructor, Search instructor profiles.      Results can be filtered by organisation (defaul (+9 more)
 
 ### Community 92 - "Community 92"
 Cohesion: 0.2
@@ -749,8 +777,8 @@ Cohesion: 0.22
 Nodes (6): Speech-to-Text service using Whisper., Transcribe a stream of audio chunks.          Args:             audio_chunks: Li, Speech-to-Text service using OpenAI Whisper., Initialize Whisper model., Transcribe audio data to text.          Args:             audio_data: Raw audio, WhisperSTTService
 
 ### Community 94 - "Community 94"
-Cohesion: 0.22
-Nodes (6): InstructorRepository, Repository for instructor profiles., Data-access layer for instructor profile operations., Get an instructor profile by user ID.          Args:             db: Async datab, Create or update an instructor profile (upsert by user_id).          Args:, Search instructor profiles with optional org and specialization filter.
+Cohesion: 0.14
+Nodes (9): InstructorProfile, Instructor profile ORM model., Extended profile for users with an instructor role.      Stores qualifications,, InstructorRepository, Repository for instructor profiles., Data-access layer for instructor profile operations., Get an instructor profile by user ID.          Args:             db: Async datab, Create or update an instructor profile (upsert by user_id).          Args: (+1 more)
 
 ### Community 95 - "Community 95"
 Cohesion: 0.22
@@ -773,8 +801,8 @@ Cohesion: 0.22
 Nodes (7): backdrop, closeButton, combos, globalStubs, kbds, kbdTexts, wrapper
 
 ### Community 100 - "Community 100"
-Cohesion: 0.22
-Nodes (7): build_live_session_graph(), Build and compile the live-session sub-graph.      Args:         ollama_base_url, build_validation_graph(), _check_all_passed(), Validation graph — pre-flight flight-plan validation pipeline.  ```mermaid graph, Inspect all validation results and set the final verdict.      Returns:, Build and compile the validation sub-graph.      Returns:         Compiled LangG
+Cohesion: 0.33
+Nodes (5): build_validation_graph(), _check_all_passed(), Validation graph — pre-flight flight-plan validation pipeline.  ```mermaid graph, Inspect all validation results and set the final verdict.      Returns:, Build and compile the validation sub-graph.      Returns:         Compiled LangG
 
 ### Community 101 - "Community 101"
 Cohesion: 0.22
@@ -789,20 +817,20 @@ Cohesion: 0.32
 Nodes (6): DISALLOWED_REDIRECT_PREFIXES, FALLBACK_ROUTES, HorusAppId, normalizeAppId(), normalizeBaseUrl(), useAuthRouting()
 
 ### Community 104 - "Community 104"
-Cohesion: 0.25
-Nodes (7): useAdmin(), ApiError, ApiOptions, useApi(), useAssessments(), useGamification(), useStats()
+Cohesion: 0.22
+Nodes (8): useAdmin(), ApiError, ApiOptions, useApi(), useAssessments(), useGamification(), useSessionReplay(), useStats()
 
 ### Community 105 - "Community 105"
 Cohesion: 0.25
 Nodes (7): Pydantic schemas for User., Schema for creating a new user., Schema returned when reading a user., Schema for partial user updates., UserCreate, UserRead, UserUpdate
 
 ### Community 106 - "Community 106"
-Cohesion: 0.25
-Nodes (7): InstructorProfileCreate, InstructorProfileRead, InstructorProfileUpdate, Pydantic schemas for instructor profiles., Schema for creating an instructor profile., Schema returned when reading an instructor profile., Schema for partial instructor profile updates.
+Cohesion: 0.14
+Nodes (13): InstructorProfileCreate, InstructorProfileRead, InstructorProfileUpdate, InstructorStatsRead, InstructorStudentRead, Pydantic schemas for instructor profiles., Schema for creating an instructor profile., Schema returned when reading an instructor profile. (+5 more)
 
 ### Community 107 - "Community 107"
-Cohesion: 0.32
-Nodes (7): get_leaderboard(), get_overview(), Analytics API routes for leaderboard and overview dashboards.  Both endpoints re, Get analytics overview for an organization.      Requires *instructor* role or h, Verify the organization exists and the user can access it.      Args:         or, Get the leaderboard of top users by completed sessions.      Requires *instructo, _validate_org()
+Cohesion: 0.2
+Nodes (11): OrganizationLeaderboardEntry, Platform-level leaderboard row for organization progress., get_leaderboard(), get_overview(), get_platform_org_leaderboard(), Analytics API routes for leaderboard and overview dashboards.  Both endpoints re, Get platform leaderboard ranked by organization completion volume., Get analytics overview for an organization.      Requires *instructor* role or h (+3 more)
 
 ### Community 108 - "Community 108"
 Cohesion: 0.25
@@ -817,16 +845,16 @@ Cohesion: 0.29
 Nodes (6): [], allCoords, bounds, icon, leafletMarker, polyline
 
 ### Community 111 - "Community 111"
-Cohesion: 0.29
-Nodes (6): health_check(), Health check endpoint., Health check endpoint.      Returns:         Status information, Readiness check for services.      Returns:         Readiness status, # TODO: Add checks for Ollama, Whisper, TTS availability, readiness_check()
+Cohesion: 0.26
+Nodes (11): health_check(), HealthResponse, _probe_database(), _probe_ollama(), _probe_redis(), Health check endpoint with real service probes., Health check endpoint., Readiness check — probes all dependent services. (+3 more)
 
 ### Community 112 - "Community 112"
-Cohesion: 0.29
-Nodes (5): handleLogout(), userAvatarSeed, userEmail, logout(), Log out the current user.      Performs two best-effort actions:     1. Revokes
+Cohesion: 0.22
+Nodes (7): get_redis(), Get or create the async Redis client singleton.      Returns:         An async R, handleLogout(), userAvatarSeed, userEmail, logout(), Log out the current user.      Performs two best-effort actions:     1. Revokes
 
 ### Community 113 - "Community 113"
 Cohesion: 0.33
-Nodes (5): parseJwtPayload(), useAuth(), usePreferences(), useVoiceComm(), VoiceCommStatus
+Nodes (5): parseJwtPayload(), useAuth(), FeatureKey, useFeatureFlags(), usePreferences()
 
 ### Community 114 - "Community 114"
 Cohesion: 0.33
@@ -857,12 +885,12 @@ Cohesion: 0.33
 Nodes (5): downgrade(), add organization billing fields  Revision ID: 9d1f4ab6c2e3 Revises: fac62be749f8, Add billing metadata columns to organizations., Drop billing metadata columns from organizations., upgrade()
 
 ### Community 122 - "Community 122"
-Cohesion: 0.33
-Nodes (5): build_scoring_graph(), _generate_report(), Scoring graph — post-session evaluation and badge award pipeline.  ```mermaid gr, Build and compile the scoring sub-graph.      Returns:         Compiled LangGrap, Compile a final session report from scoring + badges.      This node assembles t
+Cohesion: 0.22
+Nodes (7): build_live_session_graph(), Build and compile the live-session sub-graph.      Args:         ollama_base_url, build_scoring_graph(), _generate_report(), Scoring graph — post-session evaluation and badge award pipeline.  ```mermaid gr, Build and compile the scoring sub-graph.      Returns:         Compiled LangGrap, Compile a final session report from scoring + badges.      This node assembles t
 
 ### Community 123 - "Community 123"
-Cohesion: 0.33
-Nodes (4): Simple SQL result stub for scenario id/org lookup., _ScenarioLookupResult, Schema for creating a new training module., TrainingModuleCreate
+Cohesion: 0.18
+Nodes (8): Application Configuration Settings, shutdown_event(), Audio effects for radio simulation using scipy., close_redis(), Async Redis client singleton for caching and session management., Close the Redis connection gracefully.      Should be called during application, Horus Orchestrator — top-level multi-agent pipeline coordinator.  The ``HorusOrc, Configuration Management Tests
 
 ### Community 124 - "Community 124"
 Cohesion: 0.33
@@ -873,12 +901,8 @@ Cohesion: 0.33
 Nodes (5): Pydantic schemas for Seat., Schema for creating a new seat (assigning a user to an org)., Schema for partial seat updates., SeatCreate, SeatUpdate
 
 ### Community 126 - "Community 126"
-Cohesion: 0.33
-Nodes (6): get_user(), Get user details with their organization memberships.      Org-admins can only v, Update a user's display name or active status.      Org-admins can only update u, Verify an org-admin can access the target user.      Platform admins bypass this, update_user(), _verify_user_in_org()
-
-### Community 127 - "Community 127"
-Cohesion: 0.33
-Nodes (6): ATC Agent LLM Service, Audio Processing Pipeline, Radio Effects Processor, ATC Agent Service Tests, TTS Service, Whisper STT Service
+Cohesion: 0.12
+Nodes (17): create_organization(), deactivate_organization(), get_platform_stats(), get_user(), list_organizations(), list_users(), Admin API routes for platform and organization management.  Organization CRUD, s, Create a new organization.      Requires *platform-admin* role.  Validates slug (+9 more)
 
 ### Community 128 - "Community 128"
 Cohesion: 0.4
@@ -900,9 +924,13 @@ Nodes (3): baseProps, mountOptions, wrapper
 Cohesion: 0.4
 Nodes (3): globalStubs, trendSection, wrapper
 
+### Community 133 - "Community 133"
+Cohesion: 0.29
+Nodes (6): Before exploring, read these, code:block1 (/), Domain Docs, File structure, Flag ADR conflicts, Use the glossary's vocabulary
+
 ### Community 134 - "Community 134"
-Cohesion: 0.4
-Nodes (3): InstructorProfile, Instructor profile ORM model., Extended profile for users with an instructor role.      Stores qualifications,
+Cohesion: 0.29
+Nodes (6): Conventions, Issue tracker: GitHub, Pull requests as a triage surface, Wayfinding operations, When a skill says "fetch the relevant ticket", When a skill says "publish to the issue tracker"
 
 ### Community 135 - "Community 135"
 Cohesion: 0.4
@@ -925,8 +953,8 @@ Cohesion: 0.4
 Nodes (5): JWKS Key Rotation with Cache Refresh, JWT Authentication Middleware, Organization Context Middleware, JWT Authentication Middleware Tests, Organization Context Middleware Tests
 
 ### Community 141 - "Community 141"
-Cohesion: 0.5
-Nodes (4): authenticateWith(), createMockFetchTokenResponse(), createMockLocation(), createMockSessionStorage()
+Cohesion: 0.15
+Nodes (9): OrganizationRepository, Organization repository., Repository for Organization CRUD operations.      Overrides the base ``get_by_id, Get an organization by UUID primary key., Delete an organization by UUID primary key., Look up an organization by its URL-safe slug., test_get_by_id_found(), test_get_by_id_not_found() (+1 more)
 
 ### Community 154 - "Community 154"
 Cohesion: 0.5
@@ -980,25 +1008,121 @@ Nodes (3): Horus One Session Rules, Horus Next Steps, HorusOne MVP Guide
 Cohesion: 1.0
 Nodes (3): Hangar User/Seat App, Squawk Platform Admin App, Tower Organization Admin App
 
+### Community 175 - "Community 175"
+Cohesion: 0.29
+Nodes (6): Agent skills, CodeGraph, Domain docs, graphify, Issue tracker, Triage labels
+
+### Community 207 - "Community 207"
+Cohesion: 0.33
+Nodes (5): client(), Shared test fixtures for Horus ATC API., Override settings for testing., Provide a test HTTP client with settings overridden., test_settings()
+
+### Community 209 - "Community 209"
+Cohesion: 0.23
+Nodes (13): _mock_session(), _mock_session_scalars(), Unit tests for User, Organization, and Seat repositories.  All database I/O is m, Return an AsyncSession mock whose execute() returns a result proxy.      Args:, Return an AsyncSession mock for queries using ``result.scalars().all()``.      A, test_get_by_email_not_found(), test_get_by_keycloak_id_not_found(), test_get_by_slug_not_found() (+5 more)
+
+### Community 315 - "Community 315"
+Cohesion: 0.33
+Nodes (6): OrganizationFeaturesResponse, Response with organization features., get_organization_features(), Get enabled features for an organization., Enable or disable features for an organization (platform-admin only)., update_organization_features()
+
+### Community 316 - "Community 316"
+Cohesion: 0.24
+Nodes (9): Pydantic schemas for Scenario., ScenarioBase, ScenarioCreate, ScenarioResponse, Unit tests for scenario schema extensions., ScenarioCreate should accept optional scenario_type and plan template metadata., ScenarioCreate should validate scenario_type against supported values., test_scenario_create_accepts_custom_plan_template() (+1 more)
+
+### Community 319 - "Community 319"
+Cohesion: 0.2
+Nodes (9): ADR-006: Scene/Session Split and Persistent LangGraph State, code:python (class TrainingSessionModule(Protocol):), Consequences, Context, Decision, Negative, Neutral, Positive (+1 more)
+
+### Community 320 - "Community 320"
+Cohesion: 0.2
+Nodes (9): ADR-007: LLM Provider Adapters, code:python (class LLMModule(Protocol):), Consequences, Context, Decision, Negative, Neutral, Positive (+1 more)
+
+### Community 358 - "Community 358"
+Cohesion: 0.67
+Nodes (3): useVoiceComm(), useVoiceCommStatus(), VoiceCommStatus
+
+### Community 359 - "Community 359"
+Cohesion: 0.5
+Nodes (4): Single normalized track point used by session replay., ReplayTrackPoint, _normalize_replay_track_points(), Normalize persisted track points to frontend replay shape.
+
+### Community 363 - "Community 363"
+Cohesion: 0.2
+Nodes (9): ADR-008: Tenant-Scoped Knowledge and pgvector Retrieval, code:python (class KnowledgeRetriever(Protocol):), Consequences, Context, Decision, Negative, Neutral, Positive (+1 more)
+
+### Community 366 - "Community 366"
+Cohesion: 0.22
+Nodes (9): Pydantic schemas for TrainingModule., Schema for creating a new training module., Schema returned when reading a training module., Training module with its associated scenarios eagerly loaded., Schema for partial training module updates., TrainingModuleCreate, TrainingModuleRead, TrainingModuleUpdate (+1 more)
+
+### Community 367 - "Community 367"
+Cohesion: 0.22
+Nodes (8): ADR-009: OpenTelemetry and Postgres Trace, Consequences, Context, Decision, Negative, Neutral, Positive, References
+
+### Community 368 - "Community 368"
+Cohesion: 0.25
+Nodes (8): code:block1 (CONTEXT.md                                                  ), code:python (# app/observability/telemetry.py), code:python (from app.config import TraceSettings), code:bash (git add backend/pyproject.toml backend/uv.lock backend/app/o), code:bash (git add docs/architecture backend/tests/unit/knowledge/test_), File Structure, Task 11: OpenTelemetry instrumentation, Task 12: ADR cross-references, ingest manual verification, full suite
+
+### Community 369 - "Community 369"
+Cohesion: 0.25
+Nodes (8): code:python (# app/knowledge/types.py), code:python (from app.knowledge.chunking import chunk_document), code:python (import pytest), code:python (class KnowledgeIngestor:), code:python (import os, uuid), code:python (router = APIRouter(prefix="/knowledge", tags=["Knowledge"])), code:bash (git add backend/app/knowledge backend/app/api/v1/knowledge.p), Task 8: Knowledge ingest module (documents, chunking, embedding)
+
+### Community 370 - "Community 370"
+Cohesion: 0.29
+Nodes (7): code:python (# app/services/llm/scenes/registry.py), code:python (import pytest), code:python (async def _generate_atc_response_factory(llm: LLMModule, sce), code:python (from app.services.llm.graphs.live_session_graph import build), code:python (def test_no_module_global_llm():), code:bash (git add backend/app/services/llm/scenes backend/app/services), Task 5: Graph factories without globals and the Scene registry
+
+### Community 371 - "Community 371"
+Cohesion: 0.33
+Nodes (5): Execution Order, Global Constraints, Horus Production Architecture Implementation Plan, Out of Scope (explicitly deferred, with the reason), Review Focus
+
+### Community 372 - "Community 372"
+Cohesion: 0.33
+Nodes (6): code:bash (git add backend/app/llm backend/pyproject.toml backend/uv.lo), code:python (# app/llm/types.py), code:python (from dataclasses import dataclass), code:python (def merge(base: SceneConstraints, override: SceneConstraints), code:python (def build_llm(settings: Settings) -> LLMModule:), Task 2: LLM module with Ollama, Groq, NVIDIA NIM, and fake adapters
+
+### Community 374 - "Community 374"
+Cohesion: 0.4
+Nodes (5): code:python (class ContentDocument(Base):), code:python (import os, uuid), code:python (def upgrade() -> None:), code:bash (git add backend/alembic/versions backend/app/models backend/), Task 3: pgvector extension and `content_documents` / `content_chunks`
+
+### Community 375 - "Community 375"
+Cohesion: 0.4
+Nodes (5): code:python (# app/services/training_sessions/session_store.py), code:python (import uuid), code:python (from langgraph.checkpoint.postgres.aio import AsyncPostgresS), code:bash (git add backend/alembic/versions backend/app/services/traini), Task 4: LangGraph checkpointer tables and Session store adapters
+
+### Community 376 - "Community 376"
+Cohesion: 0.4
+Nodes (5): code:python (# app/config.py), code:python (def test_grouped_llm_settings() -> None:), code:python ("""Fail-fast environment resolution for non-Docker deploymen), code:bash (git add backend/app/config.py backend/app/settings_loader.py), Task 1: Grouped configuration and fail-fast environment resolution
+
+### Community 377 - "Community 377"
+Cohesion: 0.4
+Nodes (5): code:python (# app/services/training_sessions/types.py), code:python (import uuid), code:python (async def _emit(self, session_id: int, event_type: str, payl), code:bash (git add backend/app/services/training_sessions backend/app/m), Task 6: Trace recorder and the Session module
+
+### Community 378 - "Community 378"
+Cohesion: 0.4
+Nodes (5): code:python (from contextlib import asynccontextmanager), code:python (training_session = TrainingSession(**data.model_dump(exclude), code:python (from fastapi.testclient import TestClient), code:bash (git add -A backend/app backend/tests), Task 7: Composition root, router and voice wiring, orchestrator removal
+
+### Community 379 - "Community 379"
+Cohesion: 0.5
+Nodes (4): code:python (# app/schemas/scene.py), code:python (from fastapi.testclient import TestClient), code:bash (git add backend/app/api/v1/scenes.py backend/app/schemas/sce), Task 9: Scenes API and Scene-aware session start
+
+### Community 380 - "Community 380"
+Cohesion: 0.5
+Nodes (4): code:python (# app/services/training_sessions/retention.py), code:python (import os), code:bash (git add backend/app/services/training_sessions/retention.py ), Task 10: Provenance in replay and 90-day retention
+
 ## Knowledge Gaps
-- **1220 isolated node(s):** `graphify`, `workspaceRoot`, `rootDir`, `FlightData`, `defaultFlightData` (+1215 more)
+- **1317 isolated node(s):** `Language`, `Context`, `code:python (class TrainingSessionModule(Protocol):)`, `Positive`, `Negative` (+1312 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **130 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **134 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Application Configuration Settings` connect `Community 4` to `Community 1`, `Community 3`, `Community 68`, `Community 5`, `Community 42`, `Community 76`, `Community 21`, `Community 93`?**
-  _High betweenness centrality (0.066) - this node is a cross-community bridge._
-- **Why does `User` connect `Community 21` to `Community 33`, `Community 101`, `Community 134`, `Community 135`, `Community 44`, `Community 16`, `Community 50`, `Community 22`?**
-  _High betweenness centrality (0.039) - this node is a cross-community bridge._
-- **Why does `TokenUser` connect `Community 71` to `Community 35`, `Community 68`, `Community 6`, `Community 70`, `Community 39`, `Community 47`, `Community 48`, `Community 81`, `Community 51`, `Community 56`, `Community 57`, `Community 123`, `Community 25`?**
-  _High betweenness centrality (0.038) - this node is a cross-community bridge._
+- **Why does `get_settings()` connect `Community 68` to `Community 32`, `Community 1`, `Community 4`, `Community 5`, `Community 39`, `Community 76`, `Community 112`, `Community 93`, `Community 54`, `Community 55`, `Community 122`, `Community 317`?**
+  _High betweenness centrality (0.055) - this node is a cross-community bridge._
+- **Why does `Application Configuration Settings` connect `Community 123` to `Community 1`, `Community 68`, `Community 5`, `Community 4`, `Community 42`, `Community 76`, `Community 207`, `Community 83`, `Community 21`, `Community 55`, `Community 93`?**
+  _High betweenness centrality (0.048) - this node is a cross-community bridge._
+- **Why does `TokenUser` connect `Community 71` to `Community 35`, `Community 68`, `Community 6`, `Community 70`, `Community 39`, `Community 47`, `Community 48`, `Community 81`, `Community 51`, `Community 56`, `Community 57`, `Community 25`?**
+  _High betweenness centrality (0.046) - this node is a cross-community bridge._
 - **Are the 35 inferred relationships involving `TokenUser` (e.g. with `TestGetOrgId` and `TestRequireOrgId`) actually correct?**
   _`TokenUser` has 35 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 27 inferred relationships involving `User` (e.g. with `LogoutRequest` and `LogoutResponse`) actually correct?**
   _`User` has 27 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 27 inferred relationships involving `Base` (e.g. with `VoiceLog` and `ContentCategory`) actually correct?**
+- **Are the 27 inferred relationships involving `Base` (e.g. with `Organization` and `VoiceLog`) actually correct?**
   _`Base` has 27 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `graphify`, `workspaceRoot`, `rootDir` to the rest of the system?**
-  _1220 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **What connects `Language`, `Context`, `code:python (class TrainingSessionModule(Protocol):)` to the rest of the system?**
+  _1317 weakly-connected nodes found - possible documentation gaps or missing edges._
