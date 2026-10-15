@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 class InstructorRepository:
     """Data-access layer for instructor profile operations."""
 
-    async def get_profile(
-        self, db: AsyncSession, user_id: uuid.UUID
-    ) -> InstructorProfile | None:
+    async def get_profile(self, db: AsyncSession, user_id: uuid.UUID) -> InstructorProfile | None:
         """Get an instructor profile by user ID.
 
         Args:
@@ -30,9 +28,7 @@ class InstructorRepository:
             The InstructorProfile or None.
         """
         result = await db.execute(
-            select(InstructorProfile).where(
-                InstructorProfile.user_id == user_id
-            )
+            select(InstructorProfile).where(InstructorProfile.user_id == user_id)
         )
         return result.scalar_one_or_none()
 
@@ -93,28 +89,17 @@ class InstructorRepository:
 
         if org_id is not None:
             # Join with Seat to filter by org membership
-            query = (
-                query.join(
-                    Seat, Seat.user_id == InstructorProfile.user_id
-                )
-                .where(
-                    Seat.organization_id == org_id,
-                    Seat.is_active.is_(True),
-                    Seat.role.in_(["instructor", "admin"]),
-                )
+            query = query.join(Seat, Seat.user_id == InstructorProfile.user_id).where(
+                Seat.organization_id == org_id,
+                Seat.is_active.is_(True),
+                Seat.role.in_(["instructor", "admin"]),
             )
 
         if specialization:
             # JSONB array contains check — specializations is a JSON array
-            query = query.where(
-                InstructorProfile.specializations.op("@>")(
-                    f'["{specialization}"]'
-                )
-            )
+            query = query.where(InstructorProfile.specializations.op("@>")(f'["{specialization}"]'))
 
         result = await db.execute(
-            query.order_by(InstructorProfile.rating.desc().nullslast())
-            .limit(limit)
-            .offset(offset)
+            query.order_by(InstructorProfile.rating.desc().nullslast()).limit(limit).offset(offset)
         )
         return list(result.scalars().all())

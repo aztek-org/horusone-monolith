@@ -41,15 +41,16 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
   const result = { ...target }
   for (const key of Object.keys(source)) {
     if (
-      source[key] !== null &&
-      typeof source[key] === 'object' &&
-      !Array.isArray(source[key]) &&
-      typeof result[key] === 'object' &&
-      result[key] !== null &&
-      !Array.isArray(result[key])
+      source[key] !== null
+      && typeof source[key] === 'object'
+      && !Array.isArray(source[key])
+      && typeof result[key] === 'object'
+      && result[key] !== null
+      && !Array.isArray(result[key])
     ) {
       result[key] = deepMerge(result[key] as Record<string, unknown>, source[key] as Record<string, unknown>)
-    } else {
+    }
+    else {
       result[key] = source[key]
     }
   }
@@ -70,7 +71,8 @@ export function usePreferences() {
         const parsed = JSON.parse(cached) as Partial<PreferencesData>
         preferences.value = deepMerge(DEFAULTS, parsed as Record<string, unknown>) as PreferencesData
       }
-    } catch {
+    }
+    catch {
       // Corrupted cache — use defaults
     }
   }
@@ -82,7 +84,8 @@ export function usePreferences() {
     if (import.meta.server) return
     try {
       localStorage.setItem(CACHE_KEY, JSON.stringify(preferences.value))
-    } catch {
+    }
+    catch {
       // localStorage full or disabled — ignore
     }
   }
@@ -104,10 +107,12 @@ export function usePreferences() {
         saveToCache()
         isSynced.value = true
       }
-    } catch (e) {
+    }
+    catch (e) {
       error.value = 'Failed to load preferences from server'
       console.warn('Preferences fetch failed, using local cache:', e)
-    } finally {
+    }
+    finally {
       isLoading.value = false
     }
   }
@@ -128,11 +133,13 @@ export function usePreferences() {
       await put('/api/v1/users/me/preferences/', { preferences: preferences.value })
       isSynced.value = true
       return true
-    } catch (e) {
+    }
+    catch (e) {
       error.value = 'Failed to save preferences to server'
       console.warn('Preferences save failed:', e)
       return false
-    } finally {
+    }
+    finally {
       isLoading.value = false
     }
   }

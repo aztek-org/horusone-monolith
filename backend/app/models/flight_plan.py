@@ -30,9 +30,7 @@ class FlightPlan(Base):
 
     __tablename__ = "flight_plans"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -53,27 +51,15 @@ class FlightPlan(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     departure_icao: Mapped[str] = mapped_column(String(4), nullable=False)
     arrival_icao: Mapped[str] = mapped_column(String(4), nullable=False)
-    alternate_icao: Mapped[str | None] = mapped_column(
-        String(4), nullable=True
-    )
+    alternate_icao: Mapped[str | None] = mapped_column(String(4), nullable=True)
     route_string: Mapped[str | None] = mapped_column(Text, nullable=True)
-    aircraft_type: Mapped[str | None] = mapped_column(
-        String(50), nullable=True
-    )
+    aircraft_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # ── Weight & fuel ──────────────────────────────────────────────
-    fuel_required_gal: Mapped[float | None] = mapped_column(
-        Float, nullable=True
-    )
-    fuel_reserve_gal: Mapped[float | None] = mapped_column(
-        Float, nullable=True
-    )
-    total_weight_lbs: Mapped[float | None] = mapped_column(
-        Float, nullable=True
-    )
-    max_weight_lbs: Mapped[float | None] = mapped_column(
-        Float, nullable=True
-    )
+    fuel_required_gal: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fuel_reserve_gal: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_weight_lbs: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max_weight_lbs: Mapped[float | None] = mapped_column(Float, nullable=True)
     cg_position: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # ── Briefing data ──────────────────────────────────────────────
@@ -107,15 +93,13 @@ class FlightPlan(Base):
     scenario: Mapped[Scenario | None] = relationship()
     organization: Mapped[Organization | None] = relationship()
     legs: Mapped[list[FlightPlanLeg]] = relationship(
-        back_populates="flight_plan", cascade="all, delete-orphan",
+        back_populates="flight_plan",
+        cascade="all, delete-orphan",
         order_by="FlightPlanLeg.sequence",
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<FlightPlan id={self.id} "
-            f"{self.departure_icao}→{self.arrival_icao}>"
-        )
+        return f"<FlightPlan id={self.id} {self.departure_icao}→{self.arrival_icao}>"
 
 
 class FlightPlanLeg(Base):
@@ -127,9 +111,7 @@ class FlightPlanLeg(Base):
 
     __tablename__ = "flight_plan_legs"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     flight_plan_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("flight_plans.id", ondelete="CASCADE"),
@@ -147,23 +129,13 @@ class FlightPlanLeg(Base):
         ForeignKey("waypoints.id", ondelete="SET NULL"),
         nullable=True,
     )
-    from_identifier: Mapped[str | None] = mapped_column(
-        String(10), nullable=True
-    )
-    to_identifier: Mapped[str | None] = mapped_column(
-        String(10), nullable=True
-    )
+    from_identifier: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    to_identifier: Mapped[str | None] = mapped_column(String(10), nullable=True)
     distance_nm: Mapped[float | None] = mapped_column(Float, nullable=True)
-    magnetic_heading: Mapped[float | None] = mapped_column(
-        Float, nullable=True
-    )
+    magnetic_heading: Mapped[float | None] = mapped_column(Float, nullable=True)
     altitude: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    estimated_time_minutes: Mapped[float | None] = mapped_column(
-        Float, nullable=True
-    )
-    fuel_burn_gal: Mapped[float | None] = mapped_column(
-        Float, nullable=True
-    )
+    estimated_time_minutes: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fuel_burn_gal: Mapped[float | None] = mapped_column(Float, nullable=True)
     wind: Mapped[dict | None] = mapped_column(  # type: ignore[type-arg]
         JSONB, nullable=True
     )
@@ -171,12 +143,8 @@ class FlightPlanLeg(Base):
 
     # ── Relationships ──────────────────────────────────────────────
     flight_plan: Mapped[FlightPlan] = relationship(back_populates="legs")
-    from_waypoint: Mapped[Waypoint | None] = relationship(
-        foreign_keys=[from_waypoint_id]
-    )
-    to_waypoint: Mapped[Waypoint | None] = relationship(
-        foreign_keys=[to_waypoint_id]
-    )
+    from_waypoint: Mapped[Waypoint | None] = relationship(foreign_keys=[from_waypoint_id])
+    to_waypoint: Mapped[Waypoint | None] = relationship(foreign_keys=[to_waypoint_id])
 
     def __repr__(self) -> str:
         return (

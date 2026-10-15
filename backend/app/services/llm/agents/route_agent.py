@@ -64,15 +64,17 @@ def optimize_route(state: HorusState) -> dict[str, Any]:
         total_distance += distance
         total_ete += ete
 
-        legs.append({
-            "leg": i + 1,
-            "from": wp_from.get("name", f"WP{i}"),
-            "to": wp_to.get("name", f"WP{i + 1}"),
-            "distance_nm": round(distance, 1),
-            "heading_deg": round(heading, 0),
-            "groundspeed_kts": round(gs, 0),
-            "ete_minutes": round(ete, 1),
-        })
+        legs.append(
+            {
+                "leg": i + 1,
+                "from": wp_from.get("name", f"WP{i}"),
+                "to": wp_to.get("name", f"WP{i + 1}"),
+                "distance_nm": round(distance, 1),
+                "heading_deg": round(heading, 0),
+                "groundspeed_kts": round(gs, 0),
+                "ete_minutes": round(ete, 1),
+            }
+        )
 
     # Direct distance for comparison
     if len(route) >= 2:
@@ -84,9 +86,7 @@ def optimize_route(state: HorusState) -> dict[str, Any]:
             last_wp.get("lng", 0.0),
         )
         overhead_pct = (
-            ((total_distance - direct_dist) / direct_dist * 100)
-            if direct_dist > 0
-            else 0
+            ((total_distance - direct_dist) / direct_dist * 100) if direct_dist > 0 else 0
         )
         if overhead_pct > 20:
             suggestions.append(
@@ -110,29 +110,30 @@ def optimize_route(state: HorusState) -> dict[str, Any]:
         "suggestions": suggestions,
     }
 
-    results.append({
-        "agent": "route",
-        "passed": True,
-        "severity": Severity.INFO.value,
-        "message": (
-            f"Route analysed: {total_distance:.0f} NM, "
-            f"ETE {total_ete:.0f} min."
-        ),
-        "details": {
-            "total_distance_nm": round(total_distance, 1),
-            "total_ete_minutes": round(total_ete, 1),
-            "leg_count": len(legs),
-        },
-    })
-
-    if suggestions:
-        results.append({
+    results.append(
+        {
             "agent": "route",
             "passed": True,
-            "severity": Severity.WARNING.value,
-            "message": f"Route suggestions: {'; '.join(suggestions)}",
-            "details": {"suggestions": suggestions},
-        })
+            "severity": Severity.INFO.value,
+            "message": (f"Route analysed: {total_distance:.0f} NM, ETE {total_ete:.0f} min."),
+            "details": {
+                "total_distance_nm": round(total_distance, 1),
+                "total_ete_minutes": round(total_ete, 1),
+                "leg_count": len(legs),
+            },
+        }
+    )
+
+    if suggestions:
+        results.append(
+            {
+                "agent": "route",
+                "passed": True,
+                "severity": Severity.WARNING.value,
+                "message": f"Route suggestions: {'; '.join(suggestions)}",
+                "details": {"suggestions": suggestions},
+            }
+        )
 
     logger.info(
         "Route agent: %.0f NM, %.0f min, %d suggestions",

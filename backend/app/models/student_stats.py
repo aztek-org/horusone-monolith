@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, Text, String, func
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,9 +27,7 @@ class StudentStats(Base):
 
     __tablename__ = "student_stats"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -55,9 +53,7 @@ class StudentStats(Base):
     current_streak: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
-    best_streak: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
+    best_streak: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -72,10 +68,7 @@ class StudentStats(Base):
     user: Mapped[User] = relationship()
 
     def __repr__(self) -> str:
-        return (
-            f"<StudentStats user_id={self.user_id} "
-            f"hours={self.total_flight_hours}>"
-        )
+        return f"<StudentStats user_id={self.user_id} hours={self.total_flight_hours}>"
 
 
 class FlightHourLog(Base):
@@ -88,9 +81,7 @@ class FlightHourLog(Base):
 
     __tablename__ = "flight_hour_logs"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -117,10 +108,7 @@ class FlightHourLog(Base):
     session: Mapped[TrainingSession | None] = relationship()
 
     def __repr__(self) -> str:
-        return (
-            f"<FlightHourLog id={self.id} user_id={self.user_id} "
-            f"hours={self.hours_logged}>"
-        )
+        return f"<FlightHourLog id={self.id} user_id={self.user_id} hours={self.hours_logged}>"
 
 
 class ManeuverLog(Base):
@@ -133,9 +121,7 @@ class ManeuverLog(Base):
 
     __tablename__ = "maneuver_logs"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -163,7 +149,4 @@ class ManeuverLog(Base):
     session: Mapped[TrainingSession | None] = relationship()
 
     def __repr__(self) -> str:
-        return (
-            f"<ManeuverLog id={self.id} "
-            f"maneuver={self.maneuver_name!r}>"
-        )
+        return f"<ManeuverLog id={self.id} maneuver={self.maneuver_name!r}>"

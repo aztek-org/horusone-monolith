@@ -1,4 +1,5 @@
 """TrainingSession ORM model."""
+
 from __future__ import annotations
 
 import uuid
@@ -26,9 +27,7 @@ class TrainingSession(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     # client_id kept for backward compatibility; nullable for new user-based sessions.
     client_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
-    scenario_id: Mapped[int | None] = mapped_column(
-        ForeignKey("scenarios.id"), nullable=True
-    )
+    scenario_id: Mapped[int | None] = mapped_column(ForeignKey("scenarios.id"), nullable=True)
     language: Mapped[str] = mapped_column(String(5), nullable=False, default="en")
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     scene_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -57,7 +56,4 @@ class TrainingSession(Base):
     user: Mapped[User | None] = relationship(back_populates="sessions")
 
     def __repr__(self) -> str:
-        return (
-            f"<TrainingSession id={self.id} client={self.client_id!r} "
-            f"status={self.status!r}>"
-        )
+        return f"<TrainingSession id={self.id} client={self.client_id!r} status={self.status!r}>"

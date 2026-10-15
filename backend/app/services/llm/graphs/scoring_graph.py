@@ -45,8 +45,7 @@ def _generate_report(state: HorusState) -> dict[str, Any]:
         f"  HORUS POST-FLIGHT REPORT — {callsign}",
         "═══════════════════════════════════════════",
         "",
-        f"Overall Grade: {scoring.get('grade', 'N/A')} "
-        f"({scoring.get('overall_score', 0):.0f}/100)",
+        f"Overall Grade: {scoring.get('grade', 'N/A')} ({scoring.get('overall_score', 0):.0f}/100)",
         "",
         "── Scores ──────────────────────────────────",
         f"  Communication:  {scoring.get('communication_score', 0):.0f}/100",

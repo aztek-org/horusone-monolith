@@ -67,9 +67,7 @@ def _org_id_for(
         try:
             return uuid.UUID(str(raw))
         except ValueError:
-            logger.warning(
-                "Token carried a non-UUID organization_id; falling back to the seat"
-            )
+            logger.warning("Token carried a non-UUID organization_id; falling back to the seat")
     return seat_org_id
 
 
@@ -244,22 +242,26 @@ async def voice_communication(websocket: WebSocket) -> None:
                 active_seats = [s for s in seats if s.is_active]
                 if not active_seats:
                     await websocket.accept()
-                    await websocket.send_json({
-                        "type": "error",
-                        "code": "NO_ACTIVE_SEAT",
-                        "message": "You do not have an active seat. Contact your organization admin.",
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "error",
+                            "code": "NO_ACTIVE_SEAT",
+                            "message": "You do not have an active seat. Contact your organization admin.",
+                        }
+                    )
                     await websocket.close(code=4003, reason="No active seat")
                     return
                 seat_org_id = active_seats[0].organization_id
         except Exception as e:
             logger.error("Seat check failed during WS connect: %s", e)
             await websocket.accept()
-            await websocket.send_json({
-                "type": "error",
-                "code": "INTERNAL_ERROR",
-                "message": "Could not verify seat status",
-            })
+            await websocket.send_json(
+                {
+                    "type": "error",
+                    "code": "INTERNAL_ERROR",
+                    "message": "Could not verify seat status",
+                }
+            )
             await websocket.close(code=4500, reason="Internal error")
             return
 
@@ -362,8 +364,7 @@ async def voice_communication(websocket: WebSocket) -> None:
                             "type": "error",
                             "code": "AUDIO_CHUNK_TOO_LARGE",
                             "message": (
-                                "Audio chunk exceeds size limit "
-                                f"({MAX_AUDIO_CHUNK_BYTES} bytes)"
+                                f"Audio chunk exceeds size limit ({MAX_AUDIO_CHUNK_BYTES} bytes)"
                             ),
                         },
                     )
@@ -422,9 +423,7 @@ async def voice_communication(websocket: WebSocket) -> None:
                         audio_chunks = []
                         current_audio_bytes = 0
 
-                        logger.info(
-                            f"Processing {len(combined_audio)} bytes of audio"
-                        )
+                        logger.info(f"Processing {len(combined_audio)} bytes of audio")
                         if db_session_id is not None:
                             try:
                                 outcome = await _process_exchange(
@@ -452,8 +451,7 @@ async def voice_communication(websocket: WebSocket) -> None:
                                         "type": "error",
                                         "code": "SESSION_ERROR",
                                         "message": (
-                                            "Training session unavailable. "
-                                            "Please try again."
+                                            "Training session unavailable. Please try again."
                                         ),
                                     },
                                 )

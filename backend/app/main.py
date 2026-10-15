@@ -59,6 +59,7 @@ settings = get_settings()
 # Catch-all error middleware — ensures CORS headers on 500s
 # ---------------------------------------------------------------------------
 
+
 class CatchAllErrorMiddleware(BaseHTTPMiddleware):
     """Convert unhandled exceptions into JSON 500 responses.
 
@@ -66,9 +67,7 @@ class CatchAllErrorMiddleware(BaseHTTPMiddleware):
     error responses — gets proper ``Access-Control-*`` headers.
     """
 
-    async def dispatch(
-        self, request: Request, call_next: Callable[..., Any]
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[..., Any]) -> Response:
         try:
             return await call_next(request)
         except Exception as exc:
@@ -88,14 +87,14 @@ class CatchAllErrorMiddleware(BaseHTTPMiddleware):
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Attach security-focused HTTP headers to every response."""
 
-    async def dispatch(
-        self, request: Request, call_next: Callable[..., Any]
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[..., Any]) -> Response:
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
-        response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+        response.headers.setdefault(
+            "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
+        )
         response.headers.setdefault(
             "Content-Security-Policy",
             "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",

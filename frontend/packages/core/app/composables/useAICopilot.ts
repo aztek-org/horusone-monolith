@@ -15,7 +15,7 @@ const defaultParams: AICopilotParams = {
   commsStyle: 'brevity-military',
   interventionMode: 'assistance',
   confidence: 92,
-  isOnline: true
+  isOnline: true,
 }
 
 export const useAICopilot = () => {
@@ -25,19 +25,19 @@ export const useAICopilot = () => {
     { value: 'brevity-military', label: 'Brevity-Focused (Military)' },
     { value: 'standard-icao', label: 'Standard ICAO' },
     { value: 'verbose', label: 'Verbose/Training' },
-    { value: 'minimal', label: 'Minimal Response' }
+    { value: 'minimal', label: 'Minimal Response' },
   ]
 
   const knowledgeLevels = [
     { value: 'novice', label: 'Novice' },
     { value: 'proficient', label: 'Proficient' },
-    { value: 'expert', label: 'Expert' }
+    { value: 'expert', label: 'Expert' },
   ]
 
   const interventionModes = [
     { value: 'monitor', label: 'Monitor Only' },
     { value: 'assistance', label: 'Active Assistance' },
-    { value: 'override', label: 'Emergency Override' }
+    { value: 'override', label: 'Emergency Override' },
   ]
 
   function setAssertiveness(value: number) {
@@ -84,6 +84,6 @@ export const useAICopilot = () => {
     setInterventionMode,
     setOnlineStatus,
     updateConfidence,
-    resetParams
+    resetParams,
   }
 }

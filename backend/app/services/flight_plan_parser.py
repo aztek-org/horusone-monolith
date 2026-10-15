@@ -243,7 +243,8 @@ class FlightPlanParser:
         icao_matches = re.findall(r"\b([A-Z]{4})\b", upper)
         # Filter likely ICAO codes (starting with K for US, or known prefixes)
         icao_codes = [
-            c for c in icao_matches
+            c
+            for c in icao_matches
             if c[0] in "KELCPSBDGMU" and c not in ("FROM", "PLAN", "KNOT", "WITH", "WILL")
         ]
 

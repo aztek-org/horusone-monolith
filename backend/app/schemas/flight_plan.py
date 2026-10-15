@@ -8,7 +8,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 # ── FlightPlan ────────────────────────────────────────────────────
 
 
@@ -18,15 +17,9 @@ class FlightPlanCreate(BaseModel):
     scenario_id: int | None = None
     org_id: uuid.UUID | None = None
     title: str = Field(..., min_length=1, max_length=255)
-    departure_icao: str = Field(
-        ..., min_length=3, max_length=4, pattern=r"^[A-Z0-9]{3,4}$"
-    )
-    arrival_icao: str = Field(
-        ..., min_length=3, max_length=4, pattern=r"^[A-Z0-9]{3,4}$"
-    )
-    alternate_icao: str | None = Field(
-        default=None, max_length=4, pattern=r"^[A-Z0-9]{3,4}$"
-    )
+    departure_icao: str = Field(..., min_length=3, max_length=4, pattern=r"^[A-Z0-9]{3,4}$")
+    arrival_icao: str = Field(..., min_length=3, max_length=4, pattern=r"^[A-Z0-9]{3,4}$")
+    alternate_icao: str | None = Field(default=None, max_length=4, pattern=r"^[A-Z0-9]{3,4}$")
     route_string: str | None = None
     aircraft_type: str | None = Field(default=None, max_length=50)
     fuel_required_gal: float | None = Field(default=None, ge=0)
@@ -43,9 +36,7 @@ class FlightPlanCreate(BaseModel):
     )
     status: str = Field(
         default="draft",
-        pattern=(
-            r"^(draft|validated|approved|active|completed)$"
-        ),
+        pattern=(r"^(draft|validated|approved|active|completed)$"),
     )
 
 
@@ -83,9 +74,7 @@ class FlightPlanUpdate(BaseModel):
     """Schema for partial flight plan updates."""
 
     title: str | None = Field(default=None, min_length=1, max_length=255)
-    alternate_icao: str | None = Field(
-        default=None, max_length=4
-    )
+    alternate_icao: str | None = Field(default=None, max_length=4)
     route_string: str | None = None
     aircraft_type: str | None = Field(default=None, max_length=50)
     fuel_required_gal: float | None = Field(default=None, ge=0)
@@ -98,9 +87,7 @@ class FlightPlanUpdate(BaseModel):
     notes: str | None = None
     status: str | None = Field(
         default=None,
-        pattern=(
-            r"^(draft|validated|approved|active|completed)$"
-        ),
+        pattern=(r"^(draft|validated|approved|active|completed)$"),
     )
 
 
@@ -113,20 +100,12 @@ class FlightPlanLegCreate(BaseModel):
     sequence: int = Field(..., ge=0)
     from_waypoint_id: uuid.UUID | None = None
     to_waypoint_id: uuid.UUID | None = None
-    from_identifier: str | None = Field(
-        default=None, max_length=10
-    )
-    to_identifier: str | None = Field(
-        default=None, max_length=10
-    )
+    from_identifier: str | None = Field(default=None, max_length=10)
+    to_identifier: str | None = Field(default=None, max_length=10)
     distance_nm: float | None = Field(default=None, ge=0)
-    magnetic_heading: float | None = Field(
-        default=None, ge=0, le=360
-    )
+    magnetic_heading: float | None = Field(default=None, ge=0, le=360)
     altitude: str | None = Field(default=None, max_length=20)
-    estimated_time_minutes: float | None = Field(
-        default=None, ge=0
-    )
+    estimated_time_minutes: float | None = Field(default=None, ge=0)
     fuel_burn_gal: float | None = Field(default=None, ge=0)
     wind: dict[str, Any] | None = None
     notes: str | None = Field(default=None, max_length=500)

@@ -8,7 +8,6 @@ V-speed reference data.
 from __future__ import annotations
 
 import logging
-import math
 from typing import Any
 
 from app.services.llm.state import HorusState, Severity
@@ -20,15 +19,15 @@ logger = logging.getLogger(__name__)
 AIRCRAFT_PERFORMANCE: dict[str, dict[str, Any]] = {
     "C172": {
         "v_speeds": {
-            "Vs0": 40,    # Stall speed, landing configuration (KIAS)
-            "Vs1": 48,    # Stall speed, clean configuration
-            "Vr": 55,     # Rotation speed
-            "Vx": 62,     # Best angle of climb
-            "Vy": 74,     # Best rate of climb
-            "Va": 99,     # Maneuvering speed
-            "Vno": 129,   # Max structural cruising
-            "Vne": 163,   # Never exceed
-            "Vfe": 85,    # Max flap extended
+            "Vs0": 40,  # Stall speed, landing configuration (KIAS)
+            "Vs1": 48,  # Stall speed, clean configuration
+            "Vr": 55,  # Rotation speed
+            "Vx": 62,  # Best angle of climb
+            "Vy": 74,  # Best rate of climb
+            "Va": 99,  # Maneuvering speed
+            "Vno": 129,  # Max structural cruising
+            "Vne": 163,  # Never exceed
+            "Vfe": 85,  # Max flap extended
         },
         "climb_rate_fpm": 730,
         "descent_rate_fpm": 500,
@@ -169,6 +168,7 @@ def analyze_performance(state: HorusState) -> dict[str, Any]:
     # Density altitude (use departure weather if available)
     density_alt = None
     from app.services.llm.tools.weather_tools import parse_metar
+
     dep_metar = weather.get("departure_metar", "")
     if dep_metar:
         parsed = parse_metar(dep_metar)
@@ -177,9 +177,7 @@ def analyze_performance(state: HorusState) -> dict[str, Any]:
         if temp is not None:
             density_alt = _estimate_density_altitude(0, temp, altimeter)
             if density_alt > service_ceiling:
-                notes.append(
-                    f"Density altitude ({density_alt} ft) exceeds service ceiling."
-                )
+                notes.append(f"Density altitude ({density_alt} ft) exceeds service ceiling.")
             elif density_alt > cruise_altitude:
                 notes.append(
                     f"Density altitude ({density_alt} ft) is above planned cruise "
@@ -188,9 +186,13 @@ def analyze_performance(state: HorusState) -> dict[str, Any]:
 
     # High altitude notes
     if cruise_altitude > 10000:
-        notes.append("Cruise above 10,000 ft — 250 KIAS speed limit below FL100 applies during climb/descent.")
+        notes.append(
+            "Cruise above 10,000 ft — 250 KIAS speed limit below FL100 applies during climb/descent."
+        )
     if cruise_altitude > 12500:
-        notes.append("Cruise above 12,500 ft — supplemental oxygen required above 12,500 ft MSL after 30 min (FAR 91.211).")
+        notes.append(
+            "Cruise above 12,500 ft — supplemental oxygen required above 12,500 ft MSL after 30 min (FAR 91.211)."
+        )
 
     perf_result: dict[str, Any] = {
         "v_speeds": v_speeds,
@@ -204,29 +206,32 @@ def analyze_performance(state: HorusState) -> dict[str, Any]:
 
     # Validation
     if not altitude_ok:
-        results.append({
-            "agent": "performance",
-            "passed": False,
-            "severity": Severity.CRITICAL.value,
-            "message": (
-                f"Planned altitude {cruise_altitude} ft exceeds "
-                f"{aircraft_type} service ceiling of {service_ceiling} ft."
-            ),
-            "details": perf_result,
-        })
+        results.append(
+            {
+                "agent": "performance",
+                "passed": False,
+                "severity": Severity.CRITICAL.value,
+                "message": (
+                    f"Planned altitude {cruise_altitude} ft exceeds "
+                    f"{aircraft_type} service ceiling of {service_ceiling} ft."
+                ),
+                "details": perf_result,
+            }
+        )
     else:
         sev = Severity.WARNING.value if notes else Severity.INFO.value
-        results.append({
-            "agent": "performance",
-            "passed": True,
-            "severity": sev,
-            "message": (
-                f"Performance check passed for {aircraft_type} at "
-                f"{cruise_altitude} ft."
-                + (f" Notes: {'; '.join(notes)}" if notes else "")
-            ),
-            "details": perf_result,
-        })
+        results.append(
+            {
+                "agent": "performance",
+                "passed": True,
+                "severity": sev,
+                "message": (
+                    f"Performance check passed for {aircraft_type} at "
+                    f"{cruise_altitude} ft." + (f" Notes: {'; '.join(notes)}" if notes else "")
+                ),
+                "details": perf_result,
+            }
+        )
 
     logger.info(
         "Performance agent: %s at %d ft — %s",

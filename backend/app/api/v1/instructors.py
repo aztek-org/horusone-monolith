@@ -74,9 +74,7 @@ async def update_my_profile(
     Only fields present in the request body are updated.
     """
     update_data = data.model_dump(exclude_unset=True)
-    profile = await instructor_repo.create_or_update_profile(
-        db, local_user.id, update_data
-    )
+    profile = await instructor_repo.create_or_update_profile(db, local_user.id, update_data)
     return profile  # type: ignore[return-value]
 
 
@@ -135,9 +133,7 @@ async def get_my_students(
     db: AsyncSession = Depends(get_db_session),
 ) -> list:
     """List students for the current instructor."""
-    from app.models.training_session import TrainingSession
     from app.models.voice_log import VoiceLog
-    from app.schemas.instructor import InstructorStudentRead
 
     result = await db.execute(
         select(User)
@@ -151,31 +147,38 @@ async def get_my_students(
     students = list(result.scalars().all())
     out = []
     for s in students:
-        flight_hours = await db.scalar(
-            select(func.coalesce(func.sum(VoiceLog.audio_duration_ms), 0) / 3600000.0)
-            .join(TrainingSession, TrainingSession.id == VoiceLog.session_id)
-            .where(TrainingSession.user_id == s.id)
-        ) or 0.0
-        completed = await db.scalar(
-            select(func.count(TrainingSession.id)).where(
-                TrainingSession.user_id == s.id,
-                TrainingSession.status == "completed",
+        flight_hours = (
+            await db.scalar(
+                select(func.coalesce(func.sum(VoiceLog.audio_duration_ms), 0) / 3600000.0)
+                .join(TrainingSession, TrainingSession.id == VoiceLog.session_id)
+                .where(TrainingSession.user_id == s.id)
             )
-        ) or 0
-        avg_score = await db.scalar(
-            select(func.avg(StudentStats.overall_score))
-            .where(StudentStats.user_id == s.id)
+            or 0.0
         )
-        out.append({
-            "id": str(s.id),
-            "user_id": str(s.id),
-            "display_name": s.display_name,
-            "email": s.email,
-            "flight_hours": round(flight_hours, 1),
-            "scenarios_completed": completed,
-            "overall_score": round(float(avg_score or 0), 1),
-            "last_active": None,
-        })
+        completed = (
+            await db.scalar(
+                select(func.count(TrainingSession.id)).where(
+                    TrainingSession.user_id == s.id,
+                    TrainingSession.status == "completed",
+                )
+            )
+            or 0
+        )
+        avg_score = await db.scalar(
+            select(func.avg(StudentStats.overall_score)).where(StudentStats.user_id == s.id)
+        )
+        out.append(
+            {
+                "id": str(s.id),
+                "user_id": str(s.id),
+                "display_name": s.display_name,
+                "email": s.email,
+                "flight_hours": round(flight_hours, 1),
+                "scenarios_completed": completed,
+                "overall_score": round(float(avg_score or 0), 1),
+                "last_active": None,
+            }
+        )
     return out
 
 
@@ -187,7 +190,6 @@ async def get_student_detail(
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Get detailed info for a specific student."""
-    from app.models.training_session import TrainingSession
 
     s = await db.get(User, student_id)
     if s is None:
@@ -203,22 +205,27 @@ async def get_student_detail(
     if seat is None:
         raise HTTPException(status_code=404, detail="Student not in your organization")
 
-    flight_hours = await db.scalar(
-        select(func.coalesce(func.sum(VoiceLog.audio_duration_ms), 0) / 3600000.0)
-        .join(TrainingSession, TrainingSession.id == VoiceLog.session_id)
-        .where(TrainingSession.user_id == s.id)
-    ) or 0.0
-
-    completed = await db.scalar(
-        select(func.count(TrainingSession.id)).where(
-            TrainingSession.user_id == s.id,
-            TrainingSession.status == "completed",
+    flight_hours = (
+        await db.scalar(
+            select(func.coalesce(func.sum(VoiceLog.audio_duration_ms), 0) / 3600000.0)
+            .join(TrainingSession, TrainingSession.id == VoiceLog.session_id)
+            .where(TrainingSession.user_id == s.id)
         )
-    ) or 0
+        or 0.0
+    )
+
+    completed = (
+        await db.scalar(
+            select(func.count(TrainingSession.id)).where(
+                TrainingSession.user_id == s.id,
+                TrainingSession.status == "completed",
+            )
+        )
+        or 0
+    )
 
     avg_score = await db.scalar(
-        select(func.avg(StudentStats.overall_score))
-        .where(StudentStats.user_id == s.id)
+        select(func.avg(StudentStats.overall_score)).where(StudentStats.user_id == s.id)
     )
 
     recent = await db.execute(
@@ -229,15 +236,17 @@ async def get_student_detail(
     )
     recent_sessions = []
     for rs in recent.scalars().all():
-        recent_sessions.append({
-            "id": str(rs.id),
-            "scenario_name": rs.scenario.name if rs.scenario else "Unknown",
-            "score": 0,
-            "status": rs.status,
-            "started_at": rs.started_at.isoformat() if rs.started_at else None,
-            "ended_at": rs.ended_at.isoformat() if rs.ended_at else None,
-            "duration_minutes": 0,
-        })
+        recent_sessions.append(
+            {
+                "id": str(rs.id),
+                "scenario_name": rs.scenario.name if rs.scenario else "Unknown",
+                "score": 0,
+                "status": rs.status,
+                "started_at": rs.started_at.isoformat() if rs.started_at else None,
+                "ended_at": rs.ended_at.isoformat() if rs.ended_at else None,
+                "duration_minutes": 0,
+            }
+        )
 
     return {
         "id": str(s.id),
@@ -262,23 +271,27 @@ async def get_my_instructor_stats(
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Get statistics for the current instructor."""
-    from app.models.training_session import TrainingSession
-    from app.schemas.instructor import InstructorStatsRead
 
-    student_count = await db.scalar(
-        select(func.count(Seat.id)).where(
-            Seat.organization_id == org_id,
-            Seat.role == "student",
-            Seat.is_active.is_(True),
+    student_count = (
+        await db.scalar(
+            select(func.count(Seat.id)).where(
+                Seat.organization_id == org_id,
+                Seat.role == "student",
+                Seat.is_active.is_(True),
+            )
         )
-    ) or 0
+        or 0
+    )
 
-    active_sessions = await db.scalar(
-        select(func.count(TrainingSession.id)).where(
-            TrainingSession.org_id == org_id,
-            TrainingSession.status == "active",
+    active_sessions = (
+        await db.scalar(
+            select(func.count(TrainingSession.id)).where(
+                TrainingSession.org_id == org_id,
+                TrainingSession.status == "active",
+            )
         )
-    ) or 0
+        or 0
+    )
 
     avg_score = await db.scalar(
         select(func.avg(StudentStats.overall_score)).where(
@@ -291,11 +304,14 @@ async def get_my_instructor_stats(
         )
     )
 
-    assessments = await db.scalar(
-        select(func.count(KnowledgeAssessment.id)).where(
-            KnowledgeAssessment.org_id == org_id,
+    assessments = (
+        await db.scalar(
+            select(func.count(KnowledgeAssessment.id)).where(
+                KnowledgeAssessment.org_id == org_id,
+            )
         )
-    ) or 0
+        or 0
+    )
 
     return {
         "total_students": student_count,
@@ -316,8 +332,6 @@ async def get_recent_instructor_sessions(
     db: AsyncSession = Depends(get_db_session),
 ) -> list:
     """Get recent training sessions for the instructor's org."""
-    from app.models.training_session import TrainingSession
-    from app.schemas.instructor import RecentSessionRead
 
     result = await db.execute(
         select(TrainingSession)
@@ -328,14 +342,16 @@ async def get_recent_instructor_sessions(
     )
     out = []
     for ts in result.scalars().all():
-        out.append({
-            "id": str(ts.id),
-            "student_name": ts.user.display_name if ts.user else "Unknown",
-            "student_id": str(ts.user_id) if ts.user_id else None,
-            "scenario_name": ts.scenario.name if ts.scenario else "Unknown",
-            "score": 0,
-            "status": ts.status,
-            "started_at": ts.started_at.isoformat() if ts.started_at else None,
-            "duration_minutes": 0,
-        })
+        out.append(
+            {
+                "id": str(ts.id),
+                "student_name": ts.user.display_name if ts.user else "Unknown",
+                "student_id": str(ts.user_id) if ts.user_id else None,
+                "scenario_name": ts.scenario.name if ts.scenario else "Unknown",
+                "score": 0,
+                "status": ts.status,
+                "started_at": ts.started_at.isoformat() if ts.started_at else None,
+                "duration_minutes": 0,
+            }
+        )
     return out

@@ -12,28 +12,28 @@ const defaultLog: CommsLogEntry[] = [
     timestamp: '14:01:02',
     type: 'ai',
     message: 'Analyzing storm cell intensity...',
-    variant: 'info'
+    variant: 'info',
   },
   {
     id: 'log-2',
     timestamp: '14:01:15',
     type: 'atc',
-    message: 'Aero-Alpha, maintain 12,000.'
+    message: 'Aero-Alpha, maintain 12,000.',
   },
   {
     id: 'log-3',
     timestamp: '14:02:00',
     type: 'system',
     message: 'Icing detected on probe.',
-    variant: 'warning'
+    variant: 'warning',
   },
   {
     id: 'log-4',
     timestamp: '14:02:10',
     type: 'ai',
     message: 'Anti-ice activated. Recalculating descent profile.',
-    variant: 'info'
-  }
+    variant: 'info',
+  },
 ]
 
 export const useCommsLog = () => {
@@ -48,7 +48,7 @@ export const useCommsLog = () => {
       hour12: false,
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit'
+      second: '2-digit',
     })
 
     entries.value.push({ ...entry, id, timestamp })
@@ -87,6 +87,6 @@ export const useCommsLog = () => {
     addSystemMessage,
     addATCMessage,
     clearLog,
-    resetLog
+    resetLog,
   }
 }

@@ -17,8 +17,10 @@ class PostgresSessionStore:
     """Persist tenant-scoped training state in LangGraph's Postgres checkpointer."""
 
     def __init__(self, database_url: str) -> None:
-        dsn = make_url(database_url).set(drivername="postgresql").render_as_string(
-            hide_password=False
+        dsn = (
+            make_url(database_url)
+            .set(drivername="postgresql")
+            .render_as_string(hide_password=False)
         )
         self._pool = AsyncConnectionPool(dsn, open=False, max_size=10)
         self._saver: AsyncPostgresSaver | None = None
@@ -59,9 +61,7 @@ class PostgresSessionStore:
         pending_writes = checkpoint_tuple.pending_writes or []
         pending_instructor = bool(
             checkpoint_tuple.metadata.get("pending_instructor", False)
-        ) or any(
-            write[1] == "generate_atc_response" for write in pending_writes
-        )
+        ) or any(write[1] == "generate_atc_response" for write in pending_writes)
         return StoredState(
             values=dict(checkpoint.get("channel_values") or {}),
             checkpoint_id=checkpoint.get("id"),

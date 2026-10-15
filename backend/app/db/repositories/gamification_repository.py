@@ -80,9 +80,7 @@ class GamificationRepository:
         await db.refresh(badge)
         return badge
 
-    async def get_user_badges(
-        self, db: AsyncSession, user_id: uuid.UUID
-    ) -> list[UserBadge]:
+    async def get_user_badges(self, db: AsyncSession, user_id: uuid.UUID) -> list[UserBadge]:
         """Get all badges earned by a user.
 
         Args:
@@ -127,7 +125,8 @@ class GamificationRepository:
         if existing.scalar_one_or_none() is not None:
             logger.debug(
                 "Badge %s already awarded to user %s — skipping",
-                badge_id, user_id,
+                badge_id,
+                user_id,
             )
             return None
 
@@ -159,9 +158,7 @@ class GamificationRepository:
             List of newly awarded UserBadge rows.
         """
         # Load user stats
-        stats_result = await db.execute(
-            select(StudentStats).where(StudentStats.user_id == user_id)
-        )
+        stats_result = await db.execute(select(StudentStats).where(StudentStats.user_id == user_id))
         stats = stats_result.scalar_one_or_none()
         if stats is None:
             return []
@@ -217,18 +214,13 @@ class GamificationRepository:
         Returns:
             The most recent LeaderboardSnapshot, or None.
         """
-        query = (
-            select(LeaderboardSnapshot)
-            .where(LeaderboardSnapshot.period == period)
-        )
+        query = select(LeaderboardSnapshot).where(LeaderboardSnapshot.period == period)
         if org_id is not None:
             query = query.where(LeaderboardSnapshot.org_id == org_id)
         else:
             query = query.where(LeaderboardSnapshot.org_id.is_(None))
 
-        result = await db.execute(
-            query.order_by(LeaderboardSnapshot.generated_at.desc()).limit(1)
-        )
+        result = await db.execute(query.order_by(LeaderboardSnapshot.generated_at.desc()).limit(1))
         return result.scalar_one_or_none()
 
     async def generate_leaderboard_snapshot(
@@ -254,14 +246,9 @@ class GamificationRepository:
         from app.models.user import User
 
         # Build query for stats — optionally scoped by org
-        query = (
-            select(StudentStats, User.display_name)
-            .join(User, User.id == StudentStats.user_id)
-        )
+        query = select(StudentStats, User.display_name).join(User, User.id == StudentStats.user_id)
         if org_id is not None:
-            query = query.join(
-                Seat, Seat.user_id == User.id
-            ).where(
+            query = query.join(Seat, Seat.user_id == User.id).where(
                 Seat.organization_id == org_id,
                 Seat.is_active.is_(True),
             )
@@ -272,17 +259,19 @@ class GamificationRepository:
 
         entries: list[dict[str, Any]] = []
         for rank, (stats, display_name) in enumerate(rows, start=1):
-            entries.append({
-                "user_id": str(stats.user_id),
-                "display_name": display_name,
-                "score": stats.overall_score,
-                "rank": rank,
-                "metrics": {
-                    "flight_hours": stats.total_flight_hours,
-                    "maneuvers": stats.total_maneuvers,
-                    "scenarios": stats.total_scenarios_completed,
-                },
-            })
+            entries.append(
+                {
+                    "user_id": str(stats.user_id),
+                    "display_name": display_name,
+                    "score": stats.overall_score,
+                    "rank": rank,
+                    "metrics": {
+                        "flight_hours": stats.total_flight_hours,
+                        "maneuvers": stats.total_maneuvers,
+                        "scenarios": stats.total_scenarios_completed,
+                    },
+                }
+            )
 
         snapshot = LeaderboardSnapshot(
             org_id=org_id,
@@ -294,6 +283,8 @@ class GamificationRepository:
         await db.refresh(snapshot)
         logger.info(
             "Generated %s leaderboard snapshot (org=%s, %d entries)",
-            period, org_id, len(entries),
+            period,
+            org_id,
+            len(entries),
         )
         return snapshot

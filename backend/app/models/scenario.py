@@ -33,9 +33,7 @@ class Scenario(Base):
     runway: Mapped[str] = mapped_column(String(10), nullable=False)
     weather_preset: Mapped[str] = mapped_column(String(10), nullable=False, default="VFR")
     phase: Mapped[str] = mapped_column(String(50), nullable=False, default="ground")
-    scenario_type: Mapped[str | None] = mapped_column(
-        String(50), nullable=True
-    )
+    scenario_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     flight_plan_template: Mapped[dict | None] = mapped_column(  # type: ignore[type-arg]
         JSONB, nullable=True, server_default="{}"
     )

@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<Props>(), {
   progress: 0,
 })
 
-const tierConfig: Record<BadgeTier, { color: string; bg: string; border: string; label: string }> = {
+const tierConfig: Record<BadgeTier, { color: string, bg: string, border: string, label: string }> = {
   bronze: {
     color: 'text-amber-600',
     bg: 'bg-amber-600/10',
@@ -133,12 +133,21 @@ function formatEarnedDate(dateStr: string): string {
       </div>
 
       <!-- Earned Date or Progress -->
-      <div v-if="earned && earnedAt" class="flex items-center gap-1.5 text-xs text-horus-status-success">
-        <Icon name="heroicons:check-circle" class="w-4 h-4" />
+      <div
+        v-if="earned && earnedAt"
+        class="flex items-center gap-1.5 text-xs text-horus-status-success"
+      >
+        <Icon
+          name="heroicons:check-circle"
+          class="w-4 h-4"
+        />
         <span>Earned {{ formatEarnedDate(earnedAt) }}</span>
       </div>
 
-      <div v-else-if="!earned && progress > 0" class="space-y-1.5">
+      <div
+        v-else-if="!earned && progress > 0"
+        class="space-y-1.5"
+      >
         <div class="flex items-center justify-between text-xxs">
           <span class="text-horus-text-muted">Progress</span>
           <span class="font-mono text-horus-text-secondary">{{ Math.round(progress) }}%</span>

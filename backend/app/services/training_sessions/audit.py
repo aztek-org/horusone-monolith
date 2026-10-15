@@ -79,9 +79,7 @@ async def discard_unstarted_session(db_session_id: int) -> None:
     try:
         session_factory = get_session_factory()
         async with session_factory() as db:
-            await db.execute(
-                delete(TrainingSession).where(TrainingSession.id == db_session_id)
-            )
+            await db.execute(delete(TrainingSession).where(TrainingSession.id == db_session_id))
             await db.commit()
     except Exception as e:
         logger.warning("Could not discard training session %s: %s", db_session_id, e)

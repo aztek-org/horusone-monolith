@@ -103,9 +103,7 @@ async def get_my_assessment_results(
     db: AsyncSession = Depends(get_db_session),
 ) -> list[AssessmentResultRead]:
     """Get the current user's paginated assessment results."""
-    results = await assessment_repo.get_user_results(
-        db, local_user.id, limit, offset
-    )
+    results = await assessment_repo.get_user_results(db, local_user.id, limit, offset)
     return results  # type: ignore[return-value]
 
 
@@ -130,9 +128,7 @@ async def get_session_transcript(
     from app.models.training_session import TrainingSession
 
     # Verify session exists and check ownership
-    result = await db.execute(
-        select(TrainingSession).where(TrainingSession.id == session_id)
-    )
+    result = await db.execute(select(TrainingSession).where(TrainingSession.id == session_id))
     session_obj = result.scalar_one_or_none()
     if session_obj is None:
         raise HTTPException(

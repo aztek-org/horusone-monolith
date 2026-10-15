@@ -138,9 +138,7 @@ def load_settings(env_file: str | Path) -> Settings:
     if values.get("ENVIRONMENT") == "production":
         missing = [key for key in REQUIRED_IN_PRODUCTION if not values.get(key)]
         if missing:
-            raise MissingSettingError(
-                f"Missing production settings: {', '.join(missing)}"
-            )
+            raise MissingSettingError(f"Missing production settings: {', '.join(missing)}")
 
     try:
         settings = Settings(**_settings_input(values))

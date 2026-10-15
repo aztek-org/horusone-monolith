@@ -14,41 +14,41 @@ const defaultChecklist: ChecklistItem[] = [
     title: 'Fuel Reservation Plan',
     subtitle: 'Calculate for ETOPS alternate',
     status: 'completed',
-    category: 'PRE-FLIGHT OPERATIONS'
+    category: 'PRE-FLIGHT OPERATIONS',
   },
   {
     id: 'cl-2',
     title: 'NOTAM Verification',
     subtitle: 'KLAX to KJAA segment',
     status: 'pending',
-    category: 'PRE-FLIGHT OPERATIONS'
+    category: 'PRE-FLIGHT OPERATIONS',
   },
   {
     id: 'cl-3',
     title: 'Verify Alternate METAR',
     status: 'in-progress',
     category: 'DIVERSION',
-    meta: 'AI'
+    meta: 'AI',
   },
   {
     id: 'cl-4',
     title: 'Fuel Remaining Calculation',
     status: 'in-progress',
     category: 'DIVERSION',
-    meta: 'CALC...'
+    meta: 'CALC...',
   },
   {
     id: 'cl-5',
     title: 'Notify ATC: Mayday/Pan-Pan',
     status: 'pending',
-    category: 'DIVERSION'
+    category: 'DIVERSION',
   },
   {
     id: 'cl-6',
     title: 'Descent Checklist Complete',
     status: 'pending',
-    category: 'DIVERSION'
-  }
+    category: 'DIVERSION',
+  },
 ]
 
 export const useChecklist = () => {
@@ -62,20 +62,20 @@ export const useChecklist = () => {
 
   const itemsByCategory = computed(() => {
     const grouped: Record<string, ChecklistItem[]> = {}
-    categories.value.forEach(cat => {
+    categories.value.forEach((cat) => {
       grouped[cat] = items.value.filter(item => item.category === cat)
     })
     return grouped
   })
 
   const completedCount = computed(() =>
-    items.value.filter(item => item.status === 'completed').length
+    items.value.filter(item => item.status === 'completed').length,
   )
 
   const totalCount = computed(() => items.value.length)
 
   const progressPercentage = computed(() =>
-    totalCount.value > 0 ? (completedCount.value / totalCount.value) * 100 : 0
+    totalCount.value > 0 ? (completedCount.value / totalCount.value) * 100 : 0,
   )
 
   function addItem(item: Omit<ChecklistItem, 'id'>) {
@@ -123,6 +123,6 @@ export const useChecklist = () => {
     completeItem,
     removeItem,
     toggleAutoGen,
-    resetChecklist
+    resetChecklist,
   }
 }

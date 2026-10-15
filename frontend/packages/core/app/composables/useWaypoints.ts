@@ -19,7 +19,7 @@ const defaultWaypoints: Waypoint[] = [
     lon: -118.45,
     altitude: 35000,
     status: 'warning',
-    scenario: 'Altitude Constraint Change'
+    scenario: 'Altitude Constraint Change',
   },
   {
     id: 'wp-2',
@@ -29,7 +29,7 @@ const defaultWaypoints: Waypoint[] = [
     lon: -117.89,
     altitude: 28000,
     status: 'event',
-    scenario: 'Left Engine Bleed'
+    scenario: 'Left Engine Bleed',
   },
   {
     id: 'wp-3',
@@ -38,8 +38,8 @@ const defaultWaypoints: Waypoint[] = [
     lat: 33.78,
     lon: -118.05,
     altitude: 18000,
-    status: 'pending'
-  }
+    status: 'pending',
+  },
 ]
 
 export const useWaypoints = () => {
@@ -47,15 +47,15 @@ export const useWaypoints = () => {
   const activeWaypointId = useState<string | null>('activeWaypoint', () => null)
 
   const activeWaypoint = computed(() =>
-    waypoints.value.find(wp => wp.id === activeWaypointId.value)
+    waypoints.value.find(wp => wp.id === activeWaypointId.value),
   )
 
   const pendingWaypoints = computed(() =>
-    waypoints.value.filter(wp => wp.status === 'pending')
+    waypoints.value.filter(wp => wp.status === 'pending'),
   )
 
   const passedWaypoints = computed(() =>
-    waypoints.value.filter(wp => wp.status === 'passed')
+    waypoints.value.filter(wp => wp.status === 'passed'),
   )
 
   function addWaypoint(waypoint: Omit<Waypoint, 'id'>) {
@@ -108,6 +108,6 @@ export const useWaypoints = () => {
     removeWaypoint,
     setActiveWaypoint,
     markWaypointPassed,
-    resetWaypoints
+    resetWaypoints,
   }
 }

@@ -99,19 +99,29 @@ function getSortIcon(field: typeof sortField.value): string {
         type="text"
         placeholder="Search students..."
         class="w-full bg-horus-bg-secondary border border-horus-border-subtle rounded-lg pl-10 pr-4 py-2.5 text-sm text-horus-text-primary placeholder:text-horus-text-muted focus:outline-none focus:border-horus-accent-cyan focus:ring-1 focus:ring-horus-accent-cyan/50"
-      />
+      >
     </div>
 
     <!-- Empty State -->
-    <div v-if="filteredStudents.length === 0" class="text-center py-8">
-      <Icon name="heroicons:users" class="w-10 h-10 text-horus-text-muted mx-auto mb-2 opacity-50" />
+    <div
+      v-if="filteredStudents.length === 0"
+      class="text-center py-8"
+    >
+      <Icon
+        name="heroicons:users"
+        class="w-10 h-10 text-horus-text-muted mx-auto mb-2 opacity-50"
+      />
       <p class="text-sm text-horus-text-muted">
         {{ searchQuery ? 'No students match your search' : 'No students found' }}
       </p>
     </div>
 
     <!-- Table -->
-    <HCard v-else variant="elevated" padding="none">
+    <HCard
+      v-else
+      variant="elevated"
+      padding="none"
+    >
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead>
@@ -122,7 +132,10 @@ function getSortIcon(field: typeof sortField.value): string {
                   @click="toggleSort('display_name')"
                 >
                   Student
-                  <Icon :name="getSortIcon('display_name')" class="w-3 h-3" />
+                  <Icon
+                    :name="getSortIcon('display_name')"
+                    class="w-3 h-3"
+                  />
                 </button>
               </th>
               <th class="text-center px-3 py-3 hidden md:table-cell">
@@ -131,7 +144,10 @@ function getSortIcon(field: typeof sortField.value): string {
                   @click="toggleSort('flight_hours')"
                 >
                   Hours
-                  <Icon :name="getSortIcon('flight_hours')" class="w-3 h-3" />
+                  <Icon
+                    :name="getSortIcon('flight_hours')"
+                    class="w-3 h-3"
+                  />
                 </button>
               </th>
               <th class="text-center px-3 py-3 hidden md:table-cell">
@@ -140,7 +156,10 @@ function getSortIcon(field: typeof sortField.value): string {
                   @click="toggleSort('scenarios_completed')"
                 >
                   Scenarios
-                  <Icon :name="getSortIcon('scenarios_completed')" class="w-3 h-3" />
+                  <Icon
+                    :name="getSortIcon('scenarios_completed')"
+                    class="w-3 h-3"
+                  />
                 </button>
               </th>
               <th class="text-center px-3 py-3">
@@ -149,7 +168,10 @@ function getSortIcon(field: typeof sortField.value): string {
                   @click="toggleSort('overall_score')"
                 >
                   Score
-                  <Icon :name="getSortIcon('overall_score')" class="w-3 h-3" />
+                  <Icon
+                    :name="getSortIcon('overall_score')"
+                    class="w-3 h-3"
+                  />
                 </button>
               </th>
               <th class="text-right px-4 py-3 hidden lg:table-cell">
@@ -158,14 +180,20 @@ function getSortIcon(field: typeof sortField.value): string {
                   @click="toggleSort('last_active')"
                 >
                   Last Active
-                  <Icon :name="getSortIcon('last_active')" class="w-3 h-3" />
+                  <Icon
+                    :name="getSortIcon('last_active')"
+                    class="w-3 h-3"
+                  />
                 </button>
               </th>
               <th class="w-10 px-2 py-3" />
             </tr>
           </thead>
           <tbody>
-            <template v-for="student in filteredStudents" :key="student.user_id">
+            <template
+              v-for="student in filteredStudents"
+              :key="student.user_id"
+            >
               <!-- Main Row -->
               <tr
                 :class="[
@@ -184,13 +212,15 @@ function getSortIcon(field: typeof sortField.value): string {
                         :src="`https://api.dicebear.com/7.x/avataaars/svg?seed=${student.avatar_seed || student.user_id}`"
                         :alt="student.display_name"
                         class="w-full h-full object-cover"
-                      />
+                      >
                     </div>
                     <div class="min-w-0">
                       <p class="text-sm font-medium text-horus-text-primary truncate">
                         {{ student.display_name }}
                       </p>
-                      <p class="text-xs text-horus-text-muted truncate">{{ student.email }}</p>
+                      <p class="text-xs text-horus-text-muted truncate">
+                        {{ student.email }}
+                      </p>
                     </div>
                   </div>
                 </td>
@@ -211,7 +241,10 @@ function getSortIcon(field: typeof sortField.value): string {
 
                 <!-- Score -->
                 <td class="px-3 py-3 text-center">
-                  <HBadge :variant="getScoreVariant(student.overall_score)" size="sm">
+                  <HBadge
+                    :variant="getScoreVariant(student.overall_score)"
+                    size="sm"
+                  >
                     {{ formatScore(student.overall_score) }}%
                   </HBadge>
                 </td>
@@ -237,7 +270,10 @@ function getSortIcon(field: typeof sortField.value): string {
 
               <!-- Expanded Detail Row -->
               <tr v-if="expandedStudentId === student.user_id">
-                <td colspan="6" class="px-4 py-4 bg-horus-bg-secondary/50">
+                <td
+                  colspan="6"
+                  class="px-4 py-4 bg-horus-bg-secondary/50"
+                >
                   <div class="space-y-4 animate-fade-in">
                     <!-- Strengths & Weaknesses -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -296,11 +332,17 @@ function getSortIcon(field: typeof sortField.value): string {
                           class="flex items-center justify-between p-2 rounded-lg bg-horus-bg-tertiary/50"
                         >
                           <div class="flex items-center gap-2 min-w-0">
-                            <Icon name="heroicons:play-circle" class="w-4 h-4 text-horus-text-muted flex-shrink-0" />
+                            <Icon
+                              name="heroicons:play-circle"
+                              class="w-4 h-4 text-horus-text-muted flex-shrink-0"
+                            />
                             <span class="text-xs text-horus-text-primary truncate">{{ session.scenario_name }}</span>
                           </div>
                           <div class="flex items-center gap-3 flex-shrink-0">
-                            <HBadge :variant="getScoreVariant(session.score)" size="sm">
+                            <HBadge
+                              :variant="getScoreVariant(session.score)"
+                              size="sm"
+                            >
                               {{ session.score }}%
                             </HBadge>
                             <span class="text-xxs text-horus-text-muted">{{ session.duration_minutes }}m</span>

@@ -171,9 +171,7 @@ async def create_session(
     return training_session  # type: ignore[return-value]
 
 
-def _reject_unstartable_session(
-    request: Request, scene_version: str, org_id: UUID | None
-) -> None:
+def _reject_unstartable_session(request: Request, scene_version: str, org_id: UUID | None) -> None:
     """Refuse inputs the Session module could not start, before anything is written.
 
     ``start()`` resolves the Scene and the tenant itself, so an unknown Scene
@@ -311,10 +309,7 @@ async def get_session_replay(
         .where(TrainingSessionEvent.session_id == session_id)
         .order_by(TrainingSessionEvent.created_at.asc())
     )
-    provenance = [
-        _provenance_from_event(event)
-        for event in events_result.scalars().all()
-    ]
+    provenance = [_provenance_from_event(event) for event in events_result.scalars().all()]
 
     track = await waypoint_repo.get_session_track(session, session_id)
     raw_track_points: list[dict[str, Any]] = track.track_points if track else []
@@ -334,7 +329,9 @@ async def get_session_replay(
     return TrainingSessionReplayResponse(
         id=training_session.id,
         scenario_id=training_session.scenario_id,
-        scenario_name=training_session.scenario.name if training_session.scenario else "Unknown Scenario",
+        scenario_name=training_session.scenario.name
+        if training_session.scenario
+        else "Unknown Scenario",
         status=training_session.status,
         language=training_session.language,
         started_at=training_session.started_at,
@@ -365,9 +362,7 @@ async def complete_session(
     persisted session state to the Session module's scoring pipeline.
     Completing an already-completed session is idempotent.
     """
-    result = await session.execute(
-        select(TrainingSession).where(TrainingSession.id == session_id)
-    )
+    result = await session.execute(select(TrainingSession).where(TrainingSession.id == session_id))
     training_session = result.scalar_one_or_none()
 
     if training_session is None:
@@ -403,8 +398,7 @@ async def complete_session(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"Session {session_id} cannot be completed from status "
-                f"'{training_session.status}'"
+                f"Session {session_id} cannot be completed from status '{training_session.status}'"
             ),
         )
 
@@ -524,9 +518,7 @@ def _provenance_from_event(event: TrainingSessionEvent) -> ProvenanceEvent:
     payload = event.event_payload
     raw_chunk_ids = payload.get("retrieved_chunk_ids")
     retrieved_chunk_ids = (
-        [str(chunk_id) for chunk_id in raw_chunk_ids]
-        if isinstance(raw_chunk_ids, list)
-        else []
+        [str(chunk_id) for chunk_id in raw_chunk_ids] if isinstance(raw_chunk_ids, list) else []
     )
     return ProvenanceEvent(
         event_type=event.event_type,
@@ -596,14 +588,10 @@ def _normalize_replay_track_points(raw_points: list[dict[str, Any]]) -> list[Rep
                 ),
                 phase=str(point.get("phase", "unknown")),
                 bank_angle=(
-                    float(point["bank_angle"])
-                    if point.get("bank_angle") is not None
-                    else None
+                    float(point["bank_angle"]) if point.get("bank_angle") is not None else None
                 ),
                 pitch_angle=(
-                    float(point["pitch_angle"])
-                    if point.get("pitch_angle") is not None
-                    else None
+                    float(point["pitch_angle"]) if point.get("pitch_angle") is not None else None
                 ),
             )
         )
@@ -713,9 +701,7 @@ def _normalize_replay_voice_logs(
 
     first_track_time: datetime | None = None
     try:
-        first_track_time = datetime.fromisoformat(
-            track_points[0].timestamp.replace("Z", "+00:00")
-        )
+        first_track_time = datetime.fromisoformat(track_points[0].timestamp.replace("Z", "+00:00"))
     except ValueError:
         first_track_time = None
 

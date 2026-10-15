@@ -11,7 +11,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   variant: 'default',
-  highlight: false
+  highlight: false,
 })
 
 const trendIcon = computed(() => {
@@ -41,26 +41,42 @@ const valueSize = computed(() => {
 
 <template>
   <div class="space-y-1">
-    <p v-if="label" class="text-xxs uppercase tracking-wider text-horus-text-muted">
+    <p
+      v-if="label"
+      class="text-xxs uppercase tracking-wider text-horus-text-muted"
+    >
       {{ label }}
     </p>
-    
+
     <div class="flex items-baseline gap-1">
       <span
         :class="[
           'font-mono font-semibold',
           valueSize,
-          highlight ? 'text-horus-accent-cyan' : 'text-horus-text-primary'
+          highlight ? 'text-horus-accent-cyan' : 'text-horus-text-primary',
         ]"
       >
         {{ value }}
       </span>
-      <span v-if="unit" class="text-sm text-horus-text-secondary">{{ unit }}</span>
+      <span
+        v-if="unit"
+        class="text-sm text-horus-text-secondary"
+      >{{ unit }}</span>
     </div>
-    
-    <div v-if="trend || trendValue" class="flex items-center gap-1">
-      <Icon v-if="trend" :name="trendIcon" :class="['w-4 h-4', trendColor]" />
-      <span v-if="trendValue" :class="['text-xs font-mono', trendColor]">
+
+    <div
+      v-if="trend || trendValue"
+      class="flex items-center gap-1"
+    >
+      <Icon
+        v-if="trend"
+        :name="trendIcon"
+        :class="['w-4 h-4', trendColor]"
+      />
+      <span
+        v-if="trendValue"
+        :class="['text-xs font-mono', trendColor]"
+      >
         {{ trendValue }}
       </span>
     </div>

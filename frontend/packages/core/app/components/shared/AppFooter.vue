@@ -4,9 +4,9 @@ interface Props {
   validated?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   routeId: 'LAX-TYO-992',
-  validated: true
+  validated: true,
 })
 
 const { state: simulation } = useSimulationState()
@@ -22,10 +22,10 @@ const { state: simulation } = useSimulationState()
         </span>
         <span class="hidden sm:inline-flex items-center gap-1.5">
           STATUS:
-          <span 
+          <span
             :class="[
               'flex items-center gap-1 font-semibold',
-              validated ? 'text-horus-status-success' : 'text-horus-status-warning'
+              validated ? 'text-horus-status-success' : 'text-horus-status-warning',
             ]"
           >
             <span class="w-1.5 h-1.5 rounded-full bg-current" />
@@ -33,7 +33,7 @@ const { state: simulation } = useSimulationState()
           </span>
         </span>
       </div>
-      
+
       <!-- System Metrics -->
       <div class="flex items-center gap-4 text-horus-text-muted">
         <span class="hidden md:inline">

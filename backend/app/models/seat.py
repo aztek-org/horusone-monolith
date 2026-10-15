@@ -1,4 +1,5 @@
 """Seat ORM model — join table between users and organizations."""
+
 from __future__ import annotations
 
 import uuid
@@ -27,13 +28,9 @@ class Seat(Base):
 
     __tablename__ = "seats"
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "organization_id", name="uq_seat_user_org"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "organization_id", name="uq_seat_user_org"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -46,9 +43,7 @@ class Seat(Base):
         nullable=False,
         index=True,
     )
-    role: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="student"
-    )
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default="student")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     joined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -60,6 +55,5 @@ class Seat(Base):
 
     def __repr__(self) -> str:
         return (
-            f"<Seat id={self.id} user={self.user_id} "
-            f"org={self.organization_id} role={self.role!r}>"
+            f"<Seat id={self.id} user={self.user_id} org={self.organization_id} role={self.role!r}>"
         )
