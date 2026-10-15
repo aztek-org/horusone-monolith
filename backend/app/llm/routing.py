@@ -73,9 +73,7 @@ class FallbackLLM:
     def _fallback_is_permitted(self) -> bool:
         if self.fallback is None or not self.allow_external_fallback:
             return False
-        fallback_is_external = bool(
-            getattr(self.fallback, "provider_is_external", False)
-        )
+        fallback_is_external = bool(getattr(self.fallback, "provider_is_external", False))
         return not (fallback_is_external and not self.provider_is_external)
 
     @staticmethod

@@ -43,7 +43,10 @@ class FlightPlanRepository:
         await db.refresh(plan)
         logger.info(
             "Created flight plan %s (%s→%s) for user %s",
-            plan.id, plan.departure_icao, plan.arrival_icao, user_id,
+            plan.id,
+            plan.departure_icao,
+            plan.arrival_icao,
+            user_id,
         )
         return plan
 
@@ -107,9 +110,7 @@ class FlightPlanRepository:
             query = query.where(FlightPlan.status == status)
 
         result = await db.execute(
-            query.order_by(FlightPlan.updated_at.desc())
-            .limit(limit)
-            .offset(offset)
+            query.order_by(FlightPlan.updated_at.desc()).limit(limit).offset(offset)
         )
         return list(result.scalars().all())
 
@@ -209,9 +210,7 @@ class FlightPlanRepository:
         await db.refresh(leg)
         return leg
 
-    async def get_legs(
-        self, db: AsyncSession, plan_id: uuid.UUID
-    ) -> list[FlightPlanLeg]:
+    async def get_legs(self, db: AsyncSession, plan_id: uuid.UUID) -> list[FlightPlanLeg]:
         """Get all legs of a flight plan ordered by sequence.
 
         Args:

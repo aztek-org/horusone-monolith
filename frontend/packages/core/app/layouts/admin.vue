@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <script setup lang="ts">
 /**
  * Admin layout: simplified header (no main nav) + sidebar + content area.
@@ -38,9 +39,15 @@ onMounted(() => {
       <div class="flex items-center justify-between h-14 px-4 lg:px-6">
         <!-- Logo & Title -->
         <div class="flex items-center gap-4">
-          <NuxtLink to="/admin" class="flex items-center gap-3">
+          <NuxtLink
+            to="/admin"
+            class="flex items-center gap-3"
+          >
             <div class="w-8 h-8 rounded-lg bg-horus-accent-cyan/20 flex items-center justify-center">
-              <Icon name="heroicons:shield-check" class="w-5 h-5 text-horus-accent-cyan" />
+              <Icon
+                name="heroicons:shield-check"
+                class="w-5 h-5 text-horus-accent-cyan"
+              />
             </div>
             <div>
               <h1 class="text-sm font-semibold text-horus-text-primary">Horus Admin</h1>
@@ -55,12 +62,18 @@ onMounted(() => {
             to="/configurator"
             class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-horus-text-secondary hover:text-horus-text-primary hover:bg-horus-bg-secondary transition-colors"
           >
-            <Icon name="heroicons:arrow-left" class="w-4 h-4" />
+            <Icon
+              name="heroicons:arrow-left"
+              class="w-4 h-4"
+            />
             <span class="hidden sm:inline">Back to App</span>
           </NuxtLink>
 
           <!-- User Menu -->
-          <div v-if="isAuthenticated" class="relative user-menu-container">
+          <div
+            v-if="isAuthenticated"
+            class="relative user-menu-container"
+          >
             <button
               class="w-8 h-8 rounded-full bg-horus-bg-tertiary border border-horus-border-subtle overflow-hidden hover:border-horus-accent-cyan transition-colors"
               :class="{ 'ring-2 ring-horus-accent-cyan': isUserMenuOpen }"
@@ -70,7 +83,7 @@ onMounted(() => {
                 :src="`https://api.dicebear.com/7.x/avataaars/svg?seed=${userAvatarSeed}`"
                 :alt="userDisplayName"
                 class="w-full h-full object-cover"
-              />
+              >
             </button>
 
             <Transition
@@ -86,8 +99,12 @@ onMounted(() => {
                 class="absolute right-0 top-full mt-2 w-56 bg-horus-bg-elevated border border-horus-border-accent rounded-lg shadow-2xl overflow-hidden z-50"
               >
                 <div class="px-4 py-3 border-b border-horus-border-subtle">
-                  <p class="text-sm font-medium text-horus-text-primary">{{ userDisplayName }}</p>
-                  <p class="text-xs text-horus-text-muted">{{ userEmail }}</p>
+                  <p class="text-sm font-medium text-horus-text-primary">
+                    {{ userDisplayName }}
+                  </p>
+                  <p class="text-xs text-horus-text-muted">
+                    {{ userEmail }}
+                  </p>
                 </div>
                 <div class="py-1">
                   <NuxtLink
@@ -95,7 +112,10 @@ onMounted(() => {
                     class="flex items-center gap-3 px-4 py-2.5 text-sm text-horus-text-primary hover:bg-horus-bg-tertiary transition-colors"
                     @click="isUserMenuOpen = false"
                   >
-                    <Icon name="heroicons:cog-6-tooth" class="w-5 h-5 text-horus-text-secondary" />
+                    <Icon
+                      name="heroicons:cog-6-tooth"
+                      class="w-5 h-5 text-horus-text-secondary"
+                    />
                     <span>Settings</span>
                   </NuxtLink>
                 </div>
@@ -104,7 +124,10 @@ onMounted(() => {
                     class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-horus-status-danger hover:bg-horus-status-danger/10 transition-colors"
                     @click="handleLogout"
                   >
-                    <Icon name="heroicons:arrow-right-on-rectangle" class="w-5 h-5" />
+                    <Icon
+                      name="heroicons:arrow-right-on-rectangle"
+                      class="w-5 h-5"
+                    />
                     <span>Logout</span>
                   </button>
                 </div>

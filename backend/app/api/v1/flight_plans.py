@@ -272,9 +272,7 @@ async def update_flight_plan(
             detail="No fields to update",
         )
 
-    plan = await plan_repo.update_flight_plan(
-        db, plan_id, update_data, local_user.id
-    )
+    plan = await plan_repo.update_flight_plan(db, plan_id, update_data, local_user.id)
     if plan is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -391,19 +389,23 @@ async def validate_flight_plan(
         # Fallback: basic structural validation
         errors: list[dict[str, Any]] = []
         if plan.departure_icao == "ZZZZ":
-            errors.append({
-                "agent": "gatekeeper",
-                "passed": False,
-                "severity": "critical",
-                "message": "Departure airport is unknown (ZZZZ)",
-            })
+            errors.append(
+                {
+                    "agent": "gatekeeper",
+                    "passed": False,
+                    "severity": "critical",
+                    "message": "Departure airport is unknown (ZZZZ)",
+                }
+            )
         if plan.arrival_icao == "ZZZZ":
-            errors.append({
-                "agent": "gatekeeper",
-                "passed": False,
-                "severity": "critical",
-                "message": "Arrival airport is unknown (ZZZZ)",
-            })
+            errors.append(
+                {
+                    "agent": "gatekeeper",
+                    "passed": False,
+                    "severity": "critical",
+                    "message": "Arrival airport is unknown (ZZZZ)",
+                }
+            )
 
         is_valid = len(errors) == 0
         if is_valid:
@@ -431,9 +433,7 @@ async def activate_flight_plan(
     db: AsyncSession = Depends(get_db_session),
 ) -> FlightPlanRead:
     """Set a flight plan's status to ``active``."""
-    plan = await plan_repo.update_status(
-        db, plan_id, "active", local_user.id
-    )
+    plan = await plan_repo.update_status(db, plan_id, "active", local_user.id)
     if plan is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -28,14 +28,30 @@ function formatHours(hours: number): string {
 </script>
 
 <template>
-  <HCard variant="elevated" padding="none">
-    <div v-if="entries.length === 0" class="py-12 text-center">
-      <Icon name="heroicons:trophy" class="w-10 h-10 text-horus-text-muted mx-auto mb-3" />
-      <p class="text-sm text-horus-text-muted">No leaderboard data yet</p>
-      <p class="text-xs text-horus-text-muted mt-1">Complete training sessions to appear on the leaderboard</p>
+  <HCard
+    variant="elevated"
+    padding="none"
+  >
+    <div
+      v-if="entries.length === 0"
+      class="py-12 text-center"
+    >
+      <Icon
+        name="heroicons:trophy"
+        class="w-10 h-10 text-horus-text-muted mx-auto mb-3"
+      />
+      <p class="text-sm text-horus-text-muted">
+        No leaderboard data yet
+      </p>
+      <p class="text-xs text-horus-text-muted mt-1">
+        Complete training sessions to appear on the leaderboard
+      </p>
     </div>
 
-    <div v-else class="overflow-x-auto">
+    <div
+      v-else
+      class="overflow-x-auto"
+    >
       <table class="w-full">
         <thead>
           <tr class="border-b border-horus-border-subtle">
@@ -77,10 +93,16 @@ function formatHours(hours: number): string {
           >
             <!-- Rank -->
             <td class="px-3 py-3 text-center">
-              <span v-if="entry.rank <= 3" class="text-lg">
+              <span
+                v-if="entry.rank <= 3"
+                class="text-lg"
+              >
                 {{ medalEmojis[entry.rank] }}
               </span>
-              <span v-else class="text-sm text-horus-text-muted font-mono">
+              <span
+                v-else
+                class="text-sm text-horus-text-muted font-mono"
+              >
                 {{ entry.rank }}
               </span>
             </td>
@@ -93,7 +115,7 @@ function formatHours(hours: number): string {
                     :src="`https://api.dicebear.com/7.x/avataaars/svg?seed=${entry.avatar_seed || entry.user_id}`"
                     :alt="entry.display_name"
                     class="w-full h-full object-cover"
-                  />
+                  >
                 </div>
                 <div class="min-w-0">
                   <p
@@ -103,7 +125,10 @@ function formatHours(hours: number): string {
                     ]"
                   >
                     {{ entry.display_name || 'Unknown Pilot' }}
-                    <span v-if="entry.user_id === currentUserId" class="text-xxs text-horus-accent-cyan ml-1">(You)</span>
+                    <span
+                      v-if="entry.user_id === currentUserId"
+                      class="text-xxs text-horus-accent-cyan ml-1"
+                    >(You)</span>
                   </p>
                 </div>
               </div>
@@ -141,7 +166,10 @@ function formatHours(hours: number): string {
               class="px-3 py-3 text-center hidden lg:table-cell"
             >
               <span class="inline-flex items-center gap-1 text-sm text-horus-text-secondary">
-                <Icon name="heroicons:star" class="w-3.5 h-3.5 text-yellow-400" />
+                <Icon
+                  name="heroicons:star"
+                  class="w-3.5 h-3.5 text-yellow-400"
+                />
                 {{ entry.badges_count }}
               </span>
             </td>

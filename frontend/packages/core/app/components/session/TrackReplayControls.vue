@@ -14,10 +14,10 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  play: []
-  pause: []
-  stop: []
-  seek: [index: number]
+  'play': []
+  'pause': []
+  'stop': []
+  'seek': [index: number]
   'speed-change': [speed: number]
 }>()
 
@@ -97,7 +97,10 @@ onUnmounted(() => {
           title="Stop"
           @click="emit('stop')"
         >
-          <Icon name="heroicons:stop-solid" class="w-4 h-4" />
+          <Icon
+            name="heroicons:stop-solid"
+            class="w-4 h-4"
+          />
         </button>
 
         <!-- Play / Pause -->
@@ -129,7 +132,7 @@ onUnmounted(() => {
             'px-2 py-1 rounded text-xs font-mono transition-colors',
             speed === s
               ? 'bg-horus-accent-cyan text-horus-bg-primary'
-              : 'bg-horus-bg-tertiary text-horus-text-secondary hover:text-horus-text-primary hover:bg-horus-bg-elevated'
+              : 'bg-horus-bg-tertiary text-horus-text-secondary hover:text-horus-text-primary hover:bg-horus-bg-elevated',
           ]"
           @click="emit('speed-change', s)"
         >

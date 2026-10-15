@@ -18,7 +18,9 @@ class OrganizationCreate(BaseModel):
     )
     max_seats: int = Field(default=50, ge=1, le=10000)
     billing_plan: str = Field(default="starter", pattern=r"^(starter|growth|enterprise)$")
-    billing_status: str = Field(default="trial", pattern=r"^(trial|active|past_due|suspended|canceled)$")
+    billing_status: str = Field(
+        default="trial", pattern=r"^(trial|active|past_due|suspended|canceled)$"
+    )
     billing_cycle: str = Field(default="monthly", pattern=r"^(monthly|yearly)$")
 
 

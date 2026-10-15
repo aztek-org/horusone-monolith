@@ -32,9 +32,7 @@ def _haversine_nm(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     d_lng = math.radians(lng2 - lng1)
     a = (
         math.sin(d_lat / 2) ** 2
-        + math.cos(math.radians(lat1))
-        * math.cos(math.radians(lat2))
-        * math.sin(d_lng / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(d_lng / 2) ** 2
     )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return r_nm * c
@@ -97,9 +95,7 @@ class WaypointRepository:
 
         return waypoints[:limit]
 
-    async def get_waypoint(
-        self, db: AsyncSession, waypoint_id: uuid.UUID
-    ) -> Waypoint | None:
+    async def get_waypoint(self, db: AsyncSession, waypoint_id: uuid.UUID) -> Waypoint | None:
         """Get a single waypoint by ID.
 
         Args:
@@ -109,14 +105,10 @@ class WaypointRepository:
         Returns:
             The Waypoint or None.
         """
-        result = await db.execute(
-            select(Waypoint).where(Waypoint.id == waypoint_id)
-        )
+        result = await db.execute(select(Waypoint).where(Waypoint.id == waypoint_id))
         return result.scalar_one_or_none()
 
-    async def create_waypoint(
-        self, db: AsyncSession, data: dict
-    ) -> Waypoint:
+    async def create_waypoint(self, db: AsyncSession, data: dict) -> Waypoint:
         """Create a new waypoint.
 
         Args:
@@ -191,15 +183,15 @@ class WaypointRepository:
         await db.refresh(sw)
         logger.info(
             "Added waypoint %s to scenario %d at seq %d",
-            waypoint_id, scenario_id, sequence,
+            waypoint_id,
+            scenario_id,
+            sequence,
         )
         return sw
 
     # ── Session tracks ─────────────────────────────────────────────
 
-    async def get_session_track(
-        self, db: AsyncSession, session_id: int
-    ) -> SessionTrack | None:
+    async def get_session_track(self, db: AsyncSession, session_id: int) -> SessionTrack | None:
         """Get the flight track for a training session.
 
         Args:
@@ -209,9 +201,7 @@ class WaypointRepository:
         Returns:
             The SessionTrack or None.
         """
-        result = await db.execute(
-            select(SessionTrack).where(SessionTrack.session_id == session_id)
-        )
+        result = await db.execute(select(SessionTrack).where(SessionTrack.session_id == session_id))
         return result.scalar_one_or_none()
 
     async def save_session_track(
@@ -232,9 +222,7 @@ class WaypointRepository:
         Returns:
             The SessionTrack.
         """
-        result = await db.execute(
-            select(SessionTrack).where(SessionTrack.session_id == session_id)
-        )
+        result = await db.execute(select(SessionTrack).where(SessionTrack.session_id == session_id))
         track = result.scalar_one_or_none()
         if track is not None:
             track.track_points = track_points
@@ -252,9 +240,7 @@ class WaypointRepository:
 
     # ── Flight insights ────────────────────────────────────────────
 
-    async def get_flight_insights(
-        self, db: AsyncSession, session_id: int
-    ) -> list[FlightInsight]:
+    async def get_flight_insights(self, db: AsyncSession, session_id: int) -> list[FlightInsight]:
         """Get AI-generated insights for a session.
 
         Args:
@@ -271,9 +257,7 @@ class WaypointRepository:
         )
         return list(result.scalars().all())
 
-    async def create_flight_insight(
-        self, db: AsyncSession, data: dict
-    ) -> FlightInsight:
+    async def create_flight_insight(self, db: AsyncSession, data: dict) -> FlightInsight:
         """Create a flight insight record.
 
         Args:

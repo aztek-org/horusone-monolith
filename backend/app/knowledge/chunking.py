@@ -7,9 +7,7 @@ import re
 _TOKEN_PATTERN = re.compile(r"\S+")
 
 
-def chunk_document(
-    text: str, chunk_size: int, chunk_overlap: int
-) -> list[tuple[int, int, int]]:
+def chunk_document(text: str, chunk_size: int, chunk_overlap: int) -> list[tuple[int, int, int]]:
     """Return ``(char_start, char_end, token_count)`` windows.
 
     Whitespace is used as the token approximation. Consecutive windows share

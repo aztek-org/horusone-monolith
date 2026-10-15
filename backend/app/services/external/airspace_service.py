@@ -53,13 +53,14 @@ class AirspaceService:
             result = check_airspace(lat, lng, altitude)
             logger.debug(
                 "Airspace check at (%.4f, %.4f, %dft): Class %s",
-                lat, lng, altitude, result.get("class"),
+                lat,
+                lng,
+                altitude,
+                result.get("class"),
             )
             return result
         except Exception:
-            logger.exception(
-                "Failed airspace check at (%.4f, %.4f, %dft)", lat, lng, altitude
-            )
+            logger.exception("Failed airspace check at (%.4f, %.4f, %dft)", lat, lng, altitude)
             return self._default_airspace()
 
     async def check_route(
@@ -79,7 +80,8 @@ class AirspaceService:
             classes = [r.get("class", "?") for r in results]
             logger.debug(
                 "Route airspace check (%d waypoints): %s",
-                len(waypoints), " → ".join(classes),
+                len(waypoints),
+                " → ".join(classes),
             )
             return results
         except Exception:

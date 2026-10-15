@@ -85,10 +85,7 @@ class NvidiaNIMAdapter:
                 response["data"],
                 key=lambda item: item.get("index", 0),
             )
-            vectors = [
-                [float(value) for value in item["embedding"]]
-                for item in ordered
-            ]
+            vectors = [[float(value) for value in item["embedding"]] for item in ordered]
         except (KeyError, TypeError, ValueError) as exc:
             raise LLMUsageError("NVIDIA NIM returned an invalid response") from exc
 

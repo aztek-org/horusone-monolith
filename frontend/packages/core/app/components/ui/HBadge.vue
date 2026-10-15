@@ -5,10 +5,10 @@ interface Props {
   pulse?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   variant: 'active',
   size: 'md',
-  pulse: false
+  pulse: false,
 })
 
 const variantClasses = {
@@ -35,10 +35,13 @@ const sizeClasses = {
       'inline-flex items-center font-semibold uppercase tracking-wider rounded border',
       variantClasses[variant],
       sizeClasses[size],
-      pulse && 'animate-pulse-slow'
+      pulse && 'animate-pulse-slow',
     ]"
   >
-    <span v-if="pulse" class="w-1.5 h-1.5 rounded-full bg-current mr-1.5 animate-pulse" />
+    <span
+      v-if="pulse"
+      class="w-1.5 h-1.5 rounded-full bg-current mr-1.5 animate-pulse"
+    />
     <slot />
   </span>
 </template>

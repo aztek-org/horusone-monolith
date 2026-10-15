@@ -38,9 +38,10 @@ class Organization(Base):
     billing_status: Mapped[str] = mapped_column(String(32), nullable=False, default="trial")
     billing_cycle: Mapped[str] = mapped_column(String(16), nullable=False, default="monthly")
     enabled_features: Mapped[list[str]] = mapped_column(
-        JSONB, nullable=False,
+        JSONB,
+        nullable=False,
         default=lambda: ["hangar", "squawk", "tower"],
-        server_default="'[\"hangar\",\"squawk\",\"tower\"]'",
+        server_default='\'["hangar","squawk","tower"]\'',
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

@@ -15,7 +15,7 @@ const emit = defineEmits<{
 
 const scrollContainer = ref<HTMLElement | null>(null)
 
-const speakerConfig: Record<string, { prefix: string; color: string; bgColor: string; icon: string }> = {
+const speakerConfig: Record<string, { prefix: string, color: string, bgColor: string, icon: string }> = {
   pilot: {
     prefix: 'PILOT',
     color: 'text-horus-status-success',
@@ -77,7 +77,10 @@ function formatTime(timestamp: string): string {
   <div class="flex flex-col h-full">
     <!-- Header -->
     <div class="flex items-center gap-2 pb-3 border-b border-horus-border-subtle mb-3 shrink-0">
-      <Icon name="heroicons:chat-bubble-left-right" class="w-4 h-4 text-horus-accent-cyan" />
+      <Icon
+        name="heroicons:chat-bubble-left-right"
+        class="w-4 h-4 text-horus-accent-cyan"
+      />
       <h3 class="text-xs font-semibold text-horus-text-primary uppercase tracking-wider">
         Voice Transcript
       </h3>
@@ -87,10 +90,18 @@ function formatTime(timestamp: string): string {
     </div>
 
     <!-- Empty State -->
-    <div v-if="voiceLogs.length === 0" class="flex-1 flex items-center justify-center">
+    <div
+      v-if="voiceLogs.length === 0"
+      class="flex-1 flex items-center justify-center"
+    >
       <div class="text-center">
-        <Icon name="heroicons:chat-bubble-left-ellipsis" class="w-8 h-8 text-horus-text-muted mx-auto mb-2 opacity-50" />
-        <p class="text-xs text-horus-text-muted">No voice logs available</p>
+        <Icon
+          name="heroicons:chat-bubble-left-ellipsis"
+          class="w-8 h-8 text-horus-text-muted mx-auto mb-2 opacity-50"
+        />
+        <p class="text-xs text-horus-text-muted">
+          No voice logs available
+        </p>
       </div>
     </div>
 
@@ -134,17 +145,23 @@ function formatTime(timestamp: string): string {
         >
           {{ log.message }}
         </p>
-        <div v-if="log.frequency" class="mt-1 flex items-center gap-2">
+        <div
+          v-if="log.frequency"
+          class="mt-1 flex items-center gap-2"
+        >
           <span class="text-xxs font-mono text-horus-text-muted">
             {{ log.frequency }}
           </span>
-          <div v-if="log.quality_score !== null" class="flex items-center gap-1">
+          <div
+            v-if="log.quality_score !== null"
+            class="flex items-center gap-1"
+          >
             <div
               :class="[
                 'w-1.5 h-1.5 rounded-full',
-                log.quality_score >= 80 ? 'bg-horus-status-success' :
-                log.quality_score >= 50 ? 'bg-horus-status-warning' :
-                'bg-horus-status-danger'
+                log.quality_score >= 80 ? 'bg-horus-status-success'
+                : log.quality_score >= 50 ? 'bg-horus-status-warning'
+                  : 'bg-horus-status-danger',
               ]"
             />
             <span class="text-xxs font-mono text-horus-text-muted">{{ log.quality_score }}%</span>

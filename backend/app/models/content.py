@@ -35,13 +35,9 @@ class ContentCategory(Base):
 
     __tablename__ = "content_categories"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    slug: Mapped[str] = mapped_column(
-        String(255), unique=True, nullable=False, index=True
-    )
+    slug: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     parent_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
@@ -49,13 +45,9 @@ class ContentCategory(Base):
         nullable=True,
         index=True,
     )
-    sort_order: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     icon: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    is_active: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True
-    )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -64,12 +56,8 @@ class ContentCategory(Base):
     parent: Mapped[ContentCategory | None] = relationship(
         remote_side="ContentCategory.id", back_populates="children"
     )
-    children: Mapped[list[ContentCategory]] = relationship(
-        back_populates="parent"
-    )
-    articles: Mapped[list[ContentArticle]] = relationship(
-        back_populates="category"
-    )
+    children: Mapped[list[ContentCategory]] = relationship(back_populates="parent")
+    articles: Mapped[list[ContentArticle]] = relationship(back_populates="category")
 
     def __repr__(self) -> str:
         return f"<ContentCategory slug={self.slug!r}>"
@@ -95,9 +83,7 @@ class ContentArticle(Base):
         # Alembic autogenerate cannot diff to_tsvector expressions reliably.
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     category_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("content_categories.id", ondelete="CASCADE"),
@@ -105,9 +91,7 @@ class ContentArticle(Base):
         index=True,
     )
     title: Mapped[str] = mapped_column(String(500), nullable=False)
-    slug: Mapped[str] = mapped_column(
-        String(500), unique=True, nullable=False, index=True
-    )
+    slug: Mapped[str] = mapped_column(String(500), unique=True, nullable=False, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     summary: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     difficulty_level: Mapped[int] = mapped_column(
@@ -125,12 +109,8 @@ class ContentArticle(Base):
         nullable=True,
         index=True,
     )
-    is_published: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
-    view_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
+    is_published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -142,9 +122,7 @@ class ContentArticle(Base):
     )
 
     # ── Relationships ──────────────────────────────────────────────
-    category: Mapped[ContentCategory] = relationship(
-        back_populates="articles"
-    )
+    category: Mapped[ContentCategory] = relationship(back_populates="articles")
     author: Mapped[User | None] = relationship()
     organization: Mapped[Organization | None] = relationship()
 

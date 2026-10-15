@@ -24,7 +24,6 @@ export const useVoiceComm = () => {
 
   let ws: WebSocket | null = null
   let mediaRecorder: MediaRecorder | null = null
-  let audioContext: AudioContext | null = null
   let audioChunks: Blob[] = []
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -68,7 +67,8 @@ export const useVoiceComm = () => {
           try {
             const message = JSON.parse(event.data)
             handleServerMessage(message)
-          } catch (e) {
+          }
+          catch (e) {
             console.error('Failed to parse server message:', e)
           }
         }
@@ -88,7 +88,8 @@ export const useVoiceComm = () => {
         _stopHeartbeat()
         _tryReconnect()
       }
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Failed to connect:', error)
       status.value.error = 'Failed to connect to server'
       isConnecting = false
@@ -111,9 +112,9 @@ export const useVoiceComm = () => {
 
   const _tryReconnect = (): void => {
     if (
-      !isAuthenticated.value ||
-      reconnectAttempts >= MAX_RECONNECT_ATTEMPTS ||
-      reconnectTimer
+      !isAuthenticated.value
+      || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS
+      || reconnectTimer
     ) return
 
     const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000)
@@ -213,7 +214,7 @@ export const useVoiceComm = () => {
         await sendAudio(audioBlob)
 
         // Stop all tracks
-        stream.getTracks().forEach((track) => track.stop())
+        stream.getTracks().forEach(track => track.stop())
       }
 
       // Start recording
@@ -222,7 +223,8 @@ export const useVoiceComm = () => {
       status.value.error = null
 
       console.log('Recording started')
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Failed to start recording:', error)
       status.value.error = 'Microphone access denied'
     }
@@ -259,7 +261,8 @@ export const useVoiceComm = () => {
       ws.send(JSON.stringify({ type: 'audio_end' }))
 
       console.log('Audio sent to server')
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Failed to send audio:', error)
       status.value.error = 'Failed to send audio'
     }
@@ -291,7 +294,8 @@ export const useVoiceComm = () => {
       await audio.play()
 
       console.log('Playing ATC response')
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Failed to play audio:', error)
       status.value.speaking = false
       status.value.error = 'Failed to play audio'

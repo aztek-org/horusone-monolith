@@ -14,7 +14,7 @@ const props = withDefaults(defineProps<Props>(), {
   showPercentage: true,
   variant: 'default',
   size: 'md',
-  animated: true
+  animated: true,
 })
 
 const percentage = computed(() => {
@@ -43,17 +43,26 @@ const heightClass = computed(() => {
 
 <template>
   <div class="space-y-1.5">
-    <div v-if="label || showPercentage" class="flex items-center justify-between text-xs">
-      <span v-if="label" class="text-horus-text-muted uppercase tracking-wider">{{ label }}</span>
-      <span v-if="showPercentage" class="font-mono text-horus-text-secondary">{{ Math.round(percentage) }}% COMPLETE</span>
+    <div
+      v-if="label || showPercentage"
+      class="flex items-center justify-between text-xs"
+    >
+      <span
+        v-if="label"
+        class="text-horus-text-muted uppercase tracking-wider"
+      >{{ label }}</span>
+      <span
+        v-if="showPercentage"
+        class="font-mono text-horus-text-secondary"
+      >{{ Math.round(percentage) }}% COMPLETE</span>
     </div>
-    
+
     <div :class="['w-full bg-horus-bg-secondary rounded-full overflow-hidden', heightClass]">
       <div
         :class="[
           'h-full rounded-full',
           fillColorClass,
-          animated && 'transition-all duration-500 ease-out'
+          animated && 'transition-all duration-500 ease-out',
         ]"
         :style="{ width: `${percentage}%` }"
       />

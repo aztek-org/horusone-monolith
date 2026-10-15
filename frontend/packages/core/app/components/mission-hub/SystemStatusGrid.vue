@@ -5,7 +5,7 @@ const systems = computed(() => [
   { key: 'propulsion', label: 'PROPULSION', status: flightData.value.systems.propulsion },
   { key: 'hydraulics', label: 'HYDRAULICS', status: flightData.value.systems.hydraulics },
   { key: 'electrical', label: 'ELECTRICAL', status: flightData.value.systems.electrical },
-  { key: 'pitotStatic', label: 'PITOT STAT', status: flightData.value.systems.pitotStatic }
+  { key: 'pitotStatic', label: 'PITOT STAT', status: flightData.value.systems.pitotStatic },
 ])
 
 function getStatusValue(status: string) {
@@ -29,7 +29,7 @@ function getStatusVariant(status: string): 'nominal' | 'warning' | 'critical' | 
     <h3 class="text-xs font-semibold text-horus-text-secondary uppercase tracking-wider">
       SYSTEM STATUS INDICATORS
     </h3>
-    
+
     <!-- Status Grid -->
     <div class="grid grid-cols-2 gap-2">
       <HStatusIndicator

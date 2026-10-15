@@ -66,15 +66,9 @@ class Badge(Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    name: Mapped[str] = mapped_column(
-        String(255), nullable=False
-    )
-    slug: Mapped[str] = mapped_column(
-        String(255), nullable=False, index=True
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     icon: Mapped[str | None] = mapped_column(String(255), nullable=True)
     criteria: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
@@ -82,12 +76,8 @@ class Badge(Base):
     )
     category: Mapped[str] = mapped_column(String(50), nullable=False)
     tier: Mapped[str] = mapped_column(String(20), nullable=False)
-    sort_order: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
-    is_active: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True
-    )
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     org_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("organizations.id"),
@@ -99,9 +89,7 @@ class Badge(Base):
     )
 
     # ── Relationships ──────────────────────────────────────────────
-    user_badges: Mapped[list[UserBadge]] = relationship(
-        back_populates="badge"
-    )
+    user_badges: Mapped[list[UserBadge]] = relationship(back_populates="badge")
     organization: Mapped[Organization | None] = relationship()
 
     def __repr__(self) -> str:
@@ -117,15 +105,9 @@ class UserBadge(Base):
 
     __tablename__ = "user_badges"
 
-    __table_args__ = (
-        UniqueConstraint(
-            "user_id", "badge_id", name="uq_user_badge"
-        ),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "badge_id", name="uq_user_badge"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -150,10 +132,7 @@ class UserBadge(Base):
     badge: Mapped[Badge] = relationship(back_populates="user_badges")
 
     def __repr__(self) -> str:
-        return (
-            f"<UserBadge user_id={self.user_id} "
-            f"badge_id={self.badge_id}>"
-        )
+        return f"<UserBadge user_id={self.user_id} badge_id={self.badge_id}>"
 
 
 class LeaderboardSnapshot(Base):
@@ -166,9 +145,7 @@ class LeaderboardSnapshot(Base):
 
     __tablename__ = "leaderboard_snapshots"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     org_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("organizations.id"),
@@ -187,7 +164,4 @@ class LeaderboardSnapshot(Base):
     organization: Mapped[Organization | None] = relationship()
 
     def __repr__(self) -> str:
-        return (
-            f"<LeaderboardSnapshot period={self.period!r} "
-            f"org_id={self.org_id}>"
-        )
+        return f"<LeaderboardSnapshot period={self.period!r} org_id={self.org_id}>"

@@ -67,9 +67,7 @@ async def get_my_results(
     db: AsyncSession = Depends(get_db_session),
 ) -> list[AssessmentResultRead]:
     """Get the current user's assessment results."""
-    results = await assessment_repo.get_user_results(
-        db, local_user.id, limit, offset
-    )
+    results = await assessment_repo.get_user_results(db, local_user.id, limit, offset)
     return results  # type: ignore[return-value]
 
 

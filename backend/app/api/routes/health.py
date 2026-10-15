@@ -1,4 +1,5 @@
 """Health check endpoint with real service probes."""
+
 import logging
 
 from fastapi import APIRouter, Request
@@ -72,9 +73,13 @@ async def readiness_check(request: Request) -> ReadinessResponse:
         tts="loaded",
     )
     ready = all(
-        v in ("ok", "loaded") for v in (
-            services.database, services.redis,
-            services.llm, services.whisper, services.tts,
+        v in ("ok", "loaded")
+        for v in (
+            services.database,
+            services.redis,
+            services.llm,
+            services.whisper,
+            services.tts,
         )
     )
     return ReadinessResponse(ready=ready, services=services)
@@ -97,6 +102,7 @@ async def _probe_database() -> str:
 async def _probe_redis() -> str:
     try:
         from app.core.redis import get_redis
+
         rd = await get_redis()
         await rd.ping()
         return "ok"

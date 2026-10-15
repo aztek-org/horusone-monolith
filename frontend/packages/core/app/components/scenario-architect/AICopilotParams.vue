@@ -6,15 +6,15 @@ const {
   setAssertiveness,
   setErrorRate,
   setKnowledgeLevel,
-  setCommsStyle
+  setCommsStyle,
 } = useAICopilot()
 
 const localAssertiveness = ref(params.value.assertiveness)
 const localErrorRate = ref(params.value.simulatedErrorRate)
 
 // Sync local values with composable
-watch(localAssertiveness, (val) => setAssertiveness(val))
-watch(localErrorRate, (val) => setErrorRate(val))
+watch(localAssertiveness, val => setAssertiveness(val))
+watch(localErrorRate, val => setErrorRate(val))
 </script>
 
 <template>
@@ -22,8 +22,13 @@ watch(localErrorRate, (val) => setErrorRate(val))
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2">
-        <Icon name="heroicons:cpu-chip" class="w-5 h-5 text-horus-accent-cyan" />
-        <h2 class="text-sm font-semibold text-horus-text-primary">AI COPILOT PARAMETERS</h2>
+        <Icon
+          name="heroicons:cpu-chip"
+          class="w-5 h-5 text-horus-accent-cyan"
+        />
+        <h2 class="text-sm font-semibold text-horus-text-primary">
+          AI COPILOT PARAMETERS
+        </h2>
       </div>
       <span class="text-xs text-horus-accent-cyan">Expert</span>
     </div>
@@ -79,7 +84,7 @@ watch(localErrorRate, (val) => setErrorRate(val))
             'flex-1 px-3 py-2 rounded-md text-xs font-medium transition-all',
             params.proceduralKnowledge === level.value
               ? 'bg-horus-accent-cyan text-horus-bg-primary'
-              : 'bg-horus-bg-secondary text-horus-text-secondary hover:text-horus-text-primary hover:bg-horus-bg-tertiary border border-horus-border-subtle'
+              : 'bg-horus-bg-secondary text-horus-text-secondary hover:text-horus-text-primary hover:bg-horus-bg-tertiary border border-horus-border-subtle',
           ]"
           @click="setKnowledgeLevel(level.value as 'novice' | 'proficient' | 'expert')"
         >
@@ -103,7 +108,11 @@ watch(localErrorRate, (val) => setErrorRate(val))
 
     <!-- Export Button -->
     <div class="pt-4 border-t border-horus-border-subtle">
-      <HButton variant="secondary" class="w-full" icon="heroicons:arrow-down-tray">
+      <HButton
+        variant="secondary"
+        class="w-full"
+        icon="heroicons:arrow-down-tray"
+      >
         EXPORT SCENARIO PROFILE
       </HButton>
     </div>

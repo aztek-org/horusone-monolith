@@ -13,7 +13,7 @@ const props = withDefaults(defineProps<Props>(), {
   size: 'md',
   disabled: false,
   loading: false,
-  iconPosition: 'left'
+  iconPosition: 'left',
 })
 
 const emit = defineEmits<{
@@ -47,16 +47,28 @@ function handleClick(event: MouseEvent) {
       'inline-flex items-center justify-center gap-2 font-medium rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-horus-bg-primary',
       variantClasses[variant],
       sizeClasses[size],
-      (disabled || loading) && 'opacity-50 cursor-not-allowed'
+      (disabled || loading) && 'opacity-50 cursor-not-allowed',
     ]"
     :disabled="disabled || loading"
     @click="handleClick"
   >
-    <Icon v-if="loading" name="svg-spinners:ring-resize" class="w-4 h-4" />
+    <Icon
+      v-if="loading"
+      name="svg-spinners:ring-resize"
+      class="w-4 h-4"
+    />
     <template v-else>
-      <Icon v-if="icon && iconPosition === 'left'" :name="icon" class="w-4 h-4" />
+      <Icon
+        v-if="icon && iconPosition === 'left'"
+        :name="icon"
+        class="w-4 h-4"
+      />
       <slot />
-      <Icon v-if="icon && iconPosition === 'right'" :name="icon" class="w-4 h-4" />
+      <Icon
+        v-if="icon && iconPosition === 'right'"
+        :name="icon"
+        class="w-4 h-4"
+      />
     </template>
   </button>
 </template>

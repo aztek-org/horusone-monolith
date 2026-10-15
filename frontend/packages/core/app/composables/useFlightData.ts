@@ -33,29 +33,29 @@ const defaultFlightData: FlightData = {
     value: 245,
     unit: 'KIAS',
     trend: 'down',
-    trendValue: '-2'
+    trendValue: '-2',
   },
   altitude: {
     value: 12500,
     unit: 'FT',
-    verticalSpeed: 150
+    verticalSpeed: 150,
   },
   fuel: {
     onBoard: 8420,
     burnRate: 3400,
-    unit: 'LBS'
+    unit: 'LBS',
   },
   position: {
     lat: 34.05,
     lon: -118.24,
-    heading: 270
+    heading: 270,
   },
   systems: {
     propulsion: 'nominal',
     hydraulics: 'nominal',
     electrical: 'warning',
-    pitotStatic: 'critical'
-  }
+    pitotStatic: 'critical',
+  },
 }
 
 export const useFlightData = () => {
@@ -85,7 +85,7 @@ export const useFlightData = () => {
 
   function updateSystemStatus(
     system: keyof FlightData['systems'],
-    status: 'nominal' | 'warning' | 'critical' | 'offline'
+    status: 'nominal' | 'warning' | 'critical' | 'offline',
   ) {
     flightData.value.systems[system] = status
   }
@@ -96,16 +96,16 @@ export const useFlightData = () => {
 
   // Computed helpers
   const hasSystemWarning = computed(() =>
-    Object.values(flightData.value.systems).some(s => s === 'warning')
+    Object.values(flightData.value.systems).some(s => s === 'warning'),
   )
 
   const hasSystemCritical = computed(() =>
-    Object.values(flightData.value.systems).some(s => s === 'critical')
+    Object.values(flightData.value.systems).some(s => s === 'critical'),
   )
 
   const formattedPosition = computed(() => ({
     lat: `${Math.abs(flightData.value.position.lat).toFixed(2)}°${flightData.value.position.lat >= 0 ? 'N' : 'S'}`,
-    lon: `${Math.abs(flightData.value.position.lon).toFixed(2)}°${flightData.value.position.lon >= 0 ? 'E' : 'W'}`
+    lon: `${Math.abs(flightData.value.position.lon).toFixed(2)}°${flightData.value.position.lon >= 0 ? 'E' : 'W'}`,
   }))
 
   return {
@@ -118,6 +118,6 @@ export const useFlightData = () => {
     resetFlightData,
     hasSystemWarning,
     hasSystemCritical,
-    formattedPosition
+    formattedPosition,
   }
 }

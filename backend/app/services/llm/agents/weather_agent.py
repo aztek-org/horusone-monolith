@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.services.llm.state import HorusState, Severity, SessionPhase
+from app.services.llm.state import HorusState, Severity
 from app.services.llm.tools.weather_tools import (
     fetch_metar,
     fetch_taf,
@@ -57,8 +57,7 @@ def _generate_recommendations(
 
     if flight_category in ("IFR", "LIFR") and flight_rules == "VFR":
         recs.append(
-            "CRITICAL: Conditions are below VFR minimums. "
-            "Do not depart under VFR flight rules."
+            "CRITICAL: Conditions are below VFR minimums. Do not depart under VFR flight rules."
         )
     elif flight_category == "MVFR" and flight_rules == "VFR":
         recs.append(
@@ -111,7 +110,11 @@ def analyze_weather(state: HorusState) -> dict[str, Any]:
     dep_cat = dep_parsed.get("flight_category", "VFR")
     arr_cat = arr_parsed.get("flight_category", "VFR")
     category_priority = {"LIFR": 0, "IFR": 1, "MVFR": 2, "VFR": 3}
-    worst_cat = dep_cat if category_priority.get(dep_cat, 3) < category_priority.get(arr_cat, 3) else arr_cat
+    worst_cat = (
+        dep_cat
+        if category_priority.get(dep_cat, 3) < category_priority.get(arr_cat, 3)
+        else arr_cat
+    )
 
     # Hazards
     hazards = _extract_hazards(
@@ -138,50 +141,57 @@ def analyze_weather(state: HorusState) -> dict[str, Any]:
 
     # Validation results
     if worst_cat in ("IFR", "LIFR") and flight_rules == "VFR":
-        results.append({
-            "agent": "weather",
-            "passed": False,
-            "severity": Severity.CRITICAL.value,
-            "message": (
-                f"Weather is {worst_cat} — below VFR minimums. "
-                "Flight cannot proceed under VFR."
-            ),
-            "details": {
-                "departure_category": dep_cat,
-                "arrival_category": arr_cat,
-            },
-        })
+        results.append(
+            {
+                "agent": "weather",
+                "passed": False,
+                "severity": Severity.CRITICAL.value,
+                "message": (
+                    f"Weather is {worst_cat} — below VFR minimums. Flight cannot proceed under VFR."
+                ),
+                "details": {
+                    "departure_category": dep_cat,
+                    "arrival_category": arr_cat,
+                },
+            }
+        )
     elif worst_cat == "MVFR" and flight_rules == "VFR":
-        results.append({
-            "agent": "weather",
-            "passed": True,
-            "severity": Severity.WARNING.value,
-            "message": "Marginal VFR conditions — proceed with caution.",
-            "details": {
-                "departure_category": dep_cat,
-                "arrival_category": arr_cat,
-            },
-        })
+        results.append(
+            {
+                "agent": "weather",
+                "passed": True,
+                "severity": Severity.WARNING.value,
+                "message": "Marginal VFR conditions — proceed with caution.",
+                "details": {
+                    "departure_category": dep_cat,
+                    "arrival_category": arr_cat,
+                },
+            }
+        )
     else:
-        results.append({
-            "agent": "weather",
-            "passed": True,
-            "severity": Severity.INFO.value,
-            "message": f"Weather analysis complete — {worst_cat} conditions.",
-            "details": {
-                "departure_category": dep_cat,
-                "arrival_category": arr_cat,
-            },
-        })
+        results.append(
+            {
+                "agent": "weather",
+                "passed": True,
+                "severity": Severity.INFO.value,
+                "message": f"Weather analysis complete — {worst_cat} conditions.",
+                "details": {
+                    "departure_category": dep_cat,
+                    "arrival_category": arr_cat,
+                },
+            }
+        )
 
     if hazards:
-        results.append({
-            "agent": "weather",
-            "passed": True,
-            "severity": Severity.WARNING.value,
-            "message": f"Weather hazards detected: {', '.join(hazards)}.",
-            "details": {"hazards": hazards},
-        })
+        results.append(
+            {
+                "agent": "weather",
+                "passed": True,
+                "severity": Severity.WARNING.value,
+                "message": f"Weather hazards detected: {', '.join(hazards)}.",
+                "details": {"hazards": hazards},
+            }
+        )
 
     weather_state = {
         "departure_metar": dep_metar_raw,

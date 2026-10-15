@@ -37,7 +37,7 @@ def calculate_fuel(state: HorusState) -> dict[str, Any]:
     cruise_altitude = flight_plan.get("cruise_altitude", 5000)
 
     # Get wind from weather state if available
-    weather = state.get("weather") or {}
+    _weather = state.get("weather") or {}
 
     legs: list[dict[str, Any]] = []
     total_burn = 0.0
@@ -75,14 +75,16 @@ def calculate_fuel(state: HorusState) -> dict[str, Any]:
         )
         total_burn += burn
 
-        legs.append({
-            "leg": i + 1,
-            "from": wp_from.get("name", f"WP{i}"),
-            "to": wp_to.get("name", f"WP{i + 1}"),
-            "distance_nm": round(distance, 1),
-            "altitude_ft": leg_alt,
-            "fuel_burn_gal": burn,
-        })
+        legs.append(
+            {
+                "leg": i + 1,
+                "from": wp_from.get("name", f"WP{i}"),
+                "to": wp_to.get("name", f"WP{i + 1}"),
+                "distance_nm": round(distance, 1),
+                "altitude_ft": leg_alt,
+                "fuel_burn_gal": burn,
+            }
+        )
 
     # Legal reserve
     gph = FUEL_BURN_RATES.get(aircraft_type, FUEL_BURN_RATES["DEFAULT"])
@@ -106,35 +108,39 @@ def calculate_fuel(state: HorusState) -> dict[str, Any]:
 
     # Validation result
     if not sufficient:
-        results.append({
-            "agent": "fuel",
-            "passed": False,
-            "severity": Severity.CRITICAL.value,
-            "message": (
-                f"Insufficient fuel: {fuel_on_board:.1f} gal on board, "
-                f"{total_burn:.1f} gal burn + {reserve_required:.1f} gal reserve needed."
-            ),
-            "details": {
-                "fuel_on_board": fuel_on_board,
-                "total_burn": round(total_burn, 2),
-                "reserve_required": reserve_required,
-                "reserve_available": round(reserve_available, 2),
-            },
-        })
+        results.append(
+            {
+                "agent": "fuel",
+                "passed": False,
+                "severity": Severity.CRITICAL.value,
+                "message": (
+                    f"Insufficient fuel: {fuel_on_board:.1f} gal on board, "
+                    f"{total_burn:.1f} gal burn + {reserve_required:.1f} gal reserve needed."
+                ),
+                "details": {
+                    "fuel_on_board": fuel_on_board,
+                    "total_burn": round(total_burn, 2),
+                    "reserve_required": reserve_required,
+                    "reserve_available": round(reserve_available, 2),
+                },
+            }
+        )
     else:
-        results.append({
-            "agent": "fuel",
-            "passed": True,
-            "severity": Severity.INFO.value,
-            "message": (
-                f"Fuel sufficient: {reserve_available:.1f} gal reserve "
-                f"(min {reserve_required:.1f} gal)."
-            ),
-            "details": {
-                "total_burn": round(total_burn, 2),
-                "reserve_available": round(reserve_available, 2),
-            },
-        })
+        results.append(
+            {
+                "agent": "fuel",
+                "passed": True,
+                "severity": Severity.INFO.value,
+                "message": (
+                    f"Fuel sufficient: {reserve_available:.1f} gal reserve "
+                    f"(min {reserve_required:.1f} gal)."
+                ),
+                "details": {
+                    "total_burn": round(total_burn, 2),
+                    "reserve_available": round(reserve_available, 2),
+                },
+            }
+        )
 
     logger.info(
         "Fuel agent: %.1f gal burn, %.1f gal reserve (%s)",

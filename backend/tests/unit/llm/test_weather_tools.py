@@ -1,0 +1,129 @@
+"""Unit tests for the mock METAR/TAF fetch and parsing tools."""
+
+from __future__ import annotations
+
+import pytest
+
+from app.services.llm.tools.weather_tools import (
+    DEFAULT_METAR,
+    MOCK_METARS,
+    determine_flight_category,
+    fetch_metar,
+    fetch_taf,
+    parse_metar,
+)
+
+
+class TestFetch:
+    def test_known_metar_is_returned_verbatim(self) -> None:
+        assert fetch_metar("KJFK") == MOCK_METARS["KJFK"]
+
+    def test_lookup_is_case_and_whitespace_insensitive(self) -> None:
+        assert fetch_metar("  kjfk ") == MOCK_METARS["KJFK"]
+
+    def test_unknown_metar_uses_the_default_template(self) -> None:
+        result = fetch_metar("ZZZZ")
+
+        assert result == DEFAULT_METAR.format(icao="ZZZZ")
+        assert "ZZZZ" in result
+        assert "CLR" in result
+
+    def test_known_taf_is_returned(self) -> None:
+        assert "TAF KJFK" in fetch_taf("KJFK")
+
+    def test_unknown_taf_uses_the_default_template(self) -> None:
+        result = fetch_taf("ZZZZ")
+
+        assert result.startswith("TAF ZZZZ")
+        assert "SKC" in result
+
+
+class TestParseMetar:
+    def test_full_parse_of_a_vfr_metar(self) -> None:
+        result = parse_metar(
+            "KJFK 151856Z 28012G18KT 10SM FEW040 SCT250 22/12 A3012 "
+            "RMK AO2 SLP203 T02220117"
+        )
+
+        assert result["station"] == "KJFK"
+        assert result["wind_dir"] == 280
+        assert result["wind_speed"] == 12
+        assert result["wind_gust"] == 18
+        assert result["visibility_sm"] == 10
+        assert result["sky_layers"] == [("FEW", 4000), ("SCT", 25000)]
+        assert result["ceiling_ft"] is None
+        assert result["temperature"] == 22
+        assert result["dewpoint"] == 12
+        assert result["altimeter"] == pytest.approx(30.12)
+        assert result["flight_category"] == "VFR"
+
+    def test_ceiling_is_the_first_broken_or_overcast_layer(self) -> None:
+        result = parse_metar(
+            "KORD 151851Z 31015G22KT 6SM -RA BR SCT015 BKN025 OVC040 18/16 A2978"
+        )
+
+        assert result["ceiling_ft"] == 2500
+        assert result["visibility_sm"] == 6
+        assert result["wind_gust"] == 22
+        assert result["flight_category"] == "MVFR"
+
+    def test_variable_wind_direction_is_zero(self) -> None:
+        result = parse_metar("KXYZ 151856Z VRB04KT 10SM CLR 20/10 A3000")
+
+        assert result["wind_dir"] == 0
+        assert result["wind_speed"] == 4
+        assert result["wind_gust"] is None
+
+    def test_negative_temperatures_are_parsed(self) -> None:
+        result = parse_metar("KMSP 151853Z 00000KT 10SM CLR M02/M05 A3012")
+
+        assert result["temperature"] == -2
+        assert result["dewpoint"] == -5
+
+    def test_missing_optional_fields_are_defaulted(self) -> None:
+        result = parse_metar("KLAX 151853Z")
+
+        assert result["wind_dir"] == 0
+        assert result["wind_speed"] == 0
+        assert result["visibility_sm"] == 10
+        assert result["sky_layers"] == []
+        assert result["temperature"] is None
+        assert result["dewpoint"] is None
+        assert result["altimeter"] == pytest.approx(29.92)
+
+    def test_empty_metar_returns_only_the_raw_string(self) -> None:
+        assert parse_metar("") == {"raw": ""}
+
+    def test_raw_string_is_always_preserved(self) -> None:
+        raw = "KJFK 151856Z 28012KT 10SM CLR 22/12 A3012"
+        assert parse_metar(raw)["raw"] == raw
+
+
+@pytest.mark.parametrize(
+    ("visibility_sm", "ceiling_ft", "expected"),
+    [
+        # Visibility-driven categories.
+        (0.5, None, "LIFR"),
+        (1, None, "IFR"),
+        (2, None, "IFR"),
+        (3, None, "MVFR"),
+        (5, None, "MVFR"),
+        (6, None, "VFR"),
+        # Ceiling-driven categories.
+        (10, 400, "LIFR"),
+        (10, 500, "IFR"),
+        (10, 999, "IFR"),
+        (10, 1000, "MVFR"),
+        (10, 3000, "MVFR"),
+        (10, 3001, "VFR"),
+        # Unlimited ceiling.
+        (10, None, "VFR"),
+        (None, None, "VFR"),
+    ],
+)
+def test_determine_flight_category_boundaries(
+    visibility_sm: float | None,
+    ceiling_ft: int | None,
+    expected: str,
+) -> None:
+    assert determine_flight_category(visibility_sm, ceiling_ft) == expected

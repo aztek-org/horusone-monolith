@@ -65,7 +65,7 @@ export interface FlightPlanCreateData {
   legs?: Omit<FlightPlanLeg, 'id'>[]
 }
 
-export interface FlightPlanUpdateData extends Partial<FlightPlanCreateData> {}
+export type FlightPlanUpdateData = Partial<FlightPlanCreateData>
 
 export interface ValidationError {
   field: string

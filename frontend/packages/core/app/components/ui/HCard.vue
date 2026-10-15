@@ -5,10 +5,10 @@ interface Props {
   hover?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   variant: 'default',
   padding: 'md',
-  hover: false
+  hover: false,
 })
 
 const variantClasses = {
@@ -31,7 +31,7 @@ const paddingClasses = {
       'border rounded-lg transition-all duration-200',
       variantClasses[variant],
       paddingClasses[padding],
-      hover && 'hover:border-horus-accent-cyan/30 hover:shadow-glow-cyan/10'
+      hover && 'hover:border-horus-accent-cyan/30 hover:shadow-glow-cyan/10',
     ]"
   >
     <slot />

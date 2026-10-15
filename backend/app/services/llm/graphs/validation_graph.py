@@ -101,8 +101,7 @@ def _check_all_passed(state: HorusState) -> dict[str, Any]:
     results = state.get("validation_results") or []
 
     has_critical = any(
-        r.get("severity") == Severity.CRITICAL.value and not r.get("passed", True)
-        for r in results
+        r.get("severity") == Severity.CRITICAL.value and not r.get("passed", True) for r in results
     )
 
     passed = not has_critical

@@ -305,11 +305,7 @@ class Settings(BaseSettings):
     @property
     def accepted_keycloak_issuers(self) -> set[str]:
         """Get accepted issuer URLs for JWT validation."""
-        issuers = (
-            {self.keycloak_issuer_url.rstrip("/")}
-            if self.keycloak_issuer_url
-            else set()
-        )
+        issuers = {self.keycloak_issuer_url.rstrip("/")} if self.keycloak_issuer_url else set()
         if self.environment in {"development", "testing"}:
             issuers.update(_DEVELOPMENT_ISSUER_ALIASES)
             issuers.update(
@@ -336,9 +332,7 @@ class Settings(BaseSettings):
         }
         missing = [key for key, value in configured_values.items() if not value]
         if missing:
-            raise MissingSettingError(
-                f"Missing production settings: {', '.join(missing)}"
-            )
+            raise MissingSettingError(f"Missing production settings: {', '.join(missing)}")
         if self.llm.allow_external_fallback:
             raise MissingSettingError(
                 "external fallback is not allowed in production; "

@@ -16,13 +16,13 @@ EARTH_RADIUS_NM = 3440.065  # mean Earth radius in nautical miles
 # Default fuel-burn rates (gallons per hour) by aircraft type.
 # These are *training-grade* approximations, not ops manuals.
 FUEL_BURN_RATES: dict[str, float] = {
-    "C172": 8.5,        # Cessna 172
-    "C182": 12.0,       # Cessna 182
-    "PA28": 9.0,        # Piper Cherokee
-    "PA44": 16.0,       # Piper Seminole (twin)
-    "BE36": 14.0,       # Beechcraft Bonanza
-    "B738": 850.0,      # Boeing 737-800
-    "A320": 800.0,      # Airbus A320
+    "C172": 8.5,  # Cessna 172
+    "C182": 12.0,  # Cessna 182
+    "PA28": 9.0,  # Piper Cherokee
+    "PA44": 16.0,  # Piper Seminole (twin)
+    "BE36": 14.0,  # Beechcraft Bonanza
+    "B738": 850.0,  # Boeing 737-800
+    "A320": 800.0,  # Airbus A320
     "DEFAULT": 10.0,
 }
 
@@ -66,6 +66,7 @@ AIRCRAFT_DATA: dict[str, dict[str, Any]] = {
 
 # ── Distance & Navigation ────────────────────────────────────────────
 
+
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Haversine great-circle distance between two points.
 
@@ -77,10 +78,10 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
         Distance in nautical miles.
     """
     φ1, φ2 = math.radians(lat1), math.radians(lat2)
-    Δφ = math.radians(lat2 - lat1)
-    Δλ = math.radians(lon2 - lon1)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lon2 - lon1)
 
-    a = math.sin(Δφ / 2) ** 2 + math.cos(φ1) * math.cos(φ2) * math.sin(Δλ / 2) ** 2
+    a = math.sin(d_phi / 2) ** 2 + math.cos(φ1) * math.cos(φ2) * math.sin(d_lambda / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     return EARTH_RADIUS_NM * c
@@ -93,10 +94,10 @@ def calculate_heading(lat1: float, lon1: float, lat2: float, lon2: float) -> flo
         Heading in degrees (0-360).
     """
     φ1, φ2 = math.radians(lat1), math.radians(lat2)
-    Δλ = math.radians(lon2 - lon1)
+    d_lambda = math.radians(lon2 - lon1)
 
-    x = math.sin(Δλ) * math.cos(φ2)
-    y = math.cos(φ1) * math.sin(φ2) - math.sin(φ1) * math.cos(φ2) * math.cos(Δλ)
+    x = math.sin(d_lambda) * math.cos(φ2)
+    y = math.cos(φ1) * math.sin(φ2) - math.sin(φ1) * math.cos(φ2) * math.cos(d_lambda)
 
     bearing = math.degrees(math.atan2(x, y))
     return (bearing + 360) % 360
@@ -146,6 +147,7 @@ def calculate_ete(distance_nm: float, groundspeed_kts: float) -> float:
 
 # ── Fuel ──────────────────────────────────────────────────────────────
 
+
 def calculate_fuel_burn(
     distance_nm: float,
     aircraft_type: str,
@@ -191,6 +193,7 @@ def calculate_fuel_reserve(flight_rules: str, fuel_burn_rate_gph: float) -> floa
 
 
 # ── Weight & Balance ──────────────────────────────────────────────────
+
 
 def calculate_weight_balance(
     aircraft_type: str,

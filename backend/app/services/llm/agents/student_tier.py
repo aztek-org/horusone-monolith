@@ -7,7 +7,6 @@ and response timing.  Uses heuristic scoring (no LLM needed for MVP).
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any
 
 from app.services.llm.state import HorusState
@@ -98,11 +97,15 @@ def _score_procedures(performance_notes: list[str], exchange_count: int) -> floa
     base = 75.0
 
     # Readback errors
-    readback_errors = sum(1 for n in performance_notes if "readback" in n.lower() and "incorrect" in n.lower())
+    readback_errors = sum(
+        1 for n in performance_notes if "readback" in n.lower() and "incorrect" in n.lower()
+    )
     base -= readback_errors * 12.0
 
     # Correct readbacks
-    readback_ok = sum(1 for n in performance_notes if "readback" in n.lower() and "correct" in n.lower())
+    readback_ok = sum(
+        1 for n in performance_notes if "readback" in n.lower() and "correct" in n.lower()
+    )
     base += readback_ok * 5.0
 
     return max(0.0, min(100.0, base))
@@ -155,7 +158,9 @@ def _generate_strengths_and_improvements(
     if procedure_score >= 80:
         strengths.append("Correct readback procedures observed.")
     elif procedure_score < 60:
-        improvements.append("Always read back clearances, altimeter settings, and runway assignments.")
+        improvements.append(
+            "Always read back clearances, altimeter settings, and runway assignments."
+        )
 
     # Timing
     if timing_score >= 80:

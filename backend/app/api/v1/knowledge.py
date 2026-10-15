@@ -54,9 +54,7 @@ async def upload_document(
     if not has_role(_user, "org-admin", "instructor", "collaborator", "staff"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Knowledge upload requires instructor, collaborator, or staff role"
-            ),
+            detail=("Knowledge upload requires instructor, collaborator, or staff role"),
         )
 
     ingestor = KnowledgeIngestor(

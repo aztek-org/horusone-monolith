@@ -398,16 +398,12 @@ def _install_scrubber_before_exporters(provider: TracerProvider) -> None:
     with active_processor._lock:
         processors = active_processor._span_processors
         remaining = tuple(
-            processor
-            for processor in processors
-            if not isinstance(processor, _QueryStringScrubber)
+            processor for processor in processors if not isinstance(processor, _QueryStringScrubber)
         )
         active_processor._span_processors = (_QueryStringScrubber(), *remaining)
         installed = active_processor._span_processors
     if not installed or not isinstance(installed[0], _QueryStringScrubber):
-        raise RuntimeError(
-            "the active tracer provider discarded the privacy scrubber installation"
-        )
+        raise RuntimeError("the active tracer provider discarded the privacy scrubber installation")
 
 
 def _install_configured_exporter(
@@ -488,9 +484,7 @@ def configure_telemetry(
                 # SDK provider first, protect that provider rather than creating
                 # an inactive provider around the scrubber and marking success.
                 _install_scrubber_before_exporters(active_provider)
-                _install_configured_exporter(
-                    active_provider, settings, environment=environment
-                )
+                _install_configured_exporter(active_provider, settings, environment=environment)
             else:
                 provider = TracerProvider(
                     resource=Resource.create(

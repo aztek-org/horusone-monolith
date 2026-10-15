@@ -8,7 +8,7 @@ export interface ChartLayer {
 const defaultLayers: ChartLayer[] = [
   { id: 'turbulence', name: 'Simulated Turbulence', enabled: true, status: 'mod' },
   { id: 'atc', name: 'ATC Constraints', enabled: true, status: 'active' },
-  { id: 'failures', name: 'Mechanical Failures', enabled: false, status: 'idle' }
+  { id: 'failures', name: 'Mechanical Failures', enabled: false, status: 'idle' },
 ]
 
 export const useChartLayers = () => {
@@ -30,14 +30,14 @@ export const useChartLayers = () => {
   }
 
   function enableAllLayers() {
-    layers.value.forEach(layer => {
+    layers.value.forEach((layer) => {
       layer.enabled = true
       layer.status = 'active'
     })
   }
 
   function disableAllLayers() {
-    layers.value.forEach(layer => {
+    layers.value.forEach((layer) => {
       layer.enabled = false
       layer.status = 'idle'
     })
@@ -53,6 +53,6 @@ export const useChartLayers = () => {
     setLayerStatus,
     enableAllLayers,
     disableAllLayers,
-    resetLayers
+    resetLayers,
   }
 }

@@ -13,6 +13,7 @@ import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import is_platform_admin
@@ -153,12 +154,11 @@ async def check_badges(
     stats and awards any newly earned badges.  Returns the list of
     badges awarded in this evaluation.
     """
-    awarded = await gamification_repo.check_and_award_badges(
-        db, local_user.id, org_id=org_id
-    )
+    awarded = await gamification_repo.check_and_award_badges(db, local_user.id, org_id=org_id)
     logger.info(
         "Badge check for user %s: %d new badges awarded",
-        local_user.id, len(awarded),
+        local_user.id,
+        len(awarded),
     )
     return awarded  # type: ignore[return-value]
 
@@ -178,15 +178,15 @@ async def get_badge_progress(
     from app.models.gamification import Badge
     from app.models.student_stats import StudentStats
 
-    stats = await db.scalar(
-        select(StudentStats).where(StudentStats.user_id == local_user.id)
-    )
+    stats = await db.scalar(select(StudentStats).where(StudentStats.user_id == local_user.id))
 
     badges_result = await db.execute(
-        select(Badge).where(
+        select(Badge)
+        .where(
             Badge.is_active.is_(True),
             (Badge.org_id == org_id) | (Badge.org_id.is_(None)),
-        ).order_by(Badge.sort_order)
+        )
+        .order_by(Badge.sort_order)
     )
     badges = list(badges_result.scalars().all())
 
@@ -210,14 +210,16 @@ async def get_badge_progress(
                 current = float(stats.current_streak or 0)
 
         pct = min(round((current / threshold) * 100, 1) if threshold > 0 else 100.0, 100.0)
-        progress.append(BadgeProgressRead(
-            badge_id=str(badge.id),
-            badge_name=badge.name,
-            badge_tier=badge.tier,
-            current_value=current,
-            target_value=threshold,
-            progress_percent=pct,
-        ))
+        progress.append(
+            BadgeProgressRead(
+                badge_id=str(badge.id),
+                badge_name=badge.name,
+                badge_tier=badge.tier,
+                current_value=current,
+                target_value=threshold,
+                progress_percent=pct,
+            )
+        )
 
     return progress
 

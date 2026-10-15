@@ -169,7 +169,7 @@ export function useAdmin() {
   }
 
   function deleteOrganization(orgId: string): Promise<void> {
-    return api.del<void>(`/api/v1/admin/organizations/${orgId}`)
+    return api.del<undefined>(`/api/v1/admin/organizations/${orgId}`)
   }
 
   // ── Seats ───────────────────────────────────────────────────────────────
@@ -186,7 +186,7 @@ export function useAdmin() {
   }
 
   function deleteSeat(orgId: string, seatId: string): Promise<void> {
-    return api.del<void>(`/api/v1/admin/organizations/${orgId}/seats/${seatId}`)
+    return api.del<undefined>(`/api/v1/admin/organizations/${orgId}/seats/${seatId}`)
   }
 
   // ── Users ───────────────────────────────────────────────────────────────
@@ -230,18 +230,18 @@ export function useAdmin() {
   }
 
   function deleteModule(moduleId: string): Promise<void> {
-    return api.del<void>(`/api/v1/modules/${moduleId}`)
+    return api.del<undefined>(`/api/v1/modules/${moduleId}`)
   }
 
   function linkScenario(moduleId: string, scenarioId: string, sortOrder: number): Promise<void> {
-    return api.post<void>(`/api/v1/modules/${moduleId}/scenarios`, {
+    return api.post<undefined>(`/api/v1/modules/${moduleId}/scenarios`, {
       scenario_id: scenarioId,
       sort_order: sortOrder,
     })
   }
 
   function unlinkScenario(moduleId: string, scenarioId: string): Promise<void> {
-    return api.del<void>(`/api/v1/modules/${moduleId}/scenarios/${scenarioId}`)
+    return api.del<undefined>(`/api/v1/modules/${moduleId}/scenarios/${scenarioId}`)
   }
 
   return {

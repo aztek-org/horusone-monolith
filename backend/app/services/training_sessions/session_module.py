@@ -175,13 +175,9 @@ class TrainingSessionModule:
             **(state.get("context") or {}),
             **(command.context_overrides or {}),
         }
-        result, interrupted = await self._run_live_graph(
-            state, storage_org_id, command.session_id
-        )
+        result, interrupted = await self._run_live_graph(state, storage_org_id, command.session_id)
         result["pending_instructor"] = interrupted
-        await self._store.save(
-            storage_org_id, command.session_id, result, interrupted
-        )
+        await self._store.save(storage_org_id, command.session_id, result, interrupted)
 
         if interrupted:
             await self._emit(
@@ -228,26 +224,20 @@ class TrainingSessionModule:
         """
         storage_org_id = self._storage_org_id(org_id)
         stored = await self._load(storage_org_id, session_id)
-        if not stored.pending_instructor and not stored.values.get(
-            "pending_instructor", False
-        ):
+        if not stored.pending_instructor and not stored.values.get("pending_instructor", False):
             return None
 
         state = stored.values
         instructor_overridden = instructor_response is not None
         if instructor_overridden:
-            result = self._complete_instructor_exchange(
-                state, str(instructor_response)
-            )
+            result = self._complete_instructor_exchange(state, str(instructor_response))
         else:
             result, interrupted = await self._run_live_graph(
                 state, storage_org_id, session_id, interrupt_before_response=False
             )
             if interrupted:
                 raise RuntimeError("Non-interrupting live graph unexpectedly paused")
-            result["performance_notes"] = list(
-                dict.fromkeys(result.get("performance_notes") or [])
-            )
+            result["performance_notes"] = list(dict.fromkeys(result.get("performance_notes") or []))
             result["pending_instructor"] = False
 
         await self._store.save(storage_org_id, session_id, result, False)
@@ -281,9 +271,7 @@ class TrainingSessionModule:
 
         result = dict(await self._scoring_graph.ainvoke(state))
         result["pending_instructor"] = False
-        await self._store.save(
-            storage_org_id, command.session_id, result, False
-        )
+        await self._store.save(storage_org_id, command.session_id, result, False)
         scoring = dict(result.get("scoring") or {})
         badges_earned = list(result.get("badges_earned") or [])
         await self._emit(
@@ -305,9 +293,7 @@ class TrainingSessionModule:
             report=str((result.get("context") or {}).get("report") or ""),
         )
 
-    async def snapshot(
-        self, org_id: uuid.UUID | None, session_id: int
-    ) -> SessionSnapshot:
+    async def snapshot(self, org_id: uuid.UUID | None, session_id: int) -> SessionSnapshot:
         """Return the phase, exchange count, and full state from the store."""
         if org_id is None:
             storage_org_id = self._storage_org_id(None)
@@ -371,9 +357,7 @@ class TrainingSessionModule:
 
     @staticmethod
     def _raise_if_pending(stored: StoredState, session_id: int) -> None:
-        if stored.pending_instructor or stored.values.get(
-            "pending_instructor", False
-        ):
+        if stored.pending_instructor or stored.values.get("pending_instructor", False):
             raise SessionPendingInstructorError(
                 f"Session {session_id} is awaiting instructor review"
             )
@@ -407,16 +391,12 @@ class TrainingSessionModule:
     ) -> ExchangeResult:
         return ExchangeResult(
             atc_response=(
-                atc_response
-                if atc_response is not None
-                else str(state.get("atc_response") or "")
+                atc_response if atc_response is not None else str(state.get("atc_response") or "")
             ),
             is_emergency=bool(state.get("is_emergency", False)),
             exchange_count=int(state.get("exchange_count", 0)),
             pending_instructor=(
-                bool(state.get("pending_instructor", False))
-                if pending is None
-                else pending
+                bool(state.get("pending_instructor", False)) if pending is None else pending
             ),
             citations=[],
             provider=str(state.get("llm_provider") or ""),
@@ -425,9 +405,7 @@ class TrainingSessionModule:
         )
 
     @staticmethod
-    def _snapshot_from_state(
-        session_id: int, state: dict[str, Any]
-    ) -> SessionSnapshot:
+    def _snapshot_from_state(session_id: int, state: dict[str, Any]) -> SessionSnapshot:
         return SessionSnapshot(
             session_id=session_id,
             phase=str(state.get("phase") or SessionPhase.INGESTION.value),

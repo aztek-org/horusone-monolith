@@ -148,7 +148,7 @@ function getDisplayKey(code: string): string {
     BracketLeft: '[',
     BracketRight: ']',
     Semicolon: ';',
-    Quote: "'",
+    Quote: '\'',
     Backquote: '`',
     Minus: '-',
     Equal: '=',

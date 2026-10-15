@@ -72,7 +72,9 @@ class SceneRegistry:
 
 def _scene_from_mapping(raw: dict[str, Any]) -> SceneConfig:
     """Build and validate one Scene from a YAML mapping."""
-    missing_fields = [field for field in ("version", "name", "prompt_template") if not raw.get(field)]
+    missing_fields = [
+        field for field in ("version", "name", "prompt_template") if not raw.get(field)
+    ]
     if missing_fields:
         missing = ", ".join(missing_fields)
         raise ValueError(f"Scene is missing required fields: {missing}")

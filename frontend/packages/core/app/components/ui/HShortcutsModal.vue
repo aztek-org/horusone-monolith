@@ -26,7 +26,7 @@ interface CategoryGroup {
   key: 'voice' | 'navigation' | 'general'
   label: string
   icon: string
-  items: { id: string; label: string; description: string; combo: string; enabled: boolean }[]
+  items: { id: string, label: string, description: string, combo: string, enabled: boolean }[]
 }
 
 const categories = computed<CategoryGroup[]>(() => {
@@ -125,18 +125,28 @@ onUnmounted(() => {
             <div class="flex items-center justify-between px-6 py-4 border-b border-horus-border-subtle shrink-0">
               <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-lg bg-horus-accent-cyan/20 flex items-center justify-center">
-                  <Icon name="heroicons:command-line" class="w-5 h-5 text-horus-accent-cyan" />
+                  <Icon
+                    name="heroicons:command-line"
+                    class="w-5 h-5 text-horus-accent-cyan"
+                  />
                 </div>
                 <div>
-                  <h2 class="text-base font-semibold text-horus-text-primary">Keyboard Shortcuts</h2>
-                  <p class="text-xxs text-horus-text-muted tracking-wider uppercase">Quick Reference</p>
+                  <h2 class="text-base font-semibold text-horus-text-primary">
+                    Keyboard Shortcuts
+                  </h2>
+                  <p class="text-xxs text-horus-text-muted tracking-wider uppercase">
+                    Quick Reference
+                  </p>
                 </div>
               </div>
               <button
                 class="p-2 -mr-2 rounded-lg text-horus-text-muted hover:text-horus-text-primary hover:bg-horus-bg-tertiary transition-colors"
                 @click="close"
               >
-                <Icon name="heroicons:x-mark" class="w-5 h-5" />
+                <Icon
+                  name="heroicons:x-mark"
+                  class="w-5 h-5"
+                />
               </button>
             </div>
 
@@ -148,7 +158,10 @@ onUnmounted(() => {
               >
                 <!-- Category heading -->
                 <div class="flex items-center gap-2 mb-3">
-                  <Icon :name="category.icon" class="w-4 h-4 text-horus-accent-cyan" />
+                  <Icon
+                    :name="category.icon"
+                    class="w-4 h-4 text-horus-accent-cyan"
+                  />
                   <span class="text-xs font-semibold uppercase tracking-wider text-horus-text-secondary">
                     {{ category.label }}
                   </span>
@@ -181,7 +194,10 @@ onUnmounted(() => {
                         v-for="(part, idx) in item.combo.split('+')"
                         :key="idx"
                       >
-                        <span v-if="idx > 0" class="text-horus-text-muted text-xs">+</span>
+                        <span
+                          v-if="idx > 0"
+                          class="text-horus-text-muted text-xs"
+                        >+</span>
                         <kbd
                           class="inline-flex items-center justify-center min-w-[1.75rem] h-7 px-2 rounded-md border text-xs font-mono font-medium bg-horus-bg-primary border-horus-border-default text-horus-text-primary shadow-sm"
                         >
