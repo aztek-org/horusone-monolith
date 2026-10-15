@@ -13,11 +13,21 @@ const { hasAnyRole } = useAuth()
 const navItems = computed(() => {
   const items: NavItem[] = [
     { path: '/admin', label: 'Overview', icon: 'heroicons:squares-2x2', exact: true },
-    { path: '/admin/organizations', label: 'Organizations', icon: 'heroicons:building-office-2' },
-    { path: '/admin/users', label: 'Users', icon: 'heroicons:users' },
+  ]
+
+  // Organizations/Users are backed by platform-admin-only endpoints, so only
+  // platform admins may see those links (org-admins would get a 403).
+  if (hasAnyRole('platform-admin')) {
+    items.push(
+      { path: '/admin/organizations', label: 'Organizations', icon: 'heroicons:building-office-2' },
+      { path: '/admin/users', label: 'Users', icon: 'heroicons:users' },
+    )
+  }
+
+  items.push(
     { path: '/admin/modules', label: 'Modules', icon: 'heroicons:academic-cap' },
     { path: '/admin/leaderboard', label: 'Leaderboard', icon: 'heroicons:trophy' },
-  ]
+  )
 
   // Add Instructor link for instructor/org-admin roles
   if (hasAnyRole('instructor', 'org-admin')) {
