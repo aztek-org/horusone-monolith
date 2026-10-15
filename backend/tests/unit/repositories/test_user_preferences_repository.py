@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -19,7 +20,6 @@ from app.db.repositories.user_preferences_repo import (
     _deep_merge,
 )
 from app.models.user_preferences import UserPreferences
-
 
 # ── Fakes and mock helpers ─────────────────────────────────────────────
 
@@ -91,38 +91,57 @@ class TestPreferenceHelpers:
 class TestUserPreferencesRepository:
     """Tests for cached reads and upsert behaviour."""
 
+    def test_dict_to_model_rehydrates_all_fields(self) -> None:
+        # Regression for #76: rehydrating a cached payload must produce a
+        # usable transient ORM instance, not raise AttributeError.
+        prefs_id = uuid.uuid4()
+        user_id = uuid.uuid4()
+        data = {
+            "id": str(prefs_id),
+            "user_id": str(user_id),
+            "preferences": {"voice": {"volume": 5}},
+            "created_at": "2024-01-01T00:00:00+00:00",
+            "updated_at": "2024-02-02T00:00:00+00:00",
+        }
+
+        prefs = UserPreferencesRepository._dict_to_model(data)
+
+        assert isinstance(prefs, UserPreferences)
+        assert prefs.id == prefs_id
+        assert prefs.user_id == user_id
+        assert prefs.preferences == {"voice": {"volume": 5}}
+        assert prefs.created_at == datetime.fromisoformat(data["created_at"])
+        assert prefs.updated_at == datetime.fromisoformat(data["updated_at"])
+
     @pytest.mark.asyncio
-    async def test_get_by_user_id_cache_rehydration_failure_falls_back(
+    async def test_get_by_user_id_cache_hit_returns_rehydrated_model(
         self, fake_redis: _FakeRedis
     ) -> None:
-        # A cached payload is present, but rehydrating it into an ORM instance
-        # is not possible on this SQLAlchemy version, so the repository logs a
-        # warning and falls back to the database.
+        # A cached payload must be served from Redis without touching the
+        # database (regression for #76).
         user_id = uuid.uuid4()
+        prefs_id = uuid.uuid4()
         payload = {
-            "id": str(uuid.uuid4()),
+            "id": str(prefs_id),
             "user_id": str(user_id),
             "preferences": {"theme": "dark"},
-            "created_at": None,
+            "created_at": "2024-01-01T00:00:00+00:00",
             "updated_at": None,
         }
         fake_redis.store[_cache_key(user_id)] = json.dumps(payload)
-        prefs = UserPreferences(user_id=user_id, preferences={"theme": "db"})
-        prefs.id = uuid.uuid4()
-        prefs.created_at = None
-        prefs.updated_at = None
-        session = _mock_session(scalar_result=prefs)
+        session = _mock_session(scalar_result=None)
         repo = UserPreferencesRepository()
 
         result = await repo.get_by_user_id(session, user_id)
 
-        assert result is prefs
-        session.execute.assert_awaited_once()
+        assert result is not None
+        assert result.id == prefs_id
+        assert result.user_id == user_id
+        assert result.preferences == {"theme": "dark"}
+        session.execute.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_get_by_user_id_db_hit_warms_cache(
-        self, fake_redis: _FakeRedis
-    ) -> None:
+    async def test_get_by_user_id_db_hit_warms_cache(self, fake_redis: _FakeRedis) -> None:
         user_id = uuid.uuid4()
         prefs = UserPreferences(user_id=user_id, preferences={"theme": "dark"})
         prefs.id = uuid.uuid4()
@@ -138,9 +157,7 @@ class TestUserPreferencesRepository:
         assert _cache_key(user_id) in fake_redis.store
 
     @pytest.mark.asyncio
-    async def test_get_by_user_id_db_miss_returns_none(
-        self, fake_redis: _FakeRedis
-    ) -> None:
+    async def test_get_by_user_id_db_miss_returns_none(self, fake_redis: _FakeRedis) -> None:
         user_id = uuid.uuid4()
         session = _mock_session(scalar_result=None)
         repo = UserPreferencesRepository()
@@ -168,9 +185,7 @@ class TestUserPreferencesRepository:
         assert result is prefs
 
     @pytest.mark.asyncio
-    async def test_upsert_existing_deep_merges(
-        self, fake_redis: _FakeRedis
-    ) -> None:
+    async def test_upsert_existing_deep_merges(self, fake_redis: _FakeRedis) -> None:
         user_id = uuid.uuid4()
         existing = UserPreferences(user_id=user_id, preferences={"voice": {"volume": 5}})
         existing.id = uuid.uuid4()
