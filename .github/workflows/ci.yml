@@ -34,8 +34,8 @@ jobs:
           ruff format --check app/
       - name: Type check with mypy
         # Advisory only: the codebase currently has ~66 pre-existing mypy
-        # errors against the strict config in pyproject.toml. Tracked in the
-        # "Backend type-check baseline" follow-up issue. Remove
+        # errors against the strict config in pyproject.toml. Tracked in
+        # follow-up issue #75 ("Backend type-check baseline"). Remove
         # continue-on-error once that baseline is clean so this becomes a
         # hard gate again.
         continue-on-error: true
