@@ -6,6 +6,7 @@ import copy
 import json
 import logging
 import uuid
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -195,16 +196,14 @@ class UserPreferencesRepository:
         Returns:
             A transient ``UserPreferences`` ORM instance.
         """
-        from datetime import datetime
-
-        prefs = UserPreferences.__new__(UserPreferences)
-        prefs.id = uuid.UUID(data["id"])
-        prefs.user_id = uuid.UUID(data["user_id"])
-        prefs.preferences = data["preferences"]
-        prefs.created_at = (
-            datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None
-        )  # type: ignore[assignment]
-        prefs.updated_at = (
-            datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None
-        )  # type: ignore[assignment]
-        return prefs
+        return UserPreferences(
+            id=uuid.UUID(data["id"]),
+            user_id=uuid.UUID(data["user_id"]),
+            preferences=data["preferences"],
+            created_at=(
+                datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None
+            ),
+        )
