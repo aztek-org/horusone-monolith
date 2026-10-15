@@ -604,10 +604,15 @@ async def _verify_user_in_org(
 )
 async def get_organization_features(
     org_id: uuid.UUID,
-    _user: RequireOrgAdmin,
+    user: RequireOrgAdmin,
     session: AsyncSession = Depends(get_db_session),
 ) -> OrganizationFeaturesResponse:
-    """Get enabled features for an organization."""
+    """Get enabled features for an organization.
+
+    Org-admins can only view their own organization's features.
+    Platform-admins can view any organization.
+    """
+    verify_org_access(user, org_id)
     org = await org_repo.get_by_id(session, org_id)
     if org is None:
         raise HTTPException(status_code=404, detail="Organization not found")
