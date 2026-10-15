@@ -84,9 +84,9 @@ async def _probe_database() -> str:
     try:
         from sqlalchemy import text
 
-        from app.db.session import async_session_factory
+        from app.db.session import get_session_factory
 
-        async with async_session_factory() as session:
+        async with get_session_factory()() as session:
             await session.execute(text("SELECT 1"))
         return "ok"
     except Exception:
