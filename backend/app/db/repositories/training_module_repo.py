@@ -1,8 +1,9 @@
 """TrainingModule repository with UUID primary key and scenario management."""
 
 import uuid
+from typing import Any, cast
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import CursorResult, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -166,7 +167,7 @@ class TrainingModuleRepository(BaseRepository[TrainingModule, TrainingModuleCrea
                 & (module_scenarios.c.scenario_id == scenario_id)
             )
         )
-        return result.rowcount > 0  # type: ignore[union-attr]
+        return cast(CursorResult[Any], result).rowcount > 0
 
     async def reorder_scenarios(
         self,

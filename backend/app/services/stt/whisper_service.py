@@ -89,7 +89,7 @@ class WhisperSTTService:
 
             if audio_array is None:
                 logger.error("Failed to process audio data")
-                return ""
+                return "", "en"
 
             # Ensure mono audio
             if len(audio_array.shape) > 1:

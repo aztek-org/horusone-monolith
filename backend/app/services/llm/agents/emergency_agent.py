@@ -141,7 +141,7 @@ def handle_emergency(state: HorusState) -> dict[str, Any]:
         Partial state update with ``atc_response``, ``is_emergency``,
         and appended ``performance_notes``.
     """
-    pilot_message = state.get("pilot_message", "")
+    pilot_message = state.get("pilot_message") or ""
     context = state.get("context") or {}
     notes = list(state.get("performance_notes") or [])
 

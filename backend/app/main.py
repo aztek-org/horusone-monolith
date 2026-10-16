@@ -3,7 +3,7 @@
 import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, cast
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -69,7 +69,7 @@ class CatchAllErrorMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable[..., Any]) -> Response:
         try:
-            return await call_next(request)
+            return cast(Response, await call_next(request))
         except Exception as exc:
             logger.error(
                 "Unhandled exception on %s %s: %s",
@@ -88,7 +88,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Attach security-focused HTTP headers to every response."""
 
     async def dispatch(self, request: Request, call_next: Callable[..., Any]) -> Response:
-        response = await call_next(request)
+        response: Response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")

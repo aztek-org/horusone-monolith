@@ -255,7 +255,7 @@ async def get_overview(
     daily_result = await session.execute(
         select(
             cast(TrainingSession.started_at, Date).label("day"),
-            func.count(TrainingSession.id).label("count"),
+            func.count(TrainingSession.id).label("session_count"),
         )
         .where(
             TrainingSession.org_id == org_id,
@@ -264,7 +264,9 @@ async def get_overview(
         .group_by(cast(TrainingSession.started_at, Date))
         .order_by(cast(TrainingSession.started_at, Date))
     )
-    sessions_by_day = [SessionsByDay(date=row.day, count=row.count) for row in daily_result.all()]
+    sessions_by_day = [
+        SessionsByDay(date=row.day, count=row.session_count) for row in daily_result.all()
+    ]
 
     # ── Popular scenarios (top 5 by session count) ─────────────────
     popular_result = await session.execute(

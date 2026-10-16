@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.services.llm.state import HorusState, Severity
+from app.services.llm.state import HorusState, Severity, ValidationResult
 from app.services.llm.tools.weather_tools import (
     fetch_metar,
     fetch_taf,
@@ -87,7 +87,7 @@ def analyze_weather(state: HorusState) -> dict[str, Any]:
     Returns:
         Partial state update with ``weather`` and appended ``validation_results``.
     """
-    results: list[dict[str, Any]] = list(state.get("validation_results") or [])
+    results: list[ValidationResult] = list(state.get("validation_results") or [])
     flight_plan = state.get("flight_plan") or {}
 
     dep_icao = flight_plan.get("departure_icao", "")

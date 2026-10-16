@@ -1,6 +1,7 @@
 """Audio effects for radio simulation using scipy."""
 
 import logging
+from typing import cast
 
 import numpy as np
 from scipy import signal
@@ -79,7 +80,7 @@ class RadioEffectsProcessor:
         b, a = signal.butter(4, [low, high], btype="band")
         filtered = signal.filtfilt(b, a, audio_data)
 
-        return filtered
+        return cast(np.ndarray, filtered)
 
     def _add_noise(self, audio_data: np.ndarray) -> np.ndarray:
         """Add background noise to audio.
@@ -92,7 +93,7 @@ class RadioEffectsProcessor:
         """
         noise_level = self.settings.noise_level
         noise = np.random.normal(0, noise_level, audio_data.shape)
-        return audio_data + noise
+        return cast(np.ndarray, audio_data + noise)
 
     def _add_static(self, audio_data: np.ndarray) -> np.ndarray:
         """Add random static/crackle to audio.
@@ -110,7 +111,7 @@ class RadioEffectsProcessor:
         static_mask = np.random.random(audio_data.shape) < static_probability
         static = static_mask * np.random.uniform(-static_level, static_level, audio_data.shape)
 
-        return audio_data + static
+        return cast(np.ndarray, audio_data + static)
 
     def _normalize(self, audio_data: np.ndarray) -> np.ndarray:
         """Normalize audio to prevent clipping.
@@ -123,7 +124,7 @@ class RadioEffectsProcessor:
         """
         max_val = np.abs(audio_data).max()
         if max_val > 0:
-            return audio_data * (0.95 / max_val)
+            return cast(np.ndarray, audio_data * (0.95 / max_val))
         return audio_data
 
     def add_transmission_clicks(
@@ -147,4 +148,4 @@ class RadioEffectsProcessor:
         # Add click to beginning
         audio_with_click = np.concatenate([start_click, audio_data])
 
-        return audio_with_click
+        return cast(np.ndarray, audio_with_click)

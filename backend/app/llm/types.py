@@ -50,6 +50,9 @@ class EmbeddingResult:
 class LLMModule(Protocol):
     """Operations required from every generation and embedding provider."""
 
+    @property
+    def provider(self) -> str: ...
+
     async def generate(self, request: GenerationRequest) -> GenerationResult: ...
 
     async def embed(self, texts: list[str]) -> EmbeddingResult: ...

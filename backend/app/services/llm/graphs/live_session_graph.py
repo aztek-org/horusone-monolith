@@ -21,6 +21,7 @@ import logging
 from typing import Any
 
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from app.llm import GenerationRequest, LLMModule
 from app.services.llm.agents.emergency_agent import detect_emergency, handle_emergency
@@ -119,7 +120,7 @@ def _clean_response(response: str) -> str:
     return cleaned
 
 
-def _generate_atc_response_factory(llm: LLMModule, scene: SceneConfig):
+def _generate_atc_response_factory(llm: LLMModule, scene: SceneConfig) -> Any:
     """Create the response node with its LLM and Scene dependencies injected."""
 
     async def _generate_atc_response(state: HorusState) -> dict[str, Any]:
@@ -160,7 +161,7 @@ def build_live_session_graph(
     llm: LLMModule,
     scene: SceneConfig,
     interrupt_before_response: bool,
-) -> StateGraph:
+) -> CompiledStateGraph:
     """Build and compile a live-session graph with injected dependencies.
 
     Args:

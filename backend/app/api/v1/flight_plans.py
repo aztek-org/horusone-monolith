@@ -30,6 +30,7 @@ from app.schemas.flight_plan import (
     FlightPlanRead,
     FlightPlanUpdate,
     ValidationResponse,
+    ValidationResult,
 )
 from app.services.flight_plan_parser import FlightPlanParser
 
@@ -313,7 +314,7 @@ async def validate_flight_plan(
     org_id: uuid.UUID | None = Depends(get_org_id),
     local_user: User = Depends(get_authenticated_user),
     db: AsyncSession = Depends(get_db_session),
-) -> dict[str, Any]:
+) -> ValidationResponse:
     """Trigger LangGraph validation of a flight plan.
 
     Runs the full Gatekeeper validation pipeline (weather, fuel, route,
@@ -387,24 +388,24 @@ async def validate_flight_plan(
             exc_info=True,
         )
         # Fallback: basic structural validation
-        errors: list[dict[str, Any]] = []
+        errors: list[ValidationResult] = []
         if plan.departure_icao == "ZZZZ":
             errors.append(
-                {
-                    "agent": "gatekeeper",
-                    "passed": False,
-                    "severity": "critical",
-                    "message": "Departure airport is unknown (ZZZZ)",
-                }
+                ValidationResult(
+                    agent="gatekeeper",
+                    passed=False,
+                    severity="critical",
+                    message="Departure airport is unknown (ZZZZ)",
+                )
             )
         if plan.arrival_icao == "ZZZZ":
             errors.append(
-                {
-                    "agent": "gatekeeper",
-                    "passed": False,
-                    "severity": "critical",
-                    "message": "Arrival airport is unknown (ZZZZ)",
-                }
+                ValidationResult(
+                    agent="gatekeeper",
+                    passed=False,
+                    severity="critical",
+                    message="Arrival airport is unknown (ZZZZ)",
+                )
             )
 
         is_valid = len(errors) == 0

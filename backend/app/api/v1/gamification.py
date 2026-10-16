@@ -201,11 +201,11 @@ async def get_badge_progress(
             if criteria_type == "flight_hours":
                 current = float(stats.total_flight_hours or 0)
             elif criteria_type == "scenarios":
-                current = float(stats.total_sessions or 0)
+                current = float(stats.total_scenarios_completed or 0)
             elif criteria_type == "assessments":
-                current = float(stats.assessments_passed or 0)
+                current = float(stats.total_assessments or 0)
             elif criteria_type == "score":
-                current = float(stats.average_score or 0)
+                current = float(stats.overall_score or 0)
             elif criteria_type == "streak":
                 current = float(stats.current_streak or 0)
 

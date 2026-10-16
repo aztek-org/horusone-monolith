@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Annotated
+from typing import Annotated, Any
 
 import httpx
 from fastapi import Depends, HTTPException, Request, WebSocket, status
@@ -137,7 +138,7 @@ async def _decode_token(token: str) -> dict:
         # Accept tokens issued for the API client or the web SPA client.
         # python-jose only accepts a single audience string, so we verify
         # manually after decoding.
-        payload = jwt.decode(
+        payload: dict[str, Any] = jwt.decode(
             token,
             rsa_key,
             algorithms=["RS256"],
@@ -268,7 +269,7 @@ async def get_current_user_ws(websocket: WebSocket) -> TokenUser:
 CurrentUser = Annotated[TokenUser, Depends(get_current_user)]
 
 
-def require_role(*roles: str):
+def require_role(*roles: str) -> Callable[[CurrentUser], Awaitable[TokenUser]]:
     """Create a dependency that requires the user to have at least one of the given roles.
 
     Args:

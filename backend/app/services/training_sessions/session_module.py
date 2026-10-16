@@ -5,8 +5,9 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import asdict
-from typing import Any
+from typing import Any, cast
 
+from langchain_core.runnables import RunnableConfig
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -19,7 +20,12 @@ from app.services.llm.graphs.validation_graph import (
     build_validation_graph,
 )
 from app.services.llm.scenes.registry import SceneConfig, SceneRegistry
-from app.services.llm.state import HorusState, SessionPhase, advance_exchange
+from app.services.llm.state import (
+    FlightPlanState,
+    HorusState,
+    SessionPhase,
+    advance_exchange,
+)
 from app.services.training_sessions.session_store import SessionStore, StoredState
 from app.services.training_sessions.trace import TraceRecorder
 from app.services.training_sessions.types import (
@@ -82,7 +88,7 @@ class TrainingSessionModule:
             "user_id": str(command.user_id) if command.user_id else None,
             "org_id": str(command.org_id) if command.org_id else None,
             "phase": SessionPhase.INGESTION.value,
-            "flight_plan": command.flight_plan,
+            "flight_plan": cast(FlightPlanState, command.flight_plan),
             "weather": None,
             "fuel_state": None,
             "route_info": None,
@@ -156,7 +162,7 @@ class TrainingSessionModule:
             "user_id": str(user_id) if user_id else None,
             "org_id": str(org_id) if org_id else None,
             "phase": SessionPhase.INGESTION.value,
-            "flight_plan": flight_plan,
+            "flight_plan": cast(FlightPlanState, flight_plan),
             "language": language,
         }
         result = dict(await self._validation_graph.ainvoke(state))
@@ -302,7 +308,7 @@ class TrainingSessionModule:
         stored = await self._load(storage_org_id, session_id)
         return self._snapshot_from_state(session_id, stored.values)
 
-    async def _load(self, org_id: uuid.UUID, session_id: int):
+    async def _load(self, org_id: uuid.UUID, session_id: int) -> StoredState:
         stored = await self._store.load(org_id, session_id)
         if stored is None:
             raise SessionNotFoundError(
@@ -339,18 +345,21 @@ class TrainingSessionModule:
             )
             self._live_graphs[graph_key] = graph
 
-        config = {
-            "configurable": {
-                "thread_id": SessionStore.thread_id(org_id, session_id),
-            }
-        }
+        config = cast(
+            RunnableConfig,
+            {
+                "configurable": {
+                    "thread_id": SessionStore.thread_id(org_id, session_id),
+                }
+            },
+        )
         result = dict(state)
         interrupted = False
         async for mode, chunk in graph.astream(
             state, config=config, stream_mode=["values", "updates"]
         ):
             if mode == "values":
-                result = dict(chunk)
+                result = dict(cast(dict[str, Any], chunk))
             elif mode == "updates" and "__interrupt__" in chunk:
                 interrupted = True
         return result, interrupted

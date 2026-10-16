@@ -38,6 +38,7 @@ from app.schemas.training_session import (
     ReplayScoringCategories,
     ReplayTrackPoint,
     ReplayVoiceLog,
+    SessionCompletionScoring,
     TrainingSessionCompletionResponse,
     TrainingSessionCreate,
     TrainingSessionEventResponse,
@@ -115,7 +116,7 @@ async def list_sessions(
     result = await session.execute(
         query.order_by(TrainingSession.started_at.desc()).limit(limit).offset(offset)
     )
-    return list(result.scalars().all())  # type: ignore[return-value]
+    return list(result.scalars().all())  # type: ignore[arg-type]
 
 
 @router.post("/", response_model=TrainingSessionResponse, status_code=status.HTTP_201_CREATED)
@@ -272,7 +273,7 @@ async def get_session_events(
         .where(TrainingSessionEvent.session_id == session_id)
         .order_by(TrainingSessionEvent.created_at.asc())
     )
-    return list(events_result.scalars().all())  # type: ignore[return-value]
+    return list(events_result.scalars().all())  # type: ignore[arg-type]
 
 
 @router.get("/{session_id}/replay", response_model=TrainingSessionReplayResponse)
@@ -567,21 +568,21 @@ def _build_completion_response(
     )
 
 
-def _normalize_completion_scoring(raw_scoring: Any) -> dict[str, Any] | None:
+def _normalize_completion_scoring(raw_scoring: Any) -> SessionCompletionScoring | None:
     """Normalize the scoring block produced by the Session module."""
     if not isinstance(raw_scoring, dict) or not raw_scoring:
         return None
 
-    return {
-        "communication_score": _to_float(raw_scoring.get("communication_score")),
-        "decision_score": _to_float(raw_scoring.get("decision_score")),
-        "procedure_score": _to_float(raw_scoring.get("procedure_score")),
-        "overall_score": _to_float(raw_scoring.get("overall_score")),
-        "grade": str(raw_scoring.get("grade", "N/A")),
-        "strengths": _normalize_string_list(raw_scoring.get("strengths")),
-        "improvements": _normalize_string_list(raw_scoring.get("improvements")),
-        "summary": str(raw_scoring.get("summary", "")),
-    }
+    return SessionCompletionScoring(
+        communication_score=_to_float(raw_scoring.get("communication_score")),
+        decision_score=_to_float(raw_scoring.get("decision_score")),
+        procedure_score=_to_float(raw_scoring.get("procedure_score")),
+        overall_score=_to_float(raw_scoring.get("overall_score")),
+        grade=str(raw_scoring.get("grade", "N/A")),
+        strengths=_normalize_string_list(raw_scoring.get("strengths")),
+        improvements=_normalize_string_list(raw_scoring.get("improvements")),
+        summary=str(raw_scoring.get("summary", "")),
+    )
 
 
 def _normalize_badges(raw_badges: Any) -> list[str]:

@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.services.llm.state import HorusState, SessionPhase, Severity
+from app.services.llm.state import HorusState, SessionPhase, Severity, ValidationResult
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ def validate_flight_plan(state: HorusState) -> dict[str, Any]:
     Returns:
         Partial state update with ``validation_results`` and ``phase``.
     """
-    results: list[dict[str, Any]] = list(state.get("validation_results") or [])
+    results: list[ValidationResult] = list(state.get("validation_results") or [])
     flight_plan = state.get("flight_plan")
 
     if not flight_plan:

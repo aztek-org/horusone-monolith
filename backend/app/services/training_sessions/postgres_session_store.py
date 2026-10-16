@@ -34,7 +34,7 @@ class PostgresSessionStore:
         if self._saver is not None:
             return
         await self._pool.open()
-        self._saver = AsyncPostgresSaver(self._pool)
+        self._saver = AsyncPostgresSaver(self._pool)  # type: ignore[arg-type]
         await self._saver.setup()
 
     @property
@@ -53,7 +53,9 @@ class PostgresSessionStore:
         }
 
     async def load(self, org_id: uuid.UUID, session_id: int) -> StoredState | None:
-        checkpoint_tuple = await self._configured_saver.aget_tuple(self._config(org_id, session_id))
+        checkpoint_tuple = await self._configured_saver.aget_tuple(
+            self._config(org_id, session_id)  # type: ignore[arg-type]
+        )
         if checkpoint_tuple is None:
             return None
 
@@ -85,13 +87,13 @@ class PostgresSessionStore:
         checkpoint["channel_values"] = values
         versions = {key: checkpoint["id"] for key in values}
         checkpoint["channel_versions"] = versions
-        checkpoint["versions_seen"] = versions
+        checkpoint["versions_seen"] = versions  # type: ignore[arg-type]
 
         config = self._config(org_id, session_id)
         saved_config = await self._configured_saver.aput(
-            config,
-            checkpoint,
-            {"pending_instructor": pending_instructor},
+            config,  # type: ignore[arg-type]
+            checkpoint,  # type: ignore[arg-type]
+            {"pending_instructor": pending_instructor},  # type: ignore[typeddict-unknown-key]
             versions,
         )
         return StoredState(
