@@ -1,17 +1,47 @@
 """Unit tests for the external WeatherService boundary.
 
-No network or real aviation API is contacted: the synchronous tool helpers
-are patched (or exercised directly, since they ship canned mock data).
+No network or real aviation API is contacted: tests inject recording providers
+or exercise the default deterministic mock.
 """
 
 from __future__ import annotations
-
-from typing import Any
 
 import pytest
 
 from app.services.external import weather_service as weather_module
 from app.services.external.weather_service import WeatherService
+
+KJFK_METAR = "KJFK 151856Z 28012KT 10SM FEW040 22/12 A3012"
+
+
+class _RecordingProvider:
+    """WeatherProvider double that records normalized ICAO requests."""
+
+    provider = "recording"
+
+    def __init__(
+        self,
+        metars: dict[str, str] | None = None,
+        tafs: dict[str, str] | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.metars = metars or {}
+        self.tafs = tafs or {}
+        self.error = error
+        self.calls: list[tuple[str, str]] = []
+
+    async def fetch_raw_metar(self, icao: str) -> str:
+        self.calls.append(("metar", icao))
+        if self.error is not None:
+            raise self.error
+        return self.metars[icao]
+
+    async def fetch_raw_taf(self, icao: str) -> str:
+        self.calls.append(("taf", icao))
+        if self.error is not None:
+            raise self.error
+        return self.tafs[icao]
+
 
 # ── get_metar ──────────────────────────────────────────────────────────
 
@@ -37,32 +67,20 @@ class TestGetMetar:
         assert metar["flight_category"] == "VFR"
 
     @pytest.mark.asyncio
-    async def test_normalises_the_icao_before_fetching(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        seen: list[str] = []
-
-        def _fetch(icao: str) -> str:
-            seen.append(icao)
-            return "KJFK 151856Z 28012KT 10SM FEW040 22/12 A3012"
-
-        monkeypatch.setattr(weather_module, "fetch_metar", _fetch)
-        service = WeatherService()
+    async def test_normalises_the_icao_before_fetching(self) -> None:
+        provider = _RecordingProvider(metars={"KJFK": KJFK_METAR})
+        service = WeatherService(provider)
 
         result = await service.get_metar("  kjfk ")
 
-        assert seen == ["KJFK"]
+        assert provider.calls == [("metar", "KJFK")]
         assert result["station"] == "KJFK"
 
     @pytest.mark.asyncio
-    async def test_returns_empty_metar_when_fetch_raises(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        def _boom(_icao: str) -> str:
-            raise RuntimeError("upstream weather failure")
-
-        monkeypatch.setattr(weather_module, "fetch_metar", _boom)
-        service = WeatherService()
+    async def test_returns_empty_metar_when_fetch_raises(self) -> None:
+        service = WeatherService(
+            _RecordingProvider(error=RuntimeError("upstream weather failure"))
+        )
 
         metar = await service.get_metar("KJFK")
 
@@ -76,13 +94,13 @@ class TestGetMetar:
     async def test_returns_empty_metar_when_parse_raises(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(weather_module, "fetch_metar", lambda _icao: "raw")
+        provider = _RecordingProvider(metars={"ZZZZ": "raw"})
+        service = WeatherService(provider)
 
-        def _boom(_raw: str) -> dict[str, Any]:
+        def _boom(_raw: str) -> dict[str, object]:
             raise ValueError("malformed metar")
 
         monkeypatch.setattr(weather_module, "parse_metar", _boom)
-        service = WeatherService()
 
         metar = await service.get_metar("ZZZZ")
 
@@ -97,27 +115,48 @@ class TestGetTaf:
     """Tests for WeatherService.get_taf()."""
 
     @pytest.mark.asyncio
-    async def test_returns_raw_and_station(self) -> None:
+    async def test_returns_fully_parsed_taf(self) -> None:
         service = WeatherService()
 
         taf = await service.get_taf("kjfk")
 
         assert taf["station"] == "KJFK"
         assert taf["raw"].startswith("TAF KJFK")
+        assert [period["type"] for period in taf["periods"]] == [
+            "INITIAL",
+            "FM",
+            "FM",
+        ]
+        assert taf["periods"][1]["from"] == "152200"
 
     @pytest.mark.asyncio
-    async def test_falls_back_to_blank_raw_on_failure(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        def _boom(_icao: str) -> str:
-            raise RuntimeError("taf down")
+    async def test_normalises_icao_and_defaults_missing_station(self) -> None:
+        provider = _RecordingProvider(
+            tafs={"KORD": "151730Z 1518/1624 00000KT P6SM SKC"}
+        )
+        service = WeatherService(provider)
 
-        monkeypatch.setattr(weather_module, "fetch_taf", _boom)
-        service = WeatherService()
+        taf = await service.get_taf("  kord ")
+
+        assert provider.calls == [("taf", "KORD")]
+        assert taf["station"] == "KORD"
+        assert len(taf["periods"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_blank_taf_on_failure(self) -> None:
+        service = WeatherService(
+            _RecordingProvider(error=RuntimeError("taf down"))
+        )
 
         taf = await service.get_taf("kord")
 
-        assert taf == {"raw": "", "station": "KORD"}
+        assert taf == {
+            "raw": "",
+            "station": "KORD",
+            "issued": None,
+            "valid": None,
+            "periods": [],
+        }
 
 
 # ── get_flight_category ────────────────────────────────────────────────
@@ -164,6 +203,7 @@ class TestGetBriefing:
         assert briefing["alternate"]["station"] == "KDEN"
         assert briefing["departure_taf"]["station"] == "KJFK"
         assert briefing["arrival_taf"]["station"] == "KLAX"
+        assert briefing["departure_taf"]["periods"]
 
     @pytest.mark.asyncio
     async def test_worst_category_picks_the_most_restrictive(self) -> None:

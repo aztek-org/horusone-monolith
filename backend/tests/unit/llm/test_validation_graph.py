@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 import uuid
 from typing import Any
 
@@ -13,6 +14,30 @@ from app.services.llm.graphs.validation_graph import (
     state_org_id,
 )
 from app.services.llm.state import Severity
+
+FIXTURES = Path(__file__).parents[2] / "fixtures" / "weather"
+
+
+def _fixture(name: str) -> str:
+    return (FIXTURES / name).read_text().strip()
+
+
+class _RecordingWeatherService:
+    """Weather service double that records raw-report requests."""
+
+    def __init__(self, metars: dict[str, str], tafs: dict[str, str]) -> None:
+        self.metars = metars
+        self.tafs = tafs
+        self.metar_calls: list[str] = []
+        self.taf_calls: list[str] = []
+
+    async def get_metar(self, icao: str) -> dict[str, Any]:
+        self.metar_calls.append(icao)
+        return {"raw": self.metars[icao]}
+
+    async def get_taf(self, icao: str) -> dict[str, Any]:
+        self.taf_calls.append(icao)
+        return {"raw": self.tafs[icao]}
 
 VALID_PLAN: dict[str, Any] = {
     "departure_icao": "KLAX",
@@ -117,3 +142,20 @@ async def test_missing_flight_plan_fails_the_whole_pipeline() -> None:
 
     assert result["validation_passed"] is False
     assert result["phase"] == "validation"
+
+
+async def test_validation_graph_uses_reports_from_the_weather_service() -> None:
+    service = _RecordingWeatherService(
+        {"KJFK": _fixture("kjfk_metar.txt")},
+        {"KJFK": _fixture("kjfk_taf.txt")},
+    )
+    plan = {**VALID_PLAN, "departure_icao": "KJFK", "arrival_icao": "KJFK"}
+    graph = build_validation_graph(weather=service)
+
+    result = await graph.ainvoke({"flight_plan": plan, "validation_results": []})
+
+    assert service.metar_calls == ["KJFK", "KJFK"]
+    assert service.taf_calls == ["KJFK", "KJFK"]
+    assert result["weather"]["departure_metar"] == _fixture("kjfk_metar.txt")
+    assert result["weather"]["arrival_taf"] == _fixture("kjfk_taf.txt")
+    assert result["weather"]["flight_category"] == "VFR"

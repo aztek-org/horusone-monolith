@@ -69,6 +69,11 @@ _GROUP_ENV = {
         "NOISE_LEVEL": "noise_level",
         "STATIC_LEVEL": "static_level",
     },
+    "weather": {
+        "WEATHER_PROVIDER": "provider",
+        "WEATHER_BASE_URL": "base_url",
+        "WEATHER_TIMEOUT_SECONDS": "timeout_seconds",
+    },
 }
 
 #: Pre-grouping environment names, mapped onto the grouped field they now feed.

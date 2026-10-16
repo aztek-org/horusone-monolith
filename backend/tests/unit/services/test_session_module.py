@@ -94,6 +94,28 @@ async def _start(
     )
 
 
+def test_module_passes_weather_service_to_validation_graph(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The composed module must thread its weather service into validation."""
+    seen: dict[str, object] = {}
+
+    def _build(knowledge: object, weather: object = None) -> object:
+        seen["knowledge"] = knowledge
+        seen["weather"] = weather
+        return object()
+
+    monkeypatch.setattr(
+        "app.services.training_sessions.session_module.build_validation_graph",
+        _build,
+    )
+    weather = object()
+
+    _module(weather=weather)
+
+    assert seen == {"knowledge": None, "weather": weather}
+
+
 @pytest.mark.asyncio
 async def test_send_then_send_preserves_exchange_count() -> None:
     module = _module()

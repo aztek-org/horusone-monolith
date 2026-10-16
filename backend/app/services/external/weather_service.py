@@ -1,41 +1,49 @@
-"""Weather data service — async interface over mock METAR/TAF data.
+"""Weather data service — async interface over a pluggable METAR/TAF provider.
 
-In production, replace the internal mock calls with a real aviation
-weather API such as `AVWX <https://avwx.rest/>`_,
-`CheckWX <https://www.checkwxapi.com/>`_, or the FAA Aviation Weather
-Center text data server.
-
-The public interface is fully async so swapping in ``httpx`` calls
-to a real API requires no changes to callers.
+The service owns parsing; the provider owns transport. Automatic selection
+uses the NOAA Aviation Weather Center in production and the in-repo
+deterministic mock elsewhere (see
+``app.services.external.weather_providers``). The public interface is async so
+callers never depend on which provider is configured.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from app.services.external.weather_providers import (
+    MockWeatherProvider,
+    WeatherProvider,
+    build_weather_provider,
+)
 from app.services.llm.tools.weather_tools import (
     determine_flight_category,
-    fetch_metar,
-    fetch_taf,
     parse_metar,
+    parse_taf,
 )
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
+#: Category priority used to pick the worst of two airports (lower is worse).
+_CATEGORY_PRIORITY = {"LIFR": 0, "IFR": 1, "MVFR": 2, "VFR": 3}
+
 
 class WeatherService:
-    """Async interface for aviation weather data.
+    """Async aviation weather boundary backed by a ``WeatherProvider``."""
 
-    Currently delegates to the synchronous mock helpers in
-    ``app.services.llm.tools.weather_tools``.  When a real API key is
-    configured, override ``get_metar`` and ``get_taf`` to make HTTP
-    calls instead.
-    """
+    def __init__(self, provider: WeatherProvider | None = None) -> None:
+        self._provider: WeatherProvider = (
+            provider if provider is not None else MockWeatherProvider()
+        )
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
+    @property
+    def provider(self) -> str:
+        """Return the active provider's name."""
+        return str(getattr(self._provider, "provider", type(self._provider).__name__))
 
     async def get_metar(self, icao: str) -> dict[str, Any]:
         """Fetch and parse a METAR for *icao*.
@@ -46,38 +54,36 @@ class WeatherService:
             ``sky_layers``, ``temperature``, ``dewpoint``, ``altimeter``,
             ``flight_category``.
         """
-        icao = icao.upper().strip()
+        station = icao.upper().strip()
         try:
-            raw = fetch_metar(icao)
+            raw = await self._provider.fetch_raw_metar(station)
             parsed = parse_metar(raw)
-            logger.debug("METAR fetched for %s (mock): %s", icao, raw[:60])
+            logger.debug("METAR fetched for %s via %s: %s", station, self.provider, raw[:60])
             return parsed
         except Exception:
-            logger.exception("Failed to fetch METAR for %s", icao)
-            return self._empty_metar(icao)
+            logger.exception("Failed to fetch METAR for %s", station)
+            return self._empty_metar(station)
 
     async def get_taf(self, icao: str) -> dict[str, Any]:
-        """Fetch a TAF for *icao*.
+        """Fetch and fully parse a TAF for *icao*.
 
         Returns:
-            Dict with ``raw`` and ``station`` keys.  Full TAF parsing
-            is not yet implemented — the raw string is the primary
-            output for now.
+            The :func:`parse_taf` result: ``raw``, ``station``, ``issued``,
+            ``valid``, and the list of forecast ``periods``.
         """
-        icao = icao.upper().strip()
+        station = icao.upper().strip()
         try:
-            raw = fetch_taf(icao)
-            logger.debug("TAF fetched for %s (mock): %s", icao, raw[:60])
-            return {"raw": raw, "station": icao}
+            raw = await self._provider.fetch_raw_taf(station)
+            parsed = parse_taf(raw)
+            parsed["station"] = parsed.get("station") or station
+            logger.debug("TAF fetched for %s via %s: %s", station, self.provider, raw[:60])
+            return parsed
         except Exception:
-            logger.exception("Failed to fetch TAF for %s", icao)
-            return {"raw": "", "station": icao}
+            logger.exception("Failed to fetch TAF for %s", station)
+            return self._empty_taf(station)
 
     async def get_flight_category(self, icao: str) -> str:
         """Determine the VFR/MVFR/IFR/LIFR category for *icao*.
-
-        Convenience wrapper that fetches the METAR and extracts the
-        flight category.
 
         Returns:
             One of ``"VFR"``, ``"MVFR"``, ``"IFR"``, ``"LIFR"``.
@@ -95,8 +101,8 @@ class WeatherService:
 
         Returns:
             Dict with ``departure``, ``arrival``, ``alternate`` (each a
-            parsed METAR dict), ``departure_taf``, ``arrival_taf``, and
-            ``worst_category``.
+            parsed METAR dict), ``departure_taf``, ``arrival_taf`` (each a
+            parsed TAF dict), and ``worst_category``.
         """
         dep = await self.get_metar(departure_icao)
         arr = await self.get_metar(arrival_icao)
@@ -105,11 +111,9 @@ class WeatherService:
         dep_taf = await self.get_taf(departure_icao)
         arr_taf = await self.get_taf(arrival_icao)
 
-        # Worst-case category
-        priority = {"LIFR": 0, "IFR": 1, "MVFR": 2, "VFR": 3}
-        dep_cat = dep.get("flight_category", "VFR")
-        arr_cat = arr.get("flight_category", "VFR")
-        worst = dep_cat if priority.get(dep_cat, 3) < priority.get(arr_cat, 3) else arr_cat
+        dep_cat = str(dep.get("flight_category", "VFR"))
+        arr_cat = str(arr.get("flight_category", "VFR"))
+        worst = dep_cat if self._is_worse(dep_cat, arr_cat) else arr_cat
 
         return {
             "departure": dep,
@@ -123,6 +127,10 @@ class WeatherService:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_worse(first: str, second: str) -> bool:
+        return _CATEGORY_PRIORITY.get(first, 3) < _CATEGORY_PRIORITY.get(second, 3)
 
     @staticmethod
     def _empty_metar(icao: str) -> dict[str, Any]:
@@ -141,3 +149,19 @@ class WeatherService:
             "altimeter": 29.92,
             "flight_category": determine_flight_category(10, None),
         }
+
+    @staticmethod
+    def _empty_taf(icao: str) -> dict[str, Any]:
+        """Return a safe fallback when the real fetch fails."""
+        return {
+            "raw": "",
+            "station": icao,
+            "issued": None,
+            "valid": None,
+            "periods": [],
+        }
+
+
+def build_weather_service(settings: Settings) -> WeatherService:
+    """Build a :class:`WeatherService` with the configured provider."""
+    return WeatherService(build_weather_provider(settings))

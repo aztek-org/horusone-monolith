@@ -6,8 +6,7 @@ calculation_tools
     Pure-math helpers — Haversine distance, fuel burn, weight & balance,
     groundspeed correction, ETE.
 weather_tools
-    Mock METAR/TAF fetch and parsing (real API integration is a future
-    milestone).
+    Mock METAR/TAF fetch plus the METAR/TAF parsers used by weather providers.
 airspace_tools
     Mock airspace class lookup and route intersection checks.
 """

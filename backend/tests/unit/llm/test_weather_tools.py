@@ -1,6 +1,8 @@
-"""Unit tests for the mock METAR/TAF fetch and parsing tools."""
+"""Unit tests for weather fetch helpers and METAR/TAF parsing."""
 
 from __future__ import annotations
+
+from pathlib import Path
 
 import pytest
 
@@ -11,7 +13,14 @@ from app.services.llm.tools.weather_tools import (
     fetch_metar,
     fetch_taf,
     parse_metar,
+    parse_taf,
 )
+
+FIXTURES = Path(__file__).parents[2] / "fixtures" / "weather"
+
+
+def _fixture(name: str) -> str:
+    return (FIXTURES / name).read_text().strip()
 
 
 class TestFetch:
@@ -127,3 +136,95 @@ def test_determine_flight_category_boundaries(
     expected: str,
 ) -> None:
     assert determine_flight_category(visibility_sm, ceiling_ft) == expected
+
+
+class TestParseTaf:
+    """Full TAF parsing, pinned against AWC-shaped raw-text fixtures."""
+
+    def test_kjfk_periods_are_split_on_fm(self) -> None:
+        taf = parse_taf(_fixture("kjfk_taf.txt"))
+
+        assert taf["station"] == "KJFK"
+        assert taf["issued"] == "151730Z"
+        assert taf["valid"] == "1518/1624"
+        assert [period["type"] for period in taf["periods"]] == ["INITIAL", "FM", "FM"]
+
+        initial, second, third = taf["periods"]
+        assert initial["from"] is None
+        assert initial["wind_dir"] == 280
+        assert initial["wind_speed"] == 12
+        assert initial["wind_gust"] == 18
+        assert initial["visibility_sm"] == 6.0  # P6SM -> greater than six
+        assert initial["sky_layers"] == [("FEW", 4000), ("SCT", 25000)]
+        assert initial["ceiling_ft"] is None
+        assert initial["flight_category"] == "VFR"
+
+        assert second["from"] == "152200"
+        assert second["wind_speed"] == 10
+        assert second["sky_layers"] == [("SCT", 4000)]
+        assert third["from"] == "160400"
+        assert third["wind_dir"] == 330
+
+    def test_ksea_change_groups_carry_time_ranges(self) -> None:
+        taf = parse_taf(_fixture("ksea_taf_changes.txt"))
+
+        assert [period["type"] for period in taf["periods"]] == [
+            "INITIAL",
+            "TEMPO",
+            "PROB30",
+            "FM",
+        ]
+
+        _, tempo, prob, forecast = taf["periods"]
+        assert (tempo["from"], tempo["to"]) == ("1518", "1522")
+        assert tempo["visibility_sm"] == 3.0
+        assert tempo["flight_category"] == "MVFR"
+
+        assert (prob["from"], prob["to"]) == ("1602", "1608")
+        assert prob["visibility_sm"] == 0.5
+        assert prob["sky_layers"] == [("VV", 200)]
+        assert prob["ceiling_ft"] == 200
+        assert prob["flight_category"] == "LIFR"
+
+        assert forecast["from"] == "161000"
+
+    def test_tempo_uses_the_most_restrictive_of_visibility_and_ceiling(self) -> None:
+        taf = parse_taf(_fixture("kord_taf_tempo.txt"))
+
+        tempo = taf["periods"][1]
+        assert tempo["type"] == "TEMPO"
+        assert tempo["visibility_sm"] == 2.0
+        assert tempo["ceiling_ft"] == 1200
+        # Two statute miles is IFR even though the 1200 ft ceiling is MVFR.
+        assert tempo["flight_category"] == "IFR"
+
+    def test_empty_input_yields_no_periods(self) -> None:
+        parsed = parse_taf("")
+
+        assert parsed["periods"] == []
+        assert parsed["station"] == ""
+        assert parsed["raw"] == ""
+
+    def test_omitted_optional_fields_are_defaulted(self) -> None:
+        taf = parse_taf("TAF ZZZZ 151730Z 1518/1624 00000KT SKC")
+
+        assert taf["station"] == "ZZZZ"
+        assert len(taf["periods"]) == 1
+        assert taf["periods"][0]["visibility_sm"] is None
+        assert taf["periods"][0]["wind_speed"] == 0
+
+    @pytest.mark.parametrize(
+        ("visibility", "expected"),
+        [
+            ("P6SM", 6.0),
+            ("10SM", 10.0),
+            ("3SM", 3.0),
+            ("1/2SM", 0.5),
+            ("M1/4SM", 0.25),
+            ("1 1/2SM", 1.5),
+        ],
+    )
+    def test_visibility_forms(self, visibility: str, expected: float) -> None:
+        taf = parse_taf(f"TAF ZZZZ 151730Z 1518/1624 00000KT {visibility} SKC")
+
+        assert taf["periods"][0]["visibility_sm"] == pytest.approx(expected)

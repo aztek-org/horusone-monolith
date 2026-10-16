@@ -84,6 +84,22 @@ class AudioSettings:
     static_level: float = 0.01
 
 
+@dataclass(frozen=True)
+class WeatherSettings:
+    """Configuration for the aviation weather provider.
+
+    ``provider`` selects the adapter built by
+    ``app.services.external.weather_providers.build_weather_provider``:
+    ``auto`` uses the NOAA Aviation Weather Center text data server in
+    production and the deterministic in-repo mock elsewhere; ``mock`` and
+    ``aviationweather`` select one adapter explicitly.
+    """
+
+    provider: str = "auto"
+    base_url: str = "https://aviationweather.gov/api/data"
+    timeout_seconds: float = 10.0
+
+
 _LEGACY_GROUP_FIELDS = {
     "ollama_base_url": ("llm", "base_url"),
     "ollama_llm_model": ("llm", "model"),
@@ -127,6 +143,7 @@ class Settings(BaseSettings):
     knowledge: KnowledgeSettings = KnowledgeSettings()
     trace: TraceSettings = TraceSettings()
     audio: AudioSettings = AudioSettings()
+    weather: WeatherSettings = WeatherSettings()
 
     scenes_path: str = ""
 

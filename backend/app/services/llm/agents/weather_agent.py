@@ -8,6 +8,7 @@ generates a natural-language weather briefing via the LLM.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 from app.services.llm.state import HorusState, Severity, ValidationResult
@@ -81,8 +82,33 @@ def _generate_recommendations(
     return recs
 
 
-def analyze_weather(state: HorusState) -> dict[str, Any]:
+def _fetch_mock_weather(
+    dep_icao: str,
+    arr_icao: str,
+    alt_icao: str,
+) -> dict[str, str]:
+    """Fetch raw reports from the in-repo mock tool functions."""
+    return {
+        "departure_metar": fetch_metar(dep_icao) if dep_icao else "",
+        "arrival_metar": fetch_metar(arr_icao) if arr_icao else "",
+        "alternate_metar": fetch_metar(alt_icao) if alt_icao else "",
+        "departure_taf": fetch_taf(dep_icao) if dep_icao else "",
+        "arrival_taf": fetch_taf(arr_icao) if arr_icao else "",
+    }
+
+
+def analyze_weather(
+    state: HorusState,
+    fetched: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
     """Fetch and analyse weather for all flight plan airports.
+
+    Args:
+        state: Session state carrying the flight plan.
+        fetched: Optional pre-fetched raw reports keyed by
+            ``departure_metar``/``arrival_metar``/``alternate_metar``/
+            ``departure_taf``/``arrival_taf``. When omitted the in-repo mock
+            tool functions are used, which is the default non-production path.
 
     Returns:
         Partial state update with ``weather`` and appended ``validation_results``.
@@ -96,11 +122,12 @@ def analyze_weather(state: HorusState) -> dict[str, Any]:
     flight_rules = flight_plan.get("flight_rules", "VFR").upper()
 
     # Fetch raw weather data
-    dep_metar_raw = fetch_metar(dep_icao) if dep_icao else ""
-    arr_metar_raw = fetch_metar(arr_icao) if arr_icao else ""
-    alt_metar_raw = fetch_metar(alt_icao) if alt_icao else ""
-    dep_taf_raw = fetch_taf(dep_icao) if dep_icao else ""
-    arr_taf_raw = fetch_taf(arr_icao) if arr_icao else ""
+    reports = fetched if fetched is not None else _fetch_mock_weather(dep_icao, arr_icao, alt_icao)
+    dep_metar_raw = reports.get("departure_metar", "")
+    arr_metar_raw = reports.get("arrival_metar", "")
+    alt_metar_raw = reports.get("alternate_metar", "")
+    dep_taf_raw = reports.get("departure_taf", "")
+    arr_taf_raw = reports.get("arrival_taf", "")
 
     # Parse departure and arrival METARs
     dep_parsed = parse_metar(dep_metar_raw) if dep_metar_raw else {}

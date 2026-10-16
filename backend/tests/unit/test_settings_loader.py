@@ -73,3 +73,25 @@ def test_load_settings_installs_canonical_cached_settings(
         assert cached.llm.model == "loaded-model"
     finally:
         reset_settings_cache()
+
+
+def test_loader_maps_weather_settings(tmp_path: Path) -> None:
+    """Weather provider selection must be configurable from the environment."""
+    env_file = write_env(
+        tmp_path,
+        {
+            "WEATHER_PROVIDER": "aviationweather",
+            "WEATHER_BASE_URL": "https://weather.test/api/data",
+            "WEATHER_TIMEOUT_SECONDS": "3",
+        },
+    )
+    reset_settings_cache()
+
+    try:
+        loaded = load_settings(env_file)
+
+        assert loaded.weather.provider == "aviationweather"
+        assert loaded.weather.base_url == "https://weather.test/api/data"
+        assert loaded.weather.timeout_seconds == 3
+    finally:
+        reset_settings_cache()

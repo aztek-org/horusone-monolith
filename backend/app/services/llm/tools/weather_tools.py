@@ -1,8 +1,9 @@
-"""Weather data tools — mock METAR/TAF fetch and parsing.
+"""Weather report fixtures and METAR/TAF parsing.
 
-In production these would call the Aviation Weather Center API
-(aviationweather.gov) or a DATIS feed.  For the MVP we return
-realistic but static mock data for major US airports.
+The fetch helpers return realistic but static mock data for major US airports.
+They back ``MockWeatherProvider`` (and therefore the default non-production
+path). Live reports come from the configured ``WeatherProvider``; every
+provider's text is parsed here.
 """
 
 from __future__ import annotations
@@ -166,3 +167,164 @@ def determine_flight_category(
         return "MVFR"
     # VFR
     return "VFR"
+
+
+# ── TAF parsing ───────────────────────────────────────────────────────
+
+#: Change indicators that open a new forecast period in a TAF.
+_TAF_PERIOD_RE = re.compile(r"^(FM\d{6}|BECMG|TEMPO|PROB\d{2}|INTER)$")
+_TAF_WIND_RE = re.compile(r"(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?(?:KT|MPS)")
+_TAF_FULL_VIS_RE = re.compile(r"^(P|M)?(\d+)SM$")
+_TAF_FRACTION_VIS_RE = re.compile(r"^(P|M)?(\d+)/(\d+)SM$")
+_TAF_SKY_RE = re.compile(r"^(FEW|SCT|BKN|OVC)(\d{3})")
+_TAF_VV_RE = re.compile(r"^VV(\d{3})")
+_TAF_TIME_RANGE_RE = re.compile(r"^\d{4}/\d{4}$")
+_TAF_ISSUED_RE = re.compile(r"^\d{6}Z$")
+_TAF_VALID_RE = re.compile(r"^\d{4}/\d{4}$")
+
+
+def _parse_taf_wind(text: str) -> dict[str, Any]:
+    """Extract wind from one forecast period."""
+    match = _TAF_WIND_RE.search(text)
+    if not match:
+        return {"wind_dir": 0, "wind_speed": 0, "wind_gust": None}
+    direction = match.group(1)
+    return {
+        "wind_dir": int(direction) if direction != "VRB" else 0,
+        "wind_speed": int(match.group(2)),
+        "wind_gust": int(match.group(3)) if match.group(3) else None,
+    }
+
+
+def _parse_taf_visibility(tokens: list[str]) -> float | None:
+    """Extract prevailing visibility in statute miles.
+
+    Handles ``10SM``, ``P6SM`` (greater than six), ``M1/4SM`` (less than), and
+    the split ``1 1/2SM`` form where the whole number is its own token.
+    """
+    for index, token in enumerate(tokens):
+        fraction = _TAF_FRACTION_VIS_RE.match(token)
+        if fraction:
+            value = int(fraction.group(2)) / int(fraction.group(3))
+            if index > 0 and tokens[index - 1].isdigit():
+                value += int(tokens[index - 1])
+            return value
+        full = _TAF_FULL_VIS_RE.match(token)
+        if full:
+            return float(full.group(2))
+    return None
+
+
+def _parse_taf_sky(tokens: list[str]) -> list[tuple[str, int]]:
+    """Extract sky layers, including vertical visibility (``VV``)."""
+    layers: list[tuple[str, int]] = []
+    for token in tokens:
+        layer = _TAF_SKY_RE.match(token)
+        if layer:
+            layers.append((layer.group(1), int(layer.group(2)) * 100))
+            continue
+        obscured = _TAF_VV_RE.match(token)
+        if obscured:
+            layers.append(("VV", int(obscured.group(1)) * 100))
+    return layers
+
+
+def _ceiling_from_layers(layers: list[tuple[str, int]]) -> int | None:
+    """Return the lowest ceiling layer (broken/overcast/obscured)."""
+    ceilings = [alt for cover, alt in layers if cover in ("BKN", "OVC", "VV")]
+    return min(ceilings) if ceilings else None
+
+
+def _parse_taf_period(tokens: list[str]) -> dict[str, Any]:
+    """Parse the wind/visibility/sky common to every forecast period."""
+    layers = _parse_taf_sky(tokens)
+    visibility = _parse_taf_visibility(tokens)
+    ceiling = _ceiling_from_layers(layers)
+    return {
+        **_parse_taf_wind(" ".join(tokens)),
+        "visibility_sm": visibility,
+        "sky_layers": layers,
+        "ceiling_ft": ceiling,
+        "flight_category": determine_flight_category(visibility, ceiling),
+    }
+
+
+def _classify_taf_period(tokens: list[str]) -> tuple[str, str | None, str | None, list[str]]:
+    """Split one period's tokens into (type, from, to, body)."""
+    if not tokens:
+        return "INITIAL", None, None, []
+
+    head = tokens[0]
+    if head.startswith("FM"):
+        return "FM", head[2:], None, tokens[1:]
+    if head in ("BECMG", "TEMPO", "INTER") or head.startswith("PROB"):
+        body = tokens[1:]
+        start: str | None = None
+        end: str | None = None
+        if body and _TAF_TIME_RANGE_RE.match(body[0]):
+            start, end = body[0].split("/")
+            body = body[1:]
+        return head, start, end, body
+    return "INITIAL", None, None, tokens
+
+
+def parse_taf(raw: str) -> dict[str, Any]:
+    """Parse a raw TAF into its forecast periods.
+
+    Every period carries the same fields a METAR parse produces for
+    wind/visibility/sky/ceiling/category, plus its own ``type`` — ``INITIAL``,
+    ``FM``, ``BECMG``, ``TEMPO``, ``PROB30``/``PROB40``, or ``INTER`` — and the
+    ``from``/``to`` clock values where the period declares them. ``FM`` periods
+    use the six-digit ``DDHHMM`` form; change groups use ``DDHH``.
+
+    Returns:
+        Dict with ``raw``, ``station``, ``issued``, ``valid``, and ``periods``.
+        An unparseable or empty input returns empty ``periods``.
+    """
+    result: dict[str, Any] = {
+        "raw": raw,
+        "station": "",
+        "issued": None,
+        "valid": None,
+        "periods": [],
+    }
+    tokens = raw.split()
+    if not tokens:
+        return result
+
+    if tokens[0] == "TAF":
+        tokens = tokens[1:]
+    while tokens and tokens[0] in ("AMD", "COR", "RTD"):
+        tokens = tokens[1:]
+    if tokens and re.fullmatch(r"[A-Z]{4}", tokens[0]):
+        result["station"] = tokens[0]
+        tokens = tokens[1:]
+    if tokens and _TAF_ISSUED_RE.match(tokens[0]):
+        result["issued"] = tokens[0]
+        tokens = tokens[1:]
+    if tokens and _TAF_VALID_RE.match(tokens[0]):
+        result["valid"] = tokens[0]
+        tokens = tokens[1:]
+
+    groups: list[list[str]] = [[]]
+    for token in tokens:
+        if _TAF_PERIOD_RE.match(token):
+            groups.append([token])
+        else:
+            groups[-1].append(token)
+
+    for group in groups:
+        if not group:
+            continue
+        period_type, from_time, to_time, body = _classify_taf_period(group)
+        result["periods"].append(
+            {
+                "type": period_type,
+                "from": from_time,
+                "to": to_time,
+                "raw": " ".join(group),
+                **_parse_taf_period(body),
+            }
+        )
+
+    return result

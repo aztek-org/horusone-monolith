@@ -909,6 +909,10 @@ All variables are configured in `backend/.env`. Defaults are suitable for local 
 | `KNOWLEDGE_EMBEDDING_DIMENSIONS` | `768` | Expected embedding width; a mismatch is a hard ingest failure |
 | `KNOWLEDGE_TOP_K` | `5` | Chunks returned per retrieval query |
 | `KNOWLEDGE_DEFAULT_CHUNK_QUOTA` | `10` | Per-scope chunk budget, checked before embedding |
+| **Weather** | | |
+| `WEATHER_PROVIDER` | `auto` | Weather report source (`auto` uses NOAA AWC in production and bundled reports elsewhere; `mock` and `aviationweather` select one explicitly; no API key required) |
+| `WEATHER_BASE_URL` | `https://aviationweather.gov/api/data` | Base URL for the weather provider |
+| `WEATHER_TIMEOUT_SECONDS` | `10.0` | HTTP timeout for live METAR/TAF requests |
 | **Telemetry** | | |
 | `TRACE_RETENTION_DAYS` | `90` | Days of provenance events kept before the prune cron runs |
 | `TRACE_LOG_LEVEL` | `INFO` | Log level for the telemetry module |

@@ -9,6 +9,8 @@ Modules
 -------
 weather_service
     METAR/TAF retrieval and flight-category determination.
+weather_providers
+    Raw METAR/TAF transports behind the ``WeatherProvider`` seam.
 airspace_service
     Airspace class lookup at a point or along a route.
 ocr_service
