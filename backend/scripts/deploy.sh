@@ -8,13 +8,13 @@
 #   ./scripts/deploy.sh --skip-migrations  # Skip alembic migrations
 #
 # Compose files used:
-#   docker-compose.yml + docker-compose.prod.yml
+#   docker-compose.yml + docker-compose.prod.yml, interpolated from .env.prod
 # =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-COMPOSE_CMD="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+COMPOSE_CMD="docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod"
 HEALTH_TIMEOUT=120      # seconds to wait for health check
 HEALTH_INTERVAL=5       # seconds between retries
 
@@ -62,6 +62,11 @@ fi
 
 if [[ ! -f docker-compose.prod.yml ]]; then
   error "docker-compose.prod.yml not found. Create it first."
+  exit 1
+fi
+
+if [[ ! -f .env.prod ]]; then
+  error ".env.prod not found. Copy it from .env.prod.example and fill in real values."
   exit 1
 fi
 

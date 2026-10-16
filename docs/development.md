@@ -634,6 +634,8 @@ pnpm format                         # Prettier
 ### Backend (VPS via Docker)
 
 - Uses `docker-compose.prod.yml` overlay with Traefik for TLS
+- **Env**: create `backend/.env.prod` from `.env.prod.example`; `deploy.sh` loads
+  it with `--env-file .env.prod` (it holds the Compose interpolation secrets)
 - **Deploy**: `./scripts/deploy.sh` (rolling update) or `./scripts/deploy.sh --full` (full restart)
 - **Backup**: `./scripts/backup.sh` (7-day retention)
 - **Restore**: `./scripts/restore.sh <backup-file>`

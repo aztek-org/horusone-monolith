@@ -47,4 +47,4 @@ graphify-out/.rebuild.lock
 .env.*
 !.env.example
 !.env.docker.example
-!.env.production.example
+!.env.prod.example

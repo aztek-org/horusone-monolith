@@ -79,8 +79,10 @@ From `backend/docker-compose.prod.yml`:
 
 ### Production secret variables
 
-From `backend/.env.prod.example` and `backend/docker-compose.prod.yml`:
+From `backend/.env.prod.example` and `backend/docker-compose.prod.yml`
+(loaded by `scripts/deploy.sh` via `--env-file .env.prod`):
 
+- `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
 - `KEYCLOAK_ADMIN_PASSWORD`
 - `KEYCLOAK_DB_PASSWORD`
