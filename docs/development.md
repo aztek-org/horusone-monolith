@@ -20,6 +20,10 @@ For documentation structure and canonical sources, see [`docs/README.md`](README
 
 ## Quick Start (5 minutes)
 
+The `Makefile` at the repo root wraps every step below — `make setup` once, then
+`make up` / `make down` day to day; `make` lists all commands and the variables they
+take. The manual equivalent follows.
+
 ```bash
 # 1. Clone and run setup
 git clone <repo-url>
@@ -28,15 +32,16 @@ cd horus-mvp
 
 # 2. Start infrastructure
 cd backend
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis ollama
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis ollama keycloak
 
-# 3. Sync deps, run migrations, seed data
-uv sync
+# 3. Sync deps (incl. pytest/ruff/mypy), run migrations, seed data
+uv sync --extra dev
 uv run alembic upgrade head
 uv run python -m scripts.seed
 
-# 4. Pull Ollama model (first time — takes a few minutes)
-ollama pull llama3.2:3b
+# 4. Pull Ollama models (first time — takes a few minutes)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec ollama ollama pull llama3.2:3b
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec ollama ollama pull nomic-embed-text
 
 # 5. Start the backend
 ./run_backend.sh
