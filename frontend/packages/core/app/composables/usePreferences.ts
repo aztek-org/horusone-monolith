@@ -37,24 +37,31 @@ const error = ref<string | null>(null)
 /**
  * Deep merge source into target (non-destructive).
  */
-function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
-  const result = { ...target }
-  for (const key of Object.keys(source)) {
+function deepMerge<T>(target: T, source: unknown): T {
+  if (source === null || typeof source !== 'object' || Array.isArray(source)) {
+    return target
+  }
+
+  const result = { ...(target as Record<string, unknown>) }
+  const sourceRecord = source as Record<string, unknown>
+  for (const key of Object.keys(sourceRecord)) {
+    const sourceValue = sourceRecord[key]
+    const targetValue = result[key]
     if (
-      source[key] !== null
-      && typeof source[key] === 'object'
-      && !Array.isArray(source[key])
-      && typeof result[key] === 'object'
-      && result[key] !== null
-      && !Array.isArray(result[key])
+      sourceValue !== null
+      && typeof sourceValue === 'object'
+      && !Array.isArray(sourceValue)
+      && typeof targetValue === 'object'
+      && targetValue !== null
+      && !Array.isArray(targetValue)
     ) {
-      result[key] = deepMerge(result[key] as Record<string, unknown>, source[key] as Record<string, unknown>)
+      result[key] = deepMerge(targetValue, sourceValue)
     }
     else {
-      result[key] = source[key]
+      result[key] = sourceValue
     }
   }
-  return result
+  return result as T
 }
 
 export function usePreferences() {
@@ -69,7 +76,7 @@ export function usePreferences() {
       const cached = localStorage.getItem(CACHE_KEY)
       if (cached) {
         const parsed = JSON.parse(cached) as Partial<PreferencesData>
-        preferences.value = deepMerge(DEFAULTS, parsed as Record<string, unknown>) as PreferencesData
+        preferences.value = deepMerge(DEFAULTS, parsed)
       }
     }
     catch {
@@ -103,7 +110,7 @@ export function usePreferences() {
       const { get } = useApi()
       const response = await get<{ preferences: PreferencesData }>('/api/v1/users/me/preferences/')
       if (response?.preferences) {
-        preferences.value = deepMerge(DEFAULTS, response.preferences as Record<string, unknown>) as PreferencesData
+        preferences.value = deepMerge(DEFAULTS, response.preferences)
         saveToCache()
         isSynced.value = true
       }

@@ -95,7 +95,7 @@ describe('useWaypoints', () => {
 
   it('markWaypointPassed leaves the active waypoint unchanged when nothing is pending', async () => {
     const { activeWaypointId, markWaypointPassed, updateWaypoint, setActiveWaypoint } = await load()
-    updateWaypoint('wp-3', { status: 'completed' })
+    updateWaypoint('wp-3', { status: 'passed' })
     setActiveWaypoint(null)
 
     markWaypointPassed('wp-1')

@@ -107,7 +107,7 @@ const arrCoords = computed(() => {
   return airportCoords[icao] ?? null
 })
 
-const validationResults = computed<ValidationResult[]>(() => {
+const validationResults = computed<readonly ValidationResult[]>(() => {
   return validationResponse.value?.results ?? []
 })
 

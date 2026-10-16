@@ -151,6 +151,8 @@ async function initMap() {
   L.value = await import('leaflet')
 
   const firstPoint = trackPoints.value[0]
+  if (!firstPoint) return
+
   map.value = L.value.map(mapContainer.value, {
     center: [firstPoint.lat, firstPoint.lon],
     zoom: 10,
@@ -202,7 +204,7 @@ async function initMap() {
   // Fit map to track
   if (allCoords.length >= 2) {
     const bounds = L.value.latLngBounds(allCoords)
-    map.value.fitBounds(bounds, { padding: [40, 40] })
+    map.value?.fitBounds(bounds, { padding: [40, 40] })
   }
 }
 

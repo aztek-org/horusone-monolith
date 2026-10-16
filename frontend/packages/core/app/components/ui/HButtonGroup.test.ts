@@ -32,8 +32,8 @@ describe('HButtonGroup', () => {
       props: { modelValue: 'a', options },
     })
     const buttons = wrapper.findAll('button')
-    expect(buttons[0].classes()).toContain('bg-horus-accent-cyan')
-    expect(buttons[1].classes()).not.toContain('bg-horus-accent-cyan')
+    expect(buttons[0]!.classes()).toContain('bg-horus-accent-cyan')
+    expect(buttons[1]!.classes()).not.toContain('bg-horus-accent-cyan')
   })
 
   it('emits update:modelValue when an option is clicked', async () => {
@@ -41,7 +41,7 @@ describe('HButtonGroup', () => {
       ...globalStubs,
       props: { modelValue: 'a', options },
     })
-    await wrapper.findAll('button')[1].trigger('click')
+    await wrapper.findAll('button')[1]!.trigger('click')
     expect(wrapper.emitted('update:modelValue')).toEqual([['b']])
   })
 
@@ -58,6 +58,6 @@ describe('HButtonGroup', () => {
       ...globalStubs,
       props: { modelValue: 'a', options, size: 'sm' },
     })
-    expect(wrapper.findAll('button')[0].classes()).toContain('text-xs')
+    expect(wrapper.findAll('button')[0]!.classes()).toContain('text-xs')
   })
 })

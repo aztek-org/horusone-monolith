@@ -87,7 +87,7 @@ async function generateCodeChallenge(verifier: string): Promise<string> {
  * Parse JWT token payload without verification (client-side only).
  */
 function parseJwtPayload(token: string): Record<string, unknown> {
-  const base64Url = token.split('.')[1]
+  const base64Url = token.split('.')[1] ?? ''
   const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
   const payload = decodeURIComponent(
     atob(base64)

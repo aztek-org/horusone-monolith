@@ -21,8 +21,8 @@ describe('HRadioGroup', () => {
       props: { modelValue: 'beginner', options, name: 'level' },
     })
     const buttons = wrapper.findAll('button')
-    expect(buttons[0].classes()).toContain('bg-horus-accent-cyan/10')
-    expect(buttons[1].classes()).not.toContain('bg-horus-accent-cyan/10')
+    expect(buttons[0]!.classes()).toContain('bg-horus-accent-cyan/10')
+    expect(buttons[1]!.classes()).not.toContain('bg-horus-accent-cyan/10')
   })
 
   it('renders the inner selection dot only for the selected option', () => {
@@ -36,7 +36,7 @@ describe('HRadioGroup', () => {
     const wrapper = mount(HRadioGroup, {
       props: { modelValue: 'beginner', options, name: 'level' },
     })
-    await wrapper.findAll('button')[1].trigger('click')
+    await wrapper.findAll('button')[1]!.trigger('click')
     expect(wrapper.emitted('update:modelValue')).toEqual([['advanced']])
   })
 })

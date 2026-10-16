@@ -97,7 +97,7 @@ export interface SessionAuditEvent {
   created_at: string
 }
 
-type PlaybackSpeed = 1 | 2 | 4 | 8
+export type PlaybackSpeed = 1 | 2 | 4 | 8
 
 export function useSessionReplay() {
   const api = useApi()

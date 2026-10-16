@@ -51,8 +51,8 @@ describe('useWeatherData', () => {
     const { weather, updateMetar } = await load()
     updateMetar('KJFK METAR', 'KJFK 130000Z 00000KT 10SM CLR 20/10 A3000')
     expect(weather.value.metar).toHaveLength(2)
-    expect(weather.value.metar[0].raw).toContain('CLR')
-    expect(weather.value.metar[0].time).toMatch(/^\d{2}\d{2}:\dZ$/)
+    expect(weather.value.metar[0]!.raw).toContain('CLR')
+    expect(weather.value.metar[0]!.time).toMatch(/^\d{2}\d{2}:\dZ$/)
   })
 
   it('updateMetar appends a new station report', async () => {
