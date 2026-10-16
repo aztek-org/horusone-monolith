@@ -1,4 +1,5 @@
 """Tests for configuration management."""
+
 import re
 from pathlib import Path
 
@@ -109,6 +110,18 @@ def test_external_fallback_default_matches_adr_contract() -> None:
     assert settings.llm.allow_external_fallback is False
 
 
+def test_hitl_interrupt_default_matches_adr_contract() -> None:
+    """Keep instructor override (HITL) switched off in the shipped default.
+
+    ADR-007 puts provider and Scene overrides in config, not at a call site; the
+    HITL interrupt is one such value. It is deliberately disabled by default and
+    enabled only by an operator, so the code default is guarded literally.
+    """
+    settings = Settings(_env_file=None, environment="testing")
+
+    assert settings.llm.interrupt_before_response is False
+
+
 @pytest.mark.parametrize("template", _CHUNKING_TEMPLATES)
 def test_shipped_templates_match_the_chunking_contract(template: str) -> None:
     """A default that silently disagrees with ADR-008 is a defect.
@@ -150,6 +163,17 @@ def test_shipped_templates_keep_external_fallback_disabled(template: str) -> Non
 def test_shipped_templates_document_the_scene_registry_path(template: str) -> None:
     """Every template must expose the custom-scene option, Docker included."""
     assert "SCENES_PATH" in _template_values(template)
+
+
+@pytest.mark.parametrize("template", _ALL_TEMPLATES)
+def test_shipped_templates_declare_the_hitl_interrupt_flag(template: str) -> None:
+    """Every template that configures the LLM must declare the HITL flag.
+
+    ``test_shipped_templates_and_code_defaults_agree`` skips a key it does not
+    find, so a template that omits this one would silently inherit the code
+    default.  Assert presence here; the agreement test asserts the value.
+    """
+    assert "LLM_INTERRUPT_BEFORE_RESPONSE" in _template_values(template)
 
 
 @pytest.mark.parametrize("template", _ALL_TEMPLATES)
@@ -232,6 +256,7 @@ def test_shipped_templates_and_code_defaults_agree() -> None:
         "LLM_TEMPERATURE": settings.llm.temperature,
         "LLM_MAX_OUTPUT_TOKENS": settings.llm.max_output_tokens,
         "LLM_TIMEOUT_SECONDS": settings.llm.timeout_seconds,
+        "LLM_INTERRUPT_BEFORE_RESPONSE": settings.llm.interrupt_before_response,
         "WHISPER_MODEL": settings.whisper_model,
         "TTS_LANGUAGE": settings.tts_language,
         "AUDIO_FORMAT": settings.audio.audio_format,
@@ -247,8 +272,7 @@ def test_shipped_templates_and_code_defaults_agree() -> None:
             if name not in values:
                 continue
             assert _matches_code_default(values[name], expected), (
-                f"{template}:{name}={values[name]!r} drifted from the code "
-                f"default {expected!r}"
+                f"{template}:{name}={values[name]!r} drifted from the code default {expected!r}"
             )
 
 
@@ -346,9 +370,7 @@ def test_issuer_aliases_are_accepted_only_outside_production() -> None:
     )
 
     assert "https://alias.example/realms/horus" in development.accepted_keycloak_issuers
-    assert production.accepted_keycloak_issuers == {
-        "https://auth.example/realms/horus"
-    }
+    assert production.accepted_keycloak_issuers == {"https://auth.example/realms/horus"}
 
 
 def test_get_settings_reads_grouped_environment(monkeypatch: pytest.MonkeyPatch) -> None:

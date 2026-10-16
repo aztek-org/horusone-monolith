@@ -180,6 +180,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         db_session_factory=get_session_factory(),
         knowledge=retriever,
         require_org=app_settings.environment == "production",
+        interrupt_before_response=app_settings.llm.interrupt_before_response,
     )
 
     logger.info(
