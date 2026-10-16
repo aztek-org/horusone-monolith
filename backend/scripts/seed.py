@@ -31,6 +31,7 @@ logger = logging.getLogger("scripts.seed")
 # When invoked with `python -m scripts.seed` from `backend/`, the CWD is
 # already on sys.path, but we guard against edge-cases.
 from app.config import get_settings  # noqa: E402
+from app.core.org_ids import org_id_for_slug  # noqa: E402
 from app.db.session import get_engine, get_session_factory  # noqa: E402
 from app.models.assessment import KnowledgeAssessment  # noqa: E402
 from app.models.content import ContentArticle, ContentCategory  # noqa: E402
@@ -89,7 +90,7 @@ def _fail(msg: str) -> None:
 # ══════════════════════════════════════════════════════════════════════════
 
 ORG_SLUG = "skybridge"
-ORG_ID = uuid.uuid5(uuid.NAMESPACE_DNS, "skybridge.aero")
+ORG_ID = org_id_for_slug(ORG_SLUG)
 
 USERS_DATA: list[dict[str, str]] = [
     {
