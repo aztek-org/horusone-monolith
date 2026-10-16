@@ -5,6 +5,8 @@ from dataclasses import replace
 
 import pytest
 
+from app.knowledge.retrieval.fake import FakeRetriever
+from app.knowledge.types import RetrievedChunk
 from app.llm.adapters.fake_adapter import FakeAdapter
 from app.services.llm.scenes.default_scene import DEFAULT_SCENE
 from app.services.llm.scenes.registry import SceneConfig, SceneRegistry
@@ -509,7 +511,9 @@ class _ConfigRecordingGraph:
 def _module_with_recording_graph(monkeypatch, configs: list[object]) -> TrainingSessionModule:
     monkeypatch.setattr(
         "app.services.training_sessions.session_module.build_live_session_graph",
-        lambda _llm, _scene, interrupts: _ConfigRecordingGraph(configs, interrupts),
+        lambda _llm, _scene, interrupts, _knowledge=None: _ConfigRecordingGraph(
+            configs, interrupts
+        ),
     )
     return _module()
 
@@ -554,7 +558,9 @@ async def test_await_instructor_runs_on_the_tenant_scoped_thread(monkeypatch) ->
     module = _module(interrupt_before_response=True)
     monkeypatch.setattr(
         "app.services.training_sessions.session_module.build_live_session_graph",
-        lambda _llm, _scene, interrupts: _ConfigRecordingGraph(configs, interrupts),
+        lambda _llm, _scene, interrupts, _knowledge=None: _ConfigRecordingGraph(
+            configs, interrupts
+        ),
     )
     org_id = uuid.uuid4()
     await _start(module, org_id)
@@ -564,3 +570,33 @@ async def test_await_instructor_runs_on_the_tenant_scoped_thread(monkeypatch) ->
     await module.await_instructor(org_id, 1)
 
     assert configs == [{"configurable": {"thread_id": f"{org_id}:1"}}]
+
+
+@pytest.mark.asyncio
+async def test_send_returns_citations_for_retrieved_chunks() -> None:
+    """A completed exchange carries the chunks its Scene knowledge retrieved."""
+    chunk = RetrievedChunk(
+        chunk_id=uuid.uuid4(),
+        document_id=uuid.uuid4(),
+        org_id=None,
+        title="Ground Operations",
+        content="Tower request taxi clearance standard phraseology",
+        score=3.0,
+        page=2,
+        section="Ground",
+        char_start=0,
+        char_end=50,
+        source_filename="sop.md",
+    )
+    retriever = FakeRetriever()
+    await retriever.add(chunk)
+    scene = replace(DEFAULT_SCENE, knowledge_refs=["sop.md"])
+    module = _module(scene=scene, knowledge=retriever)
+    org_id = uuid.uuid4()
+    await _start(module, org_id)
+
+    result = await module.send(SendTransmissionCommand(org_id, 1, "Tower, request taxi"))
+
+    assert [citation.chunk_id for citation in result.citations] == [chunk.chunk_id]
+    assert result.citations[0].page == 2
+    assert result.citations[0].snippet.startswith("Tower request taxi")
