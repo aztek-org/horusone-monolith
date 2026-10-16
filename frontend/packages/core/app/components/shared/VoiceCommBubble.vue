@@ -2,7 +2,7 @@
   <div class="fixed bottom-10 right-4 z-50">
     <!-- Main mic button -->
     <button
-      :disabled="!status.connected || status.processing"
+      :disabled="!status.connected || status.processing || status.pendingInstructor"
       :class="[
         'relative w-16 h-16 rounded-full shadow-lg transition-all duration-300',
         'flex items-center justify-center',
@@ -93,6 +93,28 @@
           <div class="w-2 h-2 rounded-full bg-horus-status-success" />
           <span>Connected to tower</span>
         </div>
+      </div>
+    </Transition>
+
+    <!-- Held-exchange notification (HITL) -->
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0 translate-y-2"
+      enter-to-class="opacity-100 translate-y-0"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="opacity-100 translate-y-0"
+      leave-to-class="opacity-0 translate-y-2"
+    >
+      <div
+        v-if="status.pendingInstructor"
+        class="absolute bottom-full right-0 mb-2 w-64 p-3 bg-horus-status-warning/10 border border-horus-status-warning rounded-lg shadow-xl"
+      >
+        <p class="text-sm text-horus-status-warning font-medium">
+          Transmission held for instructor review
+        </p>
+        <p class="mt-1 text-xs text-horus-text-muted">
+          No ATC response will be sent until an instructor releases it.
+        </p>
       </div>
     </Transition>
 
@@ -199,6 +221,10 @@ const buttonClasses = computed(() => {
     return 'bg-horus-accent-cyan/20 text-horus-accent-cyan cursor-wait'
   }
 
+  if (status.value.pendingInstructor) {
+    return 'bg-horus-status-warning/20 text-horus-status-warning cursor-not-allowed'
+  }
+
   if (status.value.speaking) {
     return 'bg-horus-status-info text-white animate-pulse-slow'
   }
@@ -219,6 +245,7 @@ const connectionStatusText = computed(() => {
 
 const buttonTitle = computed(() => {
   if (!status.value.connected) return 'Connecting to ATC...'
+  if (status.value.pendingInstructor) return 'Transmission held for instructor review'
   if (status.value.recording) return 'Recording... Release to send'
   if (status.value.processing) return 'Processing transmission...'
   if (status.value.speaking) return 'ATC speaking...'
@@ -227,7 +254,7 @@ const buttonTitle = computed(() => {
 
 // Event handlers
 const handleMouseDown = () => {
-  if (status.value.connected && !status.value.processing) {
+  if (status.value.connected && !status.value.processing && !status.value.pendingInstructor) {
     startRecording()
   }
 }
@@ -268,7 +295,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
     }
 
     // Start recording
-    if (status.value.connected && !status.value.processing) {
+    if (status.value.connected && !status.value.processing && !status.value.pendingInstructor) {
       e.preventDefault()
       startRecording()
     }

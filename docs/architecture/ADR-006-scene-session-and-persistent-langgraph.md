@@ -153,15 +153,12 @@ held exchange, recording `instructor_override` with `instructor_overridden=True`
 when text was supplied and `False` when the graph's own response was released;
 and the pending state is checkpointed, so it survives a backend restart.
 
-Two of the three pieces have landed: the configuration field and the authorized
-route. What is not real is the frontend — a held exchange still returns an empty
-`atc_response` and the pilot hears silence, because no surface renders the
-pending state or calls the route ([#23](https://github.com/martinsgmx/horusone-mvp/issues/23)).
-The route stays inert while `interrupt_before_response` is `False`, the shipped
-default; and `ATCAgent` passes `False` explicitly, so voice-driven deployments
-never pause.
+All three pieces have landed. HITL is now an available capability, gated by the
+`interrupt_before_response` setting: with the shipped default (`False`) a held
+exchange never occurs, and `ATCAgent` passes `False` explicitly, so voice-driven
+deployments never pause.
 
-**Turning it on is three pieces of work, not a flag flip:**
+**Turning it on was three pieces of work, not a flag flip:**
 
 1. ~~a configuration field~~ — landed in
    [#21](https://github.com/martinsgmx/horusone-mvp/issues/21):
@@ -175,13 +172,17 @@ never pause.
    (`app/api/v1/sessions.py`), behind the active-seat check, the
    instructor-capable seat role (`instructor`/`admin`), and the tenant scoping
    every other session route uses;
-3. a frontend pending state, because a held exchange returns an empty
-   `atc_response` and the pilot currently hears silence.
+3. ~~a frontend pending state~~ — landed in
+   [#23](https://github.com/martinsgmx/horusone-mvp/issues/23): the pilot's
+   `useVoiceComm` tracks the `awaiting_instructor` WebSocket message and
+   `VoiceCommBubble` shows a held banner instead of silence, while Tower's
+   "Session Visibility" rows open an `InstructorReviewPanel` that reads the
+   session's events and releases or overrides the held exchange.
 
-Until the third lands, do not describe HITL as available. Both failure directions
-are safety-relevant: a student pilot must never receive an AI response an
-instructor believed they had reviewed, and a session that stops responding with
-nothing to show for it is why the feature stays off.
+Both failure directions remain safety-relevant: a student pilot must never
+receive an AI response an instructor believed they had reviewed, and a session
+that stops responding with nothing to show for it are why HITL is off by
+default.
 
 ### Negative
 
@@ -189,9 +190,9 @@ nothing to show for it is why the feature stays off.
 - The Session module is a larger interface surface than the current three
   orchestrator methods, and callers must learn `StartSessionCommand` /
   `SendTransmissionCommand` / `EndSessionCommand`.
-- HITL's pending state is the one part of this ADR the frontend has not been
-  asked to render, because HITL is switched off. That debt is deferred, not
-  paid.
+- HITL's pending state is rendered only while `interrupt_before_response` is on;
+  with the shipped default the frontend path is dead code until an operator
+  enables it.
 
 ### Neutral
 

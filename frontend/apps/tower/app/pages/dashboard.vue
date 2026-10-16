@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { InstructorExchangeResponse } from '~/composables/useInstructor'
+
 defineOptions({
   name: 'TowerDashboardPage',
 })
@@ -222,6 +224,29 @@ const recentSessions = computed(() =>
     .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
     .slice(0, 10),
 )
+
+// Held-exchange review (HITL). The panel loads the session's events on demand
+// and only offers to release when the last exchange is actually held.
+const reviewSessionId = ref<number | null>(null)
+const reviewNotice = ref<string | null>(null)
+
+function openReview(session: TrainingSession): void {
+  reviewSessionId.value = session.id
+  reviewNotice.value = null
+}
+
+function closeReview(): void {
+  reviewSessionId.value = null
+}
+
+function handleReviewReleased(payload: InstructorExchangeResponse): void {
+  reviewNotice.value = !payload.applied
+    ? 'Nothing was awaiting review.'
+    : payload.instructor_overridden
+      ? 'Instructor override sent to the pilot.'
+      : 'AI response released to the pilot.'
+  reviewSessionId.value = null
+}
 
 const activeSessionCount = computed(() =>
   sessions.value.filter(s => s.status === 'active').length,
@@ -1840,6 +1865,10 @@ watch(orgId, (currentOrgId, previousOrgId) => {
               <HBadge variant="default" size="sm">Total {{ sessions.length }}</HBadge>
             </div>
 
+            <p v-if="reviewNotice" class="mb-3 text-xs text-horus-status-success">
+              {{ reviewNotice }}
+            </p>
+
             <div v-if="recentSessions.length === 0" class="rounded-lg border border-white/10 p-4 text-center">
               <p class="text-sm text-horus-text-muted">No sessions available yet.</p>
             </div>
@@ -1852,7 +1881,8 @@ watch(orgId, (currentOrgId, previousOrgId) => {
                     <th class="pb-2 pr-3">Status</th>
                     <th class="pb-2 pr-3">Scenario</th>
                     <th class="pb-2 pr-3">Started</th>
-                    <th class="pb-2">Duration</th>
+                    <th class="pb-2 pr-3">Duration</th>
+                    <th class="pb-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1873,14 +1903,41 @@ watch(orgId, (currentOrgId, previousOrgId) => {
                     <td class="py-3 pr-3 text-xs text-horus-text-muted">
                       {{ formatDate(session.started_at) }}
                     </td>
-                    <td class="py-3 text-xs text-horus-text-muted">
+                    <td class="py-3 pr-3 text-xs text-horus-text-muted">
                       {{ formatDuration(session) }}
+                    </td>
+                    <td class="py-3">
+                      <HButton
+                        v-if="session.status === 'active'"
+                        variant="secondary"
+                        size="sm"
+                        @click="openReview(session)"
+                      >
+                        Review
+                      </HButton>
+                      <span v-else class="text-xs text-horus-text-muted">—</span>
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </HCard>
+        </div>
+
+        <!-- Held-exchange review modal (HITL) -->
+        <div
+          v-if="reviewSessionId !== null"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          @click.self="closeReview"
+        >
+          <div class="w-full max-w-lg space-y-2">
+            <InstructorReviewPanel :session-id="reviewSessionId" @released="handleReviewReleased" />
+            <div class="flex justify-end">
+              <HButton variant="secondary" size="sm" @click="closeReview">
+                Close
+              </HButton>
+            </div>
+          </div>
         </div>
       </template>
     </div>

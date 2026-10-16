@@ -10,6 +10,12 @@ export interface VoiceCommStatus {
   recording: boolean
   processing: boolean
   speaking: boolean
+  /**
+   * True while the last transmission is held for instructor review (HITL).
+   * The pilot must not hear silence without knowing why, so the UI surfaces
+   * this state instead of treating the held exchange as a normal response.
+   */
+  pendingInstructor: boolean
   error: string | null
 }
 
@@ -19,6 +25,7 @@ export const useVoiceComm = () => {
     recording: false,
     processing: false,
     speaking: false,
+    pendingInstructor: false,
     error: null,
   })
 
@@ -157,14 +164,24 @@ export const useVoiceComm = () => {
     switch (message.type) {
       case 'connected':
         console.log('Connection confirmed:', message.client_id)
+        // A fresh connection has no held transmission in flight.
+        status.value.pendingInstructor = false
         break
 
       case 'processing':
         status.value.processing = true
         break
 
+      case 'awaiting_instructor':
+        // The exchange is held: no ATC audio will follow until an instructor
+        // releases it, so stop the spinner and show the pending state.
+        status.value.processing = false
+        status.value.pendingInstructor = true
+        break
+
       case 'response_complete':
         status.value.processing = false
+        status.value.pendingInstructor = false
         break
 
       case 'error':

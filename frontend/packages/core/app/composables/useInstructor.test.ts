@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockApi = {
   get: vi.fn(),
   put: vi.fn(),
+  post: vi.fn(),
 }
 
 vi.mock('./useApi', () => ({
@@ -19,6 +20,7 @@ describe('useInstructor', () => {
     vi.clearAllMocks()
     mockApi.get.mockResolvedValue([])
     mockApi.put.mockResolvedValue({})
+    mockApi.post.mockResolvedValue({})
   })
 
   it('getMyProfile GETs the current instructor profile', async () => {
@@ -82,5 +84,57 @@ describe('useInstructor', () => {
     const instructor = await setup()
     await instructor.getRecentSessions(5)
     expect(mockApi.get).toHaveBeenCalledWith('/api/v1/instructors/sessions/recent?limit=5')
+  })
+
+  it('getSessionEvents GETs the session event timeline', async () => {
+    const instructor = await setup()
+    await instructor.getSessionEvents(42)
+    expect(mockApi.get).toHaveBeenCalledWith('/api/v1/sessions/42/events')
+  })
+
+  it('respondToHeldExchange posts an override body', async () => {
+    const instructor = await setup()
+    await instructor.respondToHeldExchange(42, 'Cleared for takeoff')
+    expect(mockApi.post).toHaveBeenCalledWith('/api/v1/sessions/42/instructor-response', {
+      instructor_response: 'Cleared for takeoff',
+    })
+  })
+
+  it('respondToHeldExchange posts an empty body to release the AI response', async () => {
+    const instructor = await setup()
+    await instructor.respondToHeldExchange(42)
+    expect(mockApi.post).toHaveBeenCalledWith('/api/v1/sessions/42/instructor-response', {})
+  })
+})
+
+describe('heldExchangeFromEvents', () => {
+  it('is held when the last lifecycle event is awaiting_instructor', async () => {
+    const { heldExchangeFromEvents } = await import('./useInstructor')
+    expect(heldExchangeFromEvents([
+      { event_type: 'exchange_completed' } as never,
+      { event_type: 'awaiting_instructor' } as never,
+    ])).toBe(true)
+  })
+
+  it('is not held once an override resolves it', async () => {
+    const { heldExchangeFromEvents } = await import('./useInstructor')
+    expect(heldExchangeFromEvents([
+      { event_type: 'awaiting_instructor' } as never,
+      { event_type: 'instructor_override' } as never,
+    ])).toBe(false)
+  })
+
+  it('is not held for a normally completed exchange', async () => {
+    const { heldExchangeFromEvents } = await import('./useInstructor')
+    expect(heldExchangeFromEvents([
+      { event_type: 'exchange_completed' } as never,
+    ])).toBe(false)
+  })
+
+  it('is not held when there are no lifecycle events', async () => {
+    const { heldExchangeFromEvents } = await import('./useInstructor')
+    expect(heldExchangeFromEvents([
+      { event_type: 'created' } as never,
+    ])).toBe(false)
   })
 })
