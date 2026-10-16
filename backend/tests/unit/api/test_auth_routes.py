@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.api.v1 import auth
+from app.core.org_ids import org_id_for_slug
 from app.middleware.auth import TokenUser
 
 
@@ -46,9 +47,7 @@ async def test_logout_clears_redis_session() -> None:
 
 @pytest.mark.asyncio
 async def test_logout_survives_redis_failure() -> None:
-    with patch.object(
-        auth, "get_redis", new=AsyncMock(side_effect=RuntimeError("redis down"))
-    ):
+    with patch.object(auth, "get_redis", new=AsyncMock(side_effect=RuntimeError("redis down"))):
         result = await auth.logout(body=auth.LogoutRequest(), user=_token())
 
     assert result.message == "Logged out successfully"
@@ -124,3 +123,32 @@ async def test_get_current_user_profile_platform_admin_has_active_seat() -> None
 
     assert result.has_active_seat is True
     assert result.seats == []
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_profile_resolves_slug_org_claim() -> None:
+    """A legacy slug org claim must not 500 — it resolves to the org UUID (#18)."""
+    session = AsyncMock()
+    session.execute = AsyncMock(return_value=_ScalarsResult([]))
+    local_user = SimpleNamespace(
+        id=uuid.uuid4(),
+        keycloak_id="kc-user",
+        email="user@test.com",
+        display_name="User",
+        seats=[],
+    )
+    token = TokenUser(
+        keycloak_id="kc-user",
+        email="user@test.com",
+        display_name="User",
+        roles=["instructor"],
+        organization_id="skybridge",
+    )
+
+    result = await auth.get_current_user_profile(
+        user=token,
+        local_user=local_user,
+        session=session,
+    )
+
+    assert result.organization_id == org_id_for_slug("skybridge")

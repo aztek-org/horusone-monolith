@@ -7,6 +7,7 @@ import uuid
 import pytest
 from fastapi import HTTPException
 
+from app.core.org_ids import org_id_for_slug
 from app.core.permissions import (
     can_access_org,
     get_user_org_id,
@@ -63,9 +64,9 @@ class TestGetUserOrgId:
     def test_returns_none_when_absent(self) -> None:
         assert get_user_org_id(_user(organization_id=None)) is None
 
-    def test_raises_on_malformed_uuid(self) -> None:
-        with pytest.raises(ValueError):
-            get_user_org_id(_user(organization_id="not-a-uuid"))
+    def test_resolves_slug_claim(self) -> None:
+        # Legacy/stale Keycloak mappings put the org slug in the claim.
+        assert get_user_org_id(_user(organization_id="skybridge")) == org_id_for_slug("skybridge")
 
 
 class TestCanAccessOrg:
