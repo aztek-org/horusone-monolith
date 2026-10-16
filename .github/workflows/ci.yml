@@ -172,6 +172,22 @@ jobs:
           source .venv/bin/activate
           pytest tests/unit/test_telemetry.py -v --tb=short
 
+  infra-postgres-smoke:
+    name: Postgres First-Boot Smoke
+    # Purpose: prove the Postgres image initializes keycloak_db on a fresh
+    # volume. The init script is baked into docker/Dockerfile.postgres (and
+    # chmod +x'd there) precisely so first-boot init cannot depend on host
+    # file/permission semantics; this job keeps that guarantee honest and
+    # catches any regression to the old bind-mount approach (issue #20).
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run first-boot smoke check
+        run: ./scripts/smoke-first-boot.sh
+
   frontend-lint:
     name: Frontend Lint
     runs-on: ubuntu-latest

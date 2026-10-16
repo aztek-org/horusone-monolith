@@ -1,0 +1,14 @@
+#  ============================================================================
+# Dockerfile.postgres — pgvector/pg16 with the first-boot init script baked in.
+#
+# The init script is COPYed (and chmod +x'd) rather than bind-mounted from the
+# host so that it is deterministically present and executable inside the
+# container. A host bind mount loses the exec bit on SELinux-labelled hosts and
+# on macOS/Windows mounts, and a missing host path is silently materialised as
+# an empty directory — either way the entrypoint skips it and ``keycloak_db``
+# is never created, which makes Keycloak fail to start.
+# ============================================================================
+FROM pgvector/pgvector:pg16
+
+COPY init-multiple-dbs.sh /docker-entrypoint-initdb.d/init-multiple-dbs.sh
+RUN chmod +x /docker-entrypoint-initdb.d/init-multiple-dbs.sh

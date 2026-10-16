@@ -103,7 +103,7 @@ horus-mvp/
 │   │   ├── schemas/                # Pydantic request/response contracts
 │   │   └── services/               # STT, TTS, LLM, audio effects
 │   ├── alembic/                    # DB migrations
-│   ├── scripts/                    # deploy.sh, backup.sh, restore.sh, seed.py
+│   ├── scripts/                    # deploy.sh, backup.sh, restore.sh, smoke-first-boot.sh, seed.py
 │   ├── docker/                     # Dockerfiles and init scripts
 │   └── tests/                      # pytest unit/integration suite
 │
@@ -130,7 +130,9 @@ horus-mvp/
 | `backend/scripts/deploy.sh` | Production deployment helper (`--full`, `--skip-migrations`) |
 | `backend/scripts/backup.sh` | PostgreSQL backups with retention pruning |
 | `backend/scripts/restore.sh` | Interactive PostgreSQL restore from `.sql` / `.sql.gz` |
+| `backend/scripts/smoke-first-boot.sh` | Verify Postgres first-boot init creates `keycloak_db` |
 | `backend/docker/init-multiple-dbs.sh` | First-boot Postgres init for `keycloak_db` |
+| `backend/docker/Dockerfile.postgres` | Postgres image with the init script baked in (executable) |
 
 ## 📖 Documentation
 
