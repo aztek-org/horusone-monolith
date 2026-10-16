@@ -79,8 +79,10 @@ wait_for_health() {
   info "Waiting for backend health check ..."
 
   while [[ $elapsed -lt $HEALTH_TIMEOUT ]]; do
-    # Health check via the container network (backend may not expose ports)
-    if $COMPOSE_CMD exec -T backend curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+    # Health check via the container network (backend may not expose ports).
+    # The runtime image ships no curl, so probe with its stdlib HEALTHCHECK
+    # command — the same one docker-compose.yml uses.
+    if $COMPOSE_CMD exec -T backend python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" > /dev/null 2>&1; then
       info "  ✓ Backend healthy after ${elapsed}s"
       return 0
     fi
