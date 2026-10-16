@@ -180,3 +180,24 @@ class TestAnalyzeWeather:
 
         assert result["weather"]["flight_category"] == "VFR"
         assert result["weather"]["alternate_metar"] is None
+
+    def test_prefetched_reports_are_used_without_calling_fetch(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def _boom(icao: str) -> str:  # pragma: no cover - must not run
+            raise AssertionError("prefetched reports must bypass the mock fetch")
+
+        monkeypatch.setattr(weather_agent, "fetch_metar", _boom)
+        monkeypatch.setattr(weather_agent, "fetch_taf", _boom)
+        fetched = {
+            "departure_metar": LIFR_METAR,
+            "arrival_metar": LIFR_METAR,
+            "alternate_metar": "",
+            "departure_taf": "",
+            "arrival_taf": "",
+        }
+
+        result = analyze_weather({"flight_plan": _plan()}, fetched)
+
+        assert result["weather"]["departure_metar"] == LIFR_METAR
+        assert result["weather"]["flight_category"] == "LIFR"

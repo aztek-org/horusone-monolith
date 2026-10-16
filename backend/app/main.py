@@ -36,6 +36,7 @@ from app.config import Settings, get_settings
 from app.knowledge.retrieval import build_retriever
 from app.llm.routing import build_llm
 from app.observability.telemetry import configure_telemetry
+from app.services.external.weather_service import build_weather_service
 from app.services.llm.scenes.default_scene import DEFAULT_SCENE
 from app.services.llm.scenes.registry import SceneRegistry, load_scene_configs
 from app.services.training_sessions.postgres_session_store import PostgresSessionStore
@@ -164,6 +165,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         store = InMemorySessionStore()
     scenes = _build_scene_registry(app_settings)
     retriever = build_retriever(app_settings, get_session_factory, llm)
+    weather_service = build_weather_service(app_settings)
     trace = SqlAlchemyTraceRecorder()
 
     application.state.settings = app_settings
@@ -171,6 +173,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     application.state.session_store = store
     application.state.scene_registry = scenes
     application.state.retriever = retriever
+    application.state.weather_service = weather_service
     application.state.trace_recorder = trace
     application.state.session_module = TrainingSessionModule(
         store,
@@ -181,6 +184,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         knowledge=retriever,
         require_org=app_settings.environment == "production",
         interrupt_before_response=app_settings.llm.interrupt_before_response,
+        weather=weather_service,
     )
 
     logger.info(
