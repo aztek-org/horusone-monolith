@@ -1,0 +1,33 @@
+# Traefik dynamic configuration (file provider).
+#
+# Loaded from /etc/traefik/dynamic inside the image built by
+# docker/Dockerfile.traefik, which is COPYed rather than bind-mounted so the
+# edge middlewares are present regardless of host file semantics.
+#
+# The middlewares are attached to every web router via the
+# `traefik.http.routers.*.middlewares=...@file` labels on the backend and
+# Keycloak services in docker-compose.yml.
+
+http:
+  middlewares:
+    # Defence-in-depth response headers. The FastAPI app sets its own copy,
+    # but the edge also covers Keycloak and any 5xx/rejected response that
+    # never reaches the app. No CSP here: the backend supplies a strict one and
+    # a bad edge CSP would break Keycloak's HTML login console.
+    security-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: no-referrer
+        permissionsPolicy: "geolocation=(), microphone=(), camera=()"
+
+    # Per-source-IP throttle at the edge so a burst cannot reach the backend or
+    # the identity provider. average is requests/second (leaky bucket) and
+    # burst is the queue depth above that rate.
+    rate-limit:
+      rateLimit:
+        average: 50
+        burst: 100

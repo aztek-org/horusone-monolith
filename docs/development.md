@@ -173,7 +173,8 @@ horus-mvp/
 │   │                               # smoke-first-boot.sh,
 │   │                               # prune_session_events.py (ADR-009 retention cron)
 │   ├── docker/                     # Dockerfile, Dockerfile.postgres,
-│   │                               # Dockerfile.keycloak, keycloak-import/
+│   │                               # Dockerfile.keycloak, Dockerfile.traefik,
+│   │                               # keycloak-import/, traefik/dynamic.yml
 │   ├── docker-compose.yml          # Base service definitions
 │   ├── docker-compose.dev.yml      # Dev overrides (exposed ports, hot reload)
 │   ├── docker-compose.prod.yml     # Prod overrides (TLS, resource limits, GPU)
@@ -581,6 +582,7 @@ Or use the deploy script: `./scripts/deploy.sh --full`
 
 Production features:
 - Traefik handles TLS via Let's Encrypt (ACME)
+- Traefik applies edge security headers and a per-IP rate limit to every router (`docker/traefik/dynamic.yml`, baked into `docker/Dockerfile.traefik`)
 - No ports exposed directly — all traffic routed through Traefik
 - GPU reservations for Ollama (NVIDIA)
 - Resource limits on backend (2 CPU, 2GB RAM) and PostgreSQL (1 CPU, 1GB RAM)
