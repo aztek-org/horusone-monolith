@@ -193,7 +193,7 @@ horus-mvp/
 │   │   └── layouts/                # Page layouts
 │   ├── nuxt.config.ts
 │   ├── tailwind.config.ts
-│   └── wrangler.toml               # Cloudflare Pages config
+│   └── apps/*/wrangler.toml        # Cloudflare Pages config (per app)
 │
 ├── docs/
 │   ├── README.md                   # Documentation index (canonical doc map)
@@ -695,15 +695,38 @@ from inside `backend/backups/`.
 
 ### Frontend (Cloudflare Pages)
 
-1. Connect the GitHub repo to Cloudflare Pages
-2. Build settings:
-   - **Build command**: `cd frontend && pnpm install && pnpm build`
-   - **Output directory**: `frontend/.output/public`
-3. Set environment variables in the Cloudflare dashboard:
-   - `CF_PAGES=1`
-   - `NUXT_PUBLIC_API_URL=https://api.yourdomain.com`
-   - `NUXT_PUBLIC_WS_URL=wss://api.yourdomain.com/ws/voice`
-4. `wrangler.toml` has production and preview environment configs
+Each app is its own Cloudflare Pages project: **horus-hangar**, **horus-tower**
+and **horus-squawk**. Deployment is handled by
+`.github/workflows/deploy-frontend.yml`, which builds every app on push to
+`tokyo`/`main` (and on manual dispatch) and uploads it with `wrangler pages
+deploy`.
+
+1. Create the three Pages projects in the Cloudflare dashboard. Set each
+   project's **production branch** to `tokyo` (this repo's default branch).
+2. Add two repository secrets (Settings → Secrets and variables → Actions):
+   - `CLOUDFLARE_API_TOKEN` — token with the *Cloudflare Pages: Edit* permission
+   - `CLOUDFLARE_ACCOUNT_ID`
+   Until `CLOUDFLARE_API_TOKEN` exists the workflow no-ops, so it is safe to
+   merge before the account is wired up.
+3. (Optional) Override the public URLs with repository *variables*
+   (`NUXT_PUBLIC_API_URL`, `NUXT_PUBLIC_WS_URL`, …). Defaults are the
+   `horusone.app` production URLs used in the workflow.
+4. Each app ships `apps/<app>/wrangler.toml` declaring the project `name`, the
+   `dist` output directory, and production/preview `NUXT_PUBLIC_*` vars.
+
+Build notes: `CF_PAGES=1` activates Nitro's `cloudflare-pages` preset, so the
+deployable bundle lands in `frontend/apps/<app>/dist` (`_worker.js`,
+`_routes.json`, `_headers`, …). Build it locally with:
+
+```bash
+cd frontend
+CF_PAGES=1 pnpm --filter squawk build   # -> apps/squawk/dist
+```
+
+If you prefer Pages **Git integration** instead of the workflow, point each
+project's build at the same commands and set the public vars in the dashboard —
+but keep the workflow's values and `wrangler.toml` in sync.
+
 
 ### LAN / self-hosted HTTPS
 

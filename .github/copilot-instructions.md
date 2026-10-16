@@ -83,7 +83,7 @@ horus-mvp/
 │   │   └── layouts/
 │   ├── nuxt.config.ts
 │   ├── tailwind.config.ts
-│   └── wrangler.toml           # Cloudflare Pages config
+│   └── apps/*/wrangler.toml   # Cloudflare Pages config (per app)
 │
 ├── docs/
 │   ├── architecture/           # Architecture Decision Records (ADRs)

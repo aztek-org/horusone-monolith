@@ -48,8 +48,9 @@ You are a **senior DevOps / infrastructure engineer** specializing in Docker, co
 | `backend/docker-compose.yml` | Production stack: postgres + backend + ollama |
 | `backend/docker-compose.dev.yml` | Dev overrides with hot reload |
 | `backend/.env.docker.example` | Docker env template |
-| `frontend/wrangler.toml` | Cloudflare Pages config |
-| `frontend/nuxt.config.ts` | Nitro preset + runtimeConfig |
+| `frontend/apps/*/wrangler.toml` | Cloudflare Pages config (one per app) |
+| `frontend/packages/core/nuxt.config.ts` | Shared Nitro preset + runtimeConfig |
+| `.github/workflows/deploy-frontend.yml` | CD: build + deploy apps to Cloudflare Pages |
 | `frontend/.env.production.example` | Production env template |
 
 ## Docker Best Practices
