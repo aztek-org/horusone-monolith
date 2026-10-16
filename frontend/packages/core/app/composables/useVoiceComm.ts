@@ -5,6 +5,8 @@
 
 import { ref, onUnmounted } from 'vue'
 
+import { isInsecureContext } from '../utils/secure-context'
+
 export interface VoiceCommStatus {
   connected: boolean
   recording: boolean
@@ -199,6 +201,14 @@ export const useVoiceComm = () => {
    * Start recording audio from microphone
    */
   const startRecording = async (): Promise<void> => {
+    // getUserMedia only exists in a secure context; without this guard the call
+    // throws and surfaces as a misleading "Microphone access denied".
+    if (isInsecureContext()) {
+      status.value.error
+        = 'Voice input requires a secure connection. Open Horus over HTTPS (or localhost) and try again.'
+      return
+    }
+
     try {
       // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({

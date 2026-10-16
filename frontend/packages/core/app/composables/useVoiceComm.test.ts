@@ -102,4 +102,25 @@ describe('useVoiceComm', () => {
 
     expect(status.value.pendingInstructor).toBe(false)
   })
+
+  it('refuses to record on an insecure origin instead of failing cryptically', async () => {
+    // getUserMedia is unavailable outside a secure context (#73); simulate the
+    // browser reporting that via isSecureContext.
+    const win = window as unknown as Record<string, unknown>
+    const hadOwn = Object.prototype.hasOwnProperty.call(win, 'isSecureContext')
+    const previous = win.isSecureContext
+    win.isSecureContext = false
+    try {
+      const { useVoiceComm } = await import('./useVoiceComm')
+      const { status, startRecording } = useVoiceComm()
+      await startRecording()
+
+      expect(status.value.error).toMatch(/HTTPS/i)
+      expect(status.value.recording).toBe(false)
+    }
+    finally {
+      if (hadOwn) win.isSecureContext = previous
+      else Reflect.deleteProperty(win, 'isSecureContext')
+    }
+  })
 })

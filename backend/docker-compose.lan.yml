@@ -1,0 +1,73 @@
+# =============================================================================
+# docker-compose.lan.yml — LAN / self-hosted HTTPS overlay (#73)
+#
+# Serves the app over HTTPS on your local network using the mkcert-generated
+# certificate from ./scripts/gen-lan-certs.sh. Browsers only expose the APIs the
+# app needs — crypto.subtle (PKCE sign-in) and getUserMedia (voice) — in a
+# secure context, so plain HTTP on a LAN address breaks sign-in and voice.
+#
+# Usage:
+#   ./scripts/gen-lan-certs.sh --host horus.lan
+#   LAN_HOSTNAME=horus.lan \
+#     docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d
+#
+# Then reach:
+#   https://app.horus.lan   → frontend (see docker/traefik/dynamic-lan.yml)
+#   https://api.horus.lan   → backend API
+#   https://auth.horus.lan  → Keycloak
+#
+# Every client device must trust mkcert's root CA (`mkcert -CAROOT`), otherwise
+# browsers warn and the page stays an insecure context.
+# =============================================================================
+
+services:
+  traefik:
+    # Replace the base command (which uses the ACME HTTP challenge): the LAN
+    # stack terminates TLS with the local mkcert certificate instead.
+    command: !override
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--ping=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+    volumes:
+      - ./docker/certs:/certs:ro
+      - ./docker/traefik/dynamic-lan.yml:/etc/traefik/dynamic/lan.yml:ro
+    # Lets the file provider reach a frontend running on the Docker host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ---------------------------------------------------------------------------
+  # Keycloak — served with the LAN hostname over HTTPS
+  # ---------------------------------------------------------------------------
+  keycloak:
+    environment:
+      KC_HOSTNAME: auth.${LAN_HOSTNAME:-horus.lan}
+      KC_HOSTNAME_STRICT: "false"
+      KC_PROXY_HEADERS: xforwarded
+    labels: !override
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`auth.${LAN_HOSTNAME:-horus.lan}`)"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.routers.keycloak.tls=true"
+      - "traefik.http.routers.keycloak.middlewares=security-headers@file,rate-limit@file"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+
+  # ---------------------------------------------------------------------------
+  # Backend — API + voice WebSocket over HTTPS
+  # ---------------------------------------------------------------------------
+  backend:
+    environment:
+      KEYCLOAK_ISSUER_URL: https://auth.${LAN_HOSTNAME:-horus.lan}/realms/horus
+    labels: !override
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.${LAN_HOSTNAME:-horus.lan}`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.middlewares=security-headers@file,rate-limit@file"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"

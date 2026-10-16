@@ -705,6 +705,67 @@ from inside `backend/backups/`.
    - `NUXT_PUBLIC_WS_URL=wss://api.yourdomain.com/ws/voice`
 4. `wrangler.toml` has production and preview environment configs
 
+### LAN / self-hosted HTTPS
+
+Browsers only expose two APIs the app needs — `crypto.subtle` (the PKCE S256
+sign-in challenge) and `navigator.mediaDevices.getUserMedia` (voice capture) — in
+a **secure context**: HTTPS, or `localhost`. Serving Horus over plain
+`http://<lan-ip>` silently disables both. When that happens the app now shows an
+actionable "requires a secure connection" message instead of a cryptic
+`crypto.subtle is undefined` or a misleading "microphone denied" error.
+
+**Option A — LAN with a locally-trusted cert (no public domain)**
+
+Use [mkcert](https://github.com/FiloSottile/mkcert). It installs a local CA on
+the machine running the command and signs a cert for your LAN hostnames:
+
+```bash
+# one-time: install mkcert (see the project README for your OS)
+cd backend
+./scripts/gen-lan-certs.sh --host horus.lan     # writes docker/certs/lan.{crt,key}
+LAN_HOSTNAME=horus.lan \
+  docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d
+```
+
+Then reach the stack over HTTPS:
+
+| URL | Service |
+|-----|---------|
+| `https://app.horus.lan` | Frontend (see the `app` router in `docker/traefik/dynamic-lan.yml`) |
+| `https://api.horus.lan` | Backend API + voice WebSocket |
+| `https://auth.horus.lan` | Keycloak |
+
+mkcert's root CA must be trusted on **every client device**
+(`mkcert -CAROOT` → install `rootCA.pem`), or browsers warn and the page stays an
+insecure context. The `app` router proxies to `host.docker.internal:3000`, so run
+the frontend on the Docker host (e.g. `pnpm dev`). If you change `LAN_HOSTNAME`,
+update the `app` rule in `docker/traefik/dynamic-lan.yml` to match — the file
+provider cannot read environment variables.
+
+**Option B — public domain (e.g. `horusone.app`) with ACME DNS-01**
+
+If the machine is not reachable on port 80 from the internet but you own a
+domain, issue a publicly-trusted certificate with the ACME **DNS-01** challenge
+instead of HTTP-01 — no client CA install required. Point the hostnames at the
+box in DNS (`api.horusone.app`, `auth.horusone.app`) and use the production
+overlay with a DNS provider in `docker-compose.prod.yml`:
+
+```yaml
+traefik:
+  command:
+    # ...
+    - "--certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare"
+    - "--certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=1.1.1.1:53"
+```
+
+```bash
+# .env.prod — credentials for the chosen DNS provider
+CF_DNS_API_TOKEN=replace-me
+```
+
+Traefik then proves control via a `_acme-challenge` TXT record, so the cert is
+valid even though the host only serves :443 on the private network.
+
 ---
 
 ## Troubleshooting
@@ -719,6 +780,8 @@ from inside `backend/backups/`.
 | Keycloak not starting | Postgres not ready | Check `docker compose logs keycloak` — wait for postgres health check |
 | CORS errors in browser | Frontend origin not in CORS_ORIGINS | Add your app origins (3000/3001/3002) to `CORS_ORIGINS` in `.env` |
 | JWT validation fails | Keycloak not running or wrong issuer | Set `AUTH_ENABLED=false` in `.env` for local dev |
+| Sign-in does nothing / "requires a secure connection" | Page served over plain HTTP on a LAN address (no `crypto.subtle`) | Serve over HTTPS — see [LAN / self-hosted HTTPS](#lan--self-hosted-https) |
+| Voice says "requires a secure connection" | Page not a secure context (no `getUserMedia`) | Serve over HTTPS — see [LAN / self-hosted HTTPS](#lan--self-hosted-https) |
 | `uv run alembic upgrade head` import error | Dependencies not synced | `cd backend && uv sync` |
 | Frontend `pnpm dev` fails | Node modules not installed | Run `pnpm install` first |
 | Frontend `nuxt build` fails with `ELOOP: too many symbolic links` | pnpm symlink traversal in Nitro output | Build with `NITRO_NO_SYMLINKS=1 pnpm -F <app> build` |
@@ -777,6 +840,9 @@ uv run python -m scripts.seed --reset
 | View DB logs | `docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f postgres` |
 | Deploy (prod) | `cd backend && ./scripts/deploy.sh --full` |
 | Backup DB | `cd backend && ./scripts/backup.sh` |
+| Restore DB | `cd backend && ./scripts/restore.sh <backup-file>` |
+| Generate LAN TLS certs | `cd backend && ./scripts/gen-lan-certs.sh --host horus.lan` |
+| Start LAN HTTPS stack | `cd backend && docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d` |
 | Postgres first-boot smoke check | `cd backend && ./scripts/smoke-first-boot.sh` |
 | Pull LLM model | `ollama pull llama3.2:3b` |
 | Health check | `curl http://localhost:8000/health/ready` |

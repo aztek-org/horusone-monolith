@@ -3,6 +3,8 @@
  * Handles login, logout, token management, and user state via PKCE flow.
  */
 
+import { isInsecureContext } from '../utils/secure-context'
+
 interface AuthUser {
   keycloakId: string
   email: string
@@ -127,6 +129,15 @@ export function useAuth(): AuthState & AuthActions {
    */
   function login(redirectPath?: string): void {
     if (import.meta.server) return
+
+    // PKCE needs crypto.subtle, which the browser only exposes in a secure
+    // context. Fail with a fixable message instead of a cryptic TypeError.
+    if (isInsecureContext()) {
+      console.error('[useAuth] login blocked: insecure context (crypto.subtle unavailable)')
+      error.value
+        = 'Sign-in requires a secure connection. Open Horus over HTTPS (or localhost) and try again.'
+      return
+    }
 
     const codeVerifier = generateCodeVerifier()
     sessionStorage.setItem('pkce_code_verifier', codeVerifier)
