@@ -113,6 +113,12 @@ services:
       KC_HEALTH_ENABLED: "true"
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # Passwords for the demo users baked into the realm (see
+      # docker/keycloak-import/horus-realm.json). They MUST be set: Keycloak
+      # leaves an unset placeholder literal (turning the placeholder text into
+      # the password) and crashes on an empty one. `:?` makes compose fail fast.
+      DEMO_ADMIN_PASSWORD: "${DEMO_ADMIN_PASSWORD:?Set DEMO_ADMIN_PASSWORD (see .env.example / .env.prod.example)}"
+      DEMO_USER_PASSWORD: "${DEMO_USER_PASSWORD:?Set DEMO_USER_PASSWORD (see .env.example / .env.prod.example)}"
     ports:
       - "8080:8080"
     depends_on:
