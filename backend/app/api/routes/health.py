@@ -1,5 +1,6 @@
 """Health check endpoint with real service probes."""
 
+import inspect
 import logging
 
 from fastapi import APIRouter, Request
@@ -104,7 +105,9 @@ async def _probe_redis() -> str:
         from app.core.redis import get_redis
 
         rd = await get_redis()
-        await rd.ping()
+        ping_result = rd.ping()
+        if inspect.isawaitable(ping_result):
+            await ping_result
         return "ok"
     except Exception:
         logger.warning("Redis health probe failed", exc_info=True)

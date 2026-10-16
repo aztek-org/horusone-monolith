@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Any, cast
 
-from sqlalchemy import delete
+from sqlalchemy import CursorResult, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.training_session_event import TrainingSessionEvent
@@ -16,4 +17,4 @@ async def prune_old_events(db: AsyncSession, retention_days: int) -> int:
     result = await db.execute(
         delete(TrainingSessionEvent).where(TrainingSessionEvent.created_at < cutoff)
     )
-    return result.rowcount
+    return cast(CursorResult[Any], result).rowcount

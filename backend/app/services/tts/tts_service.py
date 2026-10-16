@@ -21,7 +21,7 @@ class TTSService:
         self.settings = get_settings()
         logger.info("TTS service initialized (using gTTS)")
 
-    async def synthesize(self, text: str, language: str = None) -> bytes:
+    async def synthesize(self, text: str, language: str | None = None) -> bytes:
         """Synthesize speech from text.
 
         Args:
@@ -80,7 +80,7 @@ class TTSService:
             # Return empty audio on error
             return b""
 
-    async def synthesize_streaming(self, text: str, language: str = None) -> list[bytes]:
+    async def synthesize_streaming(self, text: str, language: str | None = None) -> list[bytes]:
         """Synthesize speech in chunks for streaming.
 
         Args:

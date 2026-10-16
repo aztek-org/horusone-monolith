@@ -29,6 +29,7 @@ import uuid
 from typing import Any, Protocol
 
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from app.knowledge.types import RetrievalQuery
 from app.services.llm.agents.airspace_agent import check_airspace_restrictions
@@ -64,7 +65,7 @@ def state_org_id(state: HorusState) -> uuid.UUID | None:
     return org_id if isinstance(org_id, uuid.UUID) else uuid.UUID(str(org_id))
 
 
-def _weather_node_factory(knowledge: KnowledgeRetriever | None):
+def _weather_node_factory(knowledge: KnowledgeRetriever | None) -> Any:
     """Add provenance retrieval to the deterministic weather analysis."""
     if knowledge is None:
         return analyze_weather
@@ -119,7 +120,9 @@ def _check_all_passed(state: HorusState) -> dict[str, Any]:
     }
 
 
-def build_validation_graph(knowledge: KnowledgeRetriever | None = None) -> StateGraph:
+def build_validation_graph(
+    knowledge: KnowledgeRetriever | None = None,
+) -> CompiledStateGraph:
     """Build and compile the validation sub-graph.
 
     Args:

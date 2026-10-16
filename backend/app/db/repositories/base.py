@@ -1,14 +1,15 @@
 """Generic base repository with common CRUD operations."""
 
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import Base
 
 ModelType = TypeVar("ModelType", bound=Base)
-CreateSchemaType = TypeVar("CreateSchemaType")
+CreateSchemaType = TypeVar("CreateSchemaType", bound=BaseModel)
 
 
 class BaseRepository(Generic[ModelType, CreateSchemaType]):
@@ -23,7 +24,9 @@ class BaseRepository(Generic[ModelType, CreateSchemaType]):
 
     async def get_by_id(self, session: AsyncSession, record_id: int) -> ModelType | None:
         """Get a record by primary key."""
-        result = await session.execute(select(self.model).where(self.model.id == record_id))
+        result = await session.execute(
+            select(self.model).where(cast(Any, self.model).id == record_id)
+        )
         return result.scalar_one_or_none()
 
     async def get_all(

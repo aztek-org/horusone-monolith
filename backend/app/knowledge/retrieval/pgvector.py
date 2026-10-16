@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from typing import Any, cast
 from uuid import UUID
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.config import KnowledgeSettings
 from app.knowledge.types import (
@@ -24,20 +26,21 @@ class PgVectorRetriever:
 
     def __init__(
         self,
-        db_factory: Callable[[], AsyncSession],
+        db_factory: Callable[[], Any],
         llm: LLMModule,
         settings: KnowledgeSettings,
     ) -> None:
+        self._db_factory: Callable[[], AsyncSession]
         candidate_factory = db_factory()
         if hasattr(candidate_factory, "__call__") and not hasattr(candidate_factory, "__aenter__"):
-            self._db_factory = candidate_factory
+            self._db_factory = cast(Callable[[], AsyncSession], candidate_factory)
         else:
             self._db_factory = db_factory
         self._llm = llm
         self._settings = settings
 
     @staticmethod
-    def _reference_filter(query: RetrievalQuery):
+    def _reference_filter(query: RetrievalQuery) -> ColumnElement[bool] | None:
         """Match UUID references and the filename/title form used by Scenes."""
         if not query.knowledge_refs:
             return None
@@ -50,7 +53,7 @@ class PgVectorRetriever:
             except ValueError:
                 name_refs.append(reference)
 
-        clauses = []
+        clauses: list[ColumnElement[bool]] = []
         if uuid_refs:
             clauses.append(ContentChunk.document_id.in_(uuid_refs))
         if name_refs:
@@ -82,8 +85,8 @@ class PgVectorRetriever:
         if reference_filter is not None:
             filters.append(reference_filter)
 
-        dense_rows = []
-        text_rows = []
+        dense_rows: Sequence[Any] = []
+        text_rows: Sequence[Any] = []
         async with self._db_factory() as db:
             if embedding is not None:
                 vector_value = literal(
@@ -131,7 +134,7 @@ class PgVectorRetriever:
 
     @staticmethod
     def _record_row(
-        row, scores: dict[UUID, float], chunks: dict[UUID, RetrievedChunk], score: float
+        row: Any, scores: dict[UUID, float], chunks: dict[UUID, RetrievedChunk], score: float
     ) -> None:
         """Add one SQL row to the RRF accumulator."""
         chunk, document = row[0], row[1]

@@ -3,17 +3,22 @@
 import logging
 from collections.abc import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-_engine = None
-_session_factory = None
+_engine: AsyncEngine | None = None
+_session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
-def get_engine():
+def get_engine() -> AsyncEngine:
     """Get or create the async SQLAlchemy engine."""
     global _engine
     if _engine is None:
@@ -30,7 +35,7 @@ def get_engine():
     return _engine
 
 
-def get_session_factory():
+def get_session_factory() -> async_sessionmaker[AsyncSession]:
     """Get or create the async session factory."""
     global _session_factory
     if _session_factory is None:

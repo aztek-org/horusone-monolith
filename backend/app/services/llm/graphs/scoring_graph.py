@@ -18,6 +18,7 @@ import logging
 from typing import Any
 
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from app.services.llm.agents.gamification import check_badges
 from app.services.llm.agents.student_tier import evaluate_student
@@ -99,7 +100,7 @@ def _generate_report(state: HorusState) -> dict[str, Any]:
     }
 
 
-def build_scoring_graph() -> StateGraph:
+def build_scoring_graph() -> CompiledStateGraph:
     """Build and compile the scoring sub-graph.
 
     Returns:

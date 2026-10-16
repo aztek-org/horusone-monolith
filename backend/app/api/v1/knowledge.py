@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Literal
+from typing import Literal, cast
 
 from fastapi import (
     APIRouter,
@@ -91,12 +91,15 @@ async def search_knowledge(
     knowledge_refs: list[str] | None = Query(default=None),
 ) -> list[RetrievedChunkRead]:
     """Return published chunks visible to the active organization."""
-    return await request.app.state.retriever.search(
-        RetrievalQuery(
-            query=q,
-            org_id=org_id,
-            top_k=top_k,
-            knowledge_refs=knowledge_refs or [],
-            mode=mode,
-        )
+    return cast(
+        list[RetrievedChunkRead],
+        await request.app.state.retriever.search(
+            RetrievalQuery(
+                query=q,
+                org_id=org_id,
+                top_k=top_k,
+                knowledge_refs=knowledge_refs or [],
+                mode=mode,
+            )
+        ),
     )

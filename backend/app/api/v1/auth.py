@@ -22,6 +22,7 @@ from app.db.repositories.seat_repo import SeatRepository
 from app.db.session import get_db_session
 from app.middleware.auth import CurrentUser
 from app.middleware.org_context import get_authenticated_user
+from app.models.organization import Organization
 from app.models.seat import Seat
 from app.models.user import User
 
@@ -224,7 +225,7 @@ class UserProfile(BaseModel):
     enabled_features: list[str] = []
 
 
-async def _get_active_organization(session: AsyncSession, local_user: User):
+async def _get_active_organization(session: AsyncSession, local_user: User) -> Organization | None:
 
     if local_user.seats:
         for s in local_user.seats:
