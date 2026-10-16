@@ -81,6 +81,49 @@ export interface RecentSession {
   duration_minutes: number
 }
 
+export interface SessionEvent {
+  id: string
+  session_id: number
+  user_id: string | null
+  org_id: string | null
+  event_type: string
+  event_payload: Record<string, unknown>
+  created_at: string
+}
+
+export interface InstructorExchangeResponse {
+  session_id: number
+  applied: boolean
+  atc_response: string
+  exchange_count: number
+  pending_instructor: boolean
+  instructor_overridden: boolean
+}
+
+// Live-graph lifecycle events that decide whether an exchange is held. The last
+// of these to occur wins: a later response/override clears an earlier hold.
+const EXCHANGE_LIFECYCLE_EVENTS = new Set([
+  'awaiting_instructor',
+  'instructor_override',
+  'exchange_completed',
+])
+
+/**
+ * Whether the session's most recent exchange is held for instructor review.
+ *
+ * Events are read oldest-first (the API orders them that way); an
+ * `awaiting_instructor` is only held if nothing has resolved it since.
+ */
+export function heldExchangeFromEvents(events: SessionEvent[]): boolean {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const eventType = events[i]!.event_type
+    if (EXCHANGE_LIFECYCLE_EVENTS.has(eventType)) {
+      return eventType === 'awaiting_instructor'
+    }
+  }
+  return false
+}
+
 // ─── Composable ──────────────────────────────────────────────────────────────
 
 export function useInstructor() {
@@ -136,6 +179,29 @@ export function useInstructor() {
     return api.get<RecentSession[]>(`/api/v1/instructors/sessions/recent${query}`)
   }
 
+  // ── Held exchanges (HITL) ─────────────────────────────────────────────
+
+  function getSessionEvents(sessionId: string | number): Promise<SessionEvent[]> {
+    return api.get<SessionEvent[]>(`/api/v1/sessions/${sessionId}/events`)
+  }
+
+  /**
+   * Release an exchange held for review.
+   *
+   * Omit ``instructorResponse`` to release the AI's own answer; pass text to
+   * override it. Releasing with nothing pending is a no-op (``applied`` false).
+   */
+  function respondToHeldExchange(
+    sessionId: string | number,
+    instructorResponse?: string,
+  ): Promise<InstructorExchangeResponse> {
+    const body = instructorResponse ? { instructor_response: instructorResponse } : {}
+    return api.post<InstructorExchangeResponse>(
+      `/api/v1/sessions/${sessionId}/instructor-response`,
+      body,
+    )
+  }
+
   return {
     // Profile
     getMyProfile,
@@ -148,5 +214,8 @@ export function useInstructor() {
     // Stats & Sessions
     getMyStats,
     getRecentSessions,
+    // Held exchanges (HITL)
+    getSessionEvents,
+    respondToHeldExchange,
   }
 }

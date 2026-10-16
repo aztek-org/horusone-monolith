@@ -18,6 +18,7 @@ vi.mock('../../composables/useVoiceComm', async () => {
     recording: false,
     processing: false,
     speaking: false,
+    pendingInstructor: false,
     error: null,
   })
   return {
@@ -55,6 +56,7 @@ describe('VoiceCommBubble', () => {
         recording: false,
         processing: false,
         speaking: false,
+        pendingInstructor: false,
         error: null,
       })
     }
@@ -102,5 +104,24 @@ describe('VoiceCommBubble', () => {
   it('shows a connected indicator title', () => {
     const wrapper = mount(VoiceCommBubble, globalStubs)
     expect(wrapper.find('div[title="Connected to ATC"]').exists()).toBe(true)
+  })
+
+  it('shows the held-exchange banner while an exchange is pending', () => {
+    if (mocks.status) mocks.status.value.pendingInstructor = true
+    const wrapper = mount(VoiceCommBubble, globalStubs)
+    expect(wrapper.text()).toContain('Transmission held for instructor review')
+  })
+
+  it('disables the mic while an exchange is held', () => {
+    if (mocks.status) mocks.status.value.pendingInstructor = true
+    const wrapper = mount(VoiceCommBubble, globalStubs)
+    expect(wrapper.find('button').attributes('disabled')).toBeDefined()
+  })
+
+  it('does not start recording while an exchange is held', async () => {
+    if (mocks.status) mocks.status.value.pendingInstructor = true
+    const wrapper = mount(VoiceCommBubble, globalStubs)
+    await wrapper.find('button').trigger('mousedown')
+    expect(mocks.startRecording).not.toHaveBeenCalled()
   })
 })
