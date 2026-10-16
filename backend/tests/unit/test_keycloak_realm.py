@@ -16,9 +16,10 @@ import pytest
 from app.core.org_ids import org_id_for_slug
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
+# Single source of truth: the realm baked into the Keycloak image (#68 removed
+# the stale duplicate).
 REALM_FILES = [
     _BACKEND_ROOT / "docker" / "keycloak-import" / "horus-realm.json",
-    _BACKEND_ROOT / "docker" / "keycloak" / "horus-realm.json",
 ]
 
 

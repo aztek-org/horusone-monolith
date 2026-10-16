@@ -172,7 +172,8 @@ horus-mvp/
 │   ├── scripts/                    # seed.py, deploy.sh, backup.sh, restore.sh,
 │   │                               # smoke-first-boot.sh,
 │   │                               # prune_session_events.py (ADR-009 retention cron)
-│   ├── docker/                     # Dockerfile, Dockerfile.postgres, keycloak-import/
+│   ├── docker/                     # Dockerfile, Dockerfile.postgres,
+│   │                               # Dockerfile.keycloak, keycloak-import/
 │   ├── docker-compose.yml          # Base service definitions
 │   ├── docker-compose.dev.yml      # Dev overrides (exposed ports, hot reload)
 │   ├── docker-compose.prod.yml     # Prod overrides (TLS, resource limits, GPU)

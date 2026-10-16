@@ -95,7 +95,11 @@ services:
   # Admin console: http://auth.localhost (via Traefik) or http://localhost:8180 (dev override)
   # ---------------------------------------------------------------------------
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0
+    # Built, not pulled: the realm JSON is baked in so `--import-realm` does not
+    # depend on a host bind mount.
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.keycloak
     container_name: horus-keycloak
     restart: unless-stopped
     command: start-dev --import-realm
@@ -111,8 +115,6 @@ services:
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
     ports:
       - "8080:8080"
-    volumes:
-      - ./docker/keycloak-import:/opt/keycloak/data/import:ro
     depends_on:
       postgres:
         condition: service_healthy

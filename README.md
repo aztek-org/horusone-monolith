@@ -133,6 +133,8 @@ horus-mvp/
 | `backend/scripts/smoke-first-boot.sh` | Verify Postgres first-boot init creates `keycloak_db` |
 | `backend/docker/init-multiple-dbs.sh` | First-boot Postgres init for `keycloak_db` |
 | `backend/docker/Dockerfile.postgres` | Postgres image with the init script baked in (executable) |
+| `backend/docker/Dockerfile.keycloak` | Keycloak image with the realm JSON baked in |
+| `backend/docker/keycloak-import/horus-realm.json` | Single source of truth for the Keycloak realm |
 
 ## 📖 Documentation
 
