@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.llm.types import LLMModule
 from app.models.training_session import TrainingSession
+from app.schemas.knowledge import Citation
 from app.services.llm.graphs.live_session_graph import build_live_session_graph
 from app.services.llm.graphs.scoring_graph import build_scoring_graph
 from app.services.llm.graphs.validation_graph import (
@@ -73,6 +74,7 @@ class TrainingSessionModule:
         self._llm = llm
         self._db_session_factory = db_session_factory
         self._require_org = require_org
+        self._knowledge = knowledge
         self._validation_graph = build_validation_graph(knowledge)
         self._scoring_graph = build_scoring_graph()
         self._interrupt_before_response = interrupt_before_response
@@ -103,6 +105,7 @@ class TrainingSessionModule:
             "session_phase_detail": "briefing",
             "performance_notes": [],
             "is_emergency": False,
+            "citations": [],
             "scoring": None,
             "badges_earned": [],
             "language": command.language,
@@ -342,6 +345,7 @@ class TrainingSessionModule:
                 self._llm,
                 self._scenes.get(scene_version),
                 interrupts,
+                self._knowledge,
             )
             self._live_graphs[graph_key] = graph
 
@@ -407,7 +411,9 @@ class TrainingSessionModule:
             pending_instructor=(
                 bool(state.get("pending_instructor", False)) if pending is None else pending
             ),
-            citations=[],
+            citations=[
+                Citation.model_validate(citation) for citation in state.get("citations") or []
+            ],
             provider=str(state.get("llm_provider") or ""),
             model=str(state.get("llm_model") or ""),
             fallback_used=bool(state.get("llm_fallback_used", False)),

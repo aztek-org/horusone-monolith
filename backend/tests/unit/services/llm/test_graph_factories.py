@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 
 from app.llm.adapters.fake_adapter import FakeAdapter
+from app.knowledge.types import RetrievedChunk
 from app.services.llm.graphs.live_session_graph import build_live_session_graph
 from app.services.llm.graphs.scoring_graph import build_scoring_graph
 from app.services.llm.graphs.validation_graph import build_validation_graph
@@ -226,6 +227,66 @@ async def test_validation_graph_records_retrieved_chunk_ids() -> None:
     assert "departure_icao KLAX" in query_text
     assert "arrival_icao KSFO" in query_text
     assert "flight_rules VFR" in query_text
+
+
+class _LiveRecordingRetriever:
+    """Returns fixed chunks and records the queries it received."""
+
+    def __init__(self, chunks: list[RetrievedChunk]) -> None:
+        self.chunks = chunks
+        self.queries: list[Any] = []
+
+    async def search(self, query: Any) -> list[RetrievedChunk]:
+        self.queries.append(query)
+        return list(self.chunks)
+
+
+@pytest.mark.asyncio
+async def test_live_graph_records_citations_and_grounds_the_prompt() -> None:
+    chunk = RetrievedChunk(
+        chunk_id=uuid.uuid4(),
+        document_id=uuid.uuid4(),
+        org_id=None,
+        title="Ground Operations",
+        content="Use standard taxi phraseology at all times.",
+        score=3.0,
+        page=4,
+        section="Ground",
+        char_start=0,
+        char_end=43,
+        source_filename="sop.md",
+    )
+    retriever = _LiveRecordingRetriever([chunk])
+    llm = FakeAdapter()
+    scene = replace(
+        DEFAULT_SCENE,
+        prompt_template="[[reply:{pilot_message}]]",
+        knowledge_refs=["sop.md"],
+    )
+    graph = build_live_session_graph(llm, scene, False, retriever)
+    org_id = uuid.uuid4()
+
+    result = await graph.ainvoke(
+        _live_state() | {"org_id": str(org_id), "knowledge_refs": ["sop.md"]}
+    )
+
+    assert result["retrieved_chunk_ids"] == [str(chunk.chunk_id)]
+    assert result["citations"][0]["chunk_id"] == str(chunk.chunk_id)
+    assert result["citations"][0]["page"] == 4
+    assert "Use standard taxi phraseology" in llm.calls[0].prompt
+    assert retriever.queries[0].org_id == org_id
+    assert retriever.queries[0].knowledge_refs == ["sop.md"]
+    assert retriever.queries[0].query == "Requesting departure clearance"
+
+
+@pytest.mark.asyncio
+async def test_live_graph_without_retriever_records_no_citations() -> None:
+    graph = build_live_session_graph(FakeAdapter(), DEFAULT_SCENE, False)
+
+    result = await graph.ainvoke(_live_state())
+
+    assert result.get("citations") in (None, [])
+
 
 
 @pytest.mark.asyncio

@@ -211,6 +211,7 @@ class HorusState(TypedDict, total=False):
     session_phase_detail: str  # briefing / taxi / takeoff / cruise / approach / landing
     performance_notes: list[str]
     is_emergency: bool
+    citations: list[dict]  # citation pointers for the last exchange
 
     # ── Scoring & gamification
     scoring: ScoringResult | None

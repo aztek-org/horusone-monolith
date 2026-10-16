@@ -3,7 +3,8 @@
 ```mermaid
 graph TD
     START([START]) --> understand_input
-    understand_input --> check_emergency{Emergency?}
+    understand_input --> retrieve_knowledge
+    retrieve_knowledge --> check_emergency{Emergency?}
     check_emergency -->|Yes| emergency_handler
     check_emergency -->|No| generate_atc_response
     emergency_handler --> evaluate_exchange
@@ -13,6 +14,14 @@ graph TD
 
 The graph handles a single pilot-to-ATC exchange. The caller may compile it
 with an interrupt before response generation for instructor review.
+
+``retrieve_knowledge`` runs once per exchange on every path. It queries the
+injected ``KnowledgeRetriever`` with the pilot transmission, scoped by tenant
+and the Scene's ``knowledge_refs``, and records the matched chunks as
+``citations``. The generation node grounds its prompt on the retrieved text
+(each chunk's snippet); the citation records the chunk's coordinates. The
+Scene prompt grammar is untouched — reference material is prepended exactly
+like recent history, not injected through a template placeholder.
 """
 
 from __future__ import annotations
@@ -23,13 +32,17 @@ from typing import Any
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from app.knowledge.types import KnowledgeRetriever, RetrievalQuery
 from app.llm import GenerationRequest, LLMModule
 from app.services.llm.agents.emergency_agent import detect_emergency, handle_emergency
+from app.services.llm.graphs.validation_graph import state_org_id
 from app.services.llm.scenes.registry import SceneConfig
 from app.services.llm.state import HorusState, advance_exchange
 
 logger = logging.getLogger(__name__)
 _CONTROLLED_PROMPT_KEYS = frozenset({"pilot_message"})
+_RETRIEVAL_TOP_K = 5
+_CITATION_SNIPPET_CHARS = 600
 
 
 def _understand_input(state: HorusState) -> dict[str, Any]:
@@ -59,6 +72,63 @@ def _route_after_understand(state: HorusState) -> str:
     if state.get("is_emergency", False):
         return "emergency_handler"
     return "generate_atc_response"
+
+
+def citation_from_chunk(chunk: Any) -> dict[str, Any]:
+    """Turn one retrieved chunk into a JSON-serializable citation pointer.
+
+    The chunk is stored as coordinates (id, document, page, section) plus a
+    bounded ``snippet`` so session state stays small; the full text never enters
+    the checkpoint.
+    """
+    content = str(getattr(chunk, "content", "") or "")
+    return {
+        "chunk_id": str(getattr(chunk, "chunk_id", "")),
+        "document_id": str(getattr(chunk, "document_id", "")),
+        "title": str(getattr(chunk, "title", "") or ""),
+        "page": getattr(chunk, "page", None),
+        "section": getattr(chunk, "section", None),
+        "snippet": content[:_CITATION_SNIPPET_CHARS],
+    }
+
+
+def render_references(state: HorusState) -> str:
+    """Render retrieved snippets as a prompt preamble, or ``""`` when empty."""
+    citations = state.get("citations") or []
+    if not citations:
+        return ""
+    lines = [
+        f"- {citation.get('title') or 'Knowledge'}: {citation.get('snippet') or ''}".strip()
+        for citation in citations
+    ]
+    return "\nReference material (cite if used):\n" + "\n".join(lines) + "\n"
+
+
+def _retrieve_knowledge_factory(knowledge: KnowledgeRetriever | None, scene: SceneConfig) -> Any:
+    """Create the retrieval node, or a no-op when no retriever is injected."""
+
+    if knowledge is None:
+
+        def _no_knowledge(state: HorusState) -> dict[str, Any]:
+            return {}
+
+        return _no_knowledge
+
+    async def _retrieve_knowledge(state: HorusState) -> dict[str, Any]:
+        query = RetrievalQuery(
+            query=(state.get("pilot_message") or scene.name),
+            org_id=state_org_id(state),
+            top_k=_RETRIEVAL_TOP_K,
+            knowledge_refs=list(state.get("knowledge_refs") or []),
+            mode="hybrid",
+        )
+        chunks = await knowledge.search(query)
+        return {
+            "citations": [citation_from_chunk(chunk) for chunk in chunks],
+            "retrieved_chunk_ids": [str(getattr(chunk, "chunk_id", chunk)) for chunk in chunks],
+        }
+
+    return _retrieve_knowledge
 
 
 def _prompt_context(scene: SceneConfig, context: dict[str, Any]) -> dict[str, Any]:
@@ -130,8 +200,9 @@ def _generate_atc_response_factory(llm: LLMModule, scene: SceneConfig) -> Any:
             pilot_message=state.get("pilot_message") or "",
         )
         history = _render_recent_exchanges(state.get("messages"))
-        if history:
-            prompt = f"{history}\n{prompt}"
+        preamble = f"{history}{render_references(state)}"
+        if preamble:
+            prompt = f"{preamble}{prompt}"
         request = GenerationRequest(
             prompt=prompt,
             purpose="atc_response",
@@ -161,6 +232,7 @@ def build_live_session_graph(
     llm: LLMModule,
     scene: SceneConfig,
     interrupt_before_response: bool,
+    knowledge: KnowledgeRetriever | None = None,
 ) -> CompiledStateGraph:
     """Build and compile a live-session graph with injected dependencies.
 
@@ -168,9 +240,12 @@ def build_live_session_graph(
         llm: Provider-independent language-model module.
         scene: Versioned Scene containing the prompt and constraints.
         interrupt_before_response: Pause before generating the ATC response.
+        knowledge: Optional retriever; when supplied, each exchange records the
+            chunks it drew on as citations and grounds the prompt on their text.
     """
     graph = StateGraph(HorusState)
     graph.add_node("understand_input", _understand_input)
+    graph.add_node("retrieve_knowledge", _retrieve_knowledge_factory(knowledge, scene))
     graph.add_node("emergency_handler", handle_emergency)
     graph.add_node(
         "generate_atc_response",
@@ -179,8 +254,9 @@ def build_live_session_graph(
     graph.add_node("evaluate_exchange", _evaluate_exchange)
 
     graph.set_entry_point("understand_input")
+    graph.add_edge("understand_input", "retrieve_knowledge")
     graph.add_conditional_edges(
-        "understand_input",
+        "retrieve_knowledge",
         _route_after_understand,
         {
             "emergency_handler": "emergency_handler",

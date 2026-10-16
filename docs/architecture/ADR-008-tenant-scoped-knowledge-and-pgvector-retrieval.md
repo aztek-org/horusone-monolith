@@ -115,24 +115,29 @@ considered three stores:
    and will be evaluated against a fixed aviation eval set before it is
    promoted. A fine-tuned model is never the sole source of a Citation.
 
-   > **Scope: retrieval ships, citations on exchanges do not.** Tenant-scoped
-   > retrieval is wired — the composition root builds the retriever and passes it
-   > to the `TrainingSessionModule` as `knowledge` (`app/main.py:167,182`) — and
-   > which chunks a step drew on is recorded as `retrieved_chunk_ids` on the
-   > `TrainingSessionEvent`. Attaching `Citation`s to ATC exchanges is **not**
-   > wired: `ExchangeResult.citations` is constructed as `[]` on every path
-   > (`app/services/training_sessions/session_module.py:421`), so the field is
-   > permanently empty in every deployment. Nothing else reads it either; the one
-   > consumer, the voice route, logs a count and is guarded on the list being
-   > non-empty (`app/api/routes/voice.py:189-194`).
+   > **Citations on exchanges are now wired (2026-10-16, #31).** The live
+   > session graph gained a `retrieve_knowledge` node that runs once per
+   > exchange, before the emergency/response branch. It issues a single
+   > `RetrievalQuery` — `query` = the pilot transmission, `org_id` = the session
+   > tenant (fail-closed `None` when absent), `top_k` = 5, `knowledge_refs` =
+   > the Scene's allowed documents, `mode` = `hybrid` — and records the matched
+   > chunks as `ExchangeResult.citations`, alongside the existing
+   > `retrieved_chunk_ids` provenance on the `TrainingSessionEvent`. The ATC
+   > prompt is grounded on the retrieved **text** (each chunk's snippet is
+   > prepended exactly like recent history, so the Scene prompt grammar is
+   > unchanged); the Citation carries the **coordinates** (chunk, document,
+   > title, page, section). Those are the three decisions the deferral below
+   > named as missing.
    >
-   > This is a **deferral, not an oversight.** Populating it needs a live-graph
-   > retrieval design that has not been decided: which node retrieves, with what
-   > `RetrievalQuery` (the graph has no tenant `org_id` of its own to scope with),
-   > and whether the ATC prompt receives the retrieved text or only the
-   > coordinates. Guessing that here would put a design decision in a field
-   > assignment. The `Citation` term in `CONTEXT.md` stays as the definition of
-   > what a Citation is, not as a claim that one is produced.
+   > **Superseded deferral (retained as history).** Tenant-scoped retrieval was
+   > wired first — the composition root builds the retriever and passes it to
+   > the `TrainingSessionModule` as `knowledge` — and which chunks a step drew
+   > on is recorded as `retrieved_chunk_ids` on the `TrainingSessionEvent`.
+   > Attaching `Citation`s to ATC exchanges was, until #31, **not** wired:
+   > `ExchangeResult.citations` was constructed as `[]` on every path, so the
+   > field was permanently empty in every deployment. That was a deferral, not
+   > an oversight — it needed the live-graph retrieval design recorded above.
+   > The one consumer, the voice route, logs the citation count.
 
 ## Consequences
 
@@ -142,9 +147,9 @@ considered three stores:
 - Full-text search keeps working; the vector leg is additive.
 - `FakeRetriever` gives development and route tests a real retriever behind the
   same seam, with no second datastore to run.
-- Citations, when they are attached, will be exact: page, section, and character
-  coordinates per chunk. The coordinates ship with the chunks today; the
-  exchange-to-chunk link does not.
+- Citations are exact: page, section, and character coordinates per chunk, and
+  each live ATC exchange now attaches the chunks it drew on. The coordinates
+  ship with the chunks; the exchange-to-chunk link is wired in the live graph.
 
 ### Negative
 

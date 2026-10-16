@@ -130,9 +130,9 @@ traceability, and the ability to run several backend processes.
 - Multiple backend processes can serve the same Session.
 - Tests cross the same seam production uses: same interface, different checkpointer.
 - Model provenance is queryable product data, not log scraping. Which chunks a
-  step retrieved is recorded as `retrieved_chunk_ids` on the event; see
-  [ADR-008](./ADR-008-tenant-scoped-knowledge-and-pgvector-retrieval.md) for why
-  *citations* are a separate, deliberately deferred piece of work.
+  step retrieved is recorded as `retrieved_chunk_ids` on the event, and each
+  live exchange attaches the chunks it drew on as `ExchangeResult.citations`;
+  see [ADR-008](./ADR-008-tenant-scoped-knowledge-and-pgvector-retrieval.md).
 - The instructor-override machinery exists, is checkpointed, and is covered by
   tests; exposing it behind the config flag, response route and frontend pending
   state landed in [#21](https://github.com/martinsgmx/horusone-mvp/issues/21),

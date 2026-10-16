@@ -27,7 +27,7 @@ from app.services.llm.scenes.registry import SceneRegistry
 from app.services.training_sessions.session_module import TrainingSessionModule
 from app.services.training_sessions.session_store import InMemorySessionStore
 from app.services.training_sessions.trace import InMemoryTraceRecorder
-from app.services.training_sessions.types import StartSessionCommand
+from app.services.training_sessions.types import SendTransmissionCommand, StartSessionCommand
 
 pytestmark = pytest.mark.skipif(
     not os.getenv("DATABASE_URL"), reason="needs Postgres"
@@ -193,3 +193,51 @@ async def _cleanup(org_id: uuid.UUID, document_id: uuid.UUID | None) -> None:
             )
         await db.execute(delete(Organization).where(Organization.id == org_id))
         await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_live_exchange_cites_its_own_tenant_knowledge_only() -> None:
+    """A live exchange attaches citations and never leaks another tenant's.
+
+    Both sessions name the same document *filename* in their Scene knowledge
+    refs, so the reference filter alone cannot separate them — the tenant
+    predicate on the live retrieval query must.
+    """
+    owner = uuid.uuid4()
+    other = uuid.uuid4()
+    factory = get_session_factory()
+    async with factory() as db:
+        db.add_all(
+            [
+                Organization(id=owner, name="Citation owner", slug=f"cite-{owner}"),
+                Organization(id=other, name="Citation other", slug=f"cite-{other}"),
+            ]
+        )
+        await db.commit()
+
+    document_id, filename = await _seed_tenant_document(owner)
+    try:
+        own_chunk_ids = await _chunk_ids(document_id)
+        assert own_chunk_ids
+        transmission = "KLAX to KSFO VFR via the coastal corridor"
+
+        owner_module = _module([filename])
+        await owner_module.start(
+            StartSessionCommand(owner, None, 1, DEFAULT_SCENE.version, "en", FLIGHT_PLAN)
+        )
+        owner_result = await owner_module.send(SendTransmissionCommand(owner, 1, transmission))
+
+        cited = {str(citation.chunk_id) for citation in owner_result.citations}
+        assert cited
+        assert cited <= set(own_chunk_ids)
+
+        other_module = _module([filename])
+        await other_module.start(
+            StartSessionCommand(other, None, 2, DEFAULT_SCENE.version, "en", FLIGHT_PLAN)
+        )
+        other_result = await other_module.send(SendTransmissionCommand(other, 2, transmission))
+
+        assert not ({str(c.chunk_id) for c in other_result.citations} & set(own_chunk_ids))
+    finally:
+        await _cleanup(other, None)
+        await _cleanup(owner, document_id)
