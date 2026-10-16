@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
+from app.core.org_ids import parse_org_id_claim
 from app.core.redis import get_redis
 from app.db.repositories.seat_repo import SeatRepository
 from app.db.session import get_db_session
@@ -271,7 +272,7 @@ async def get_current_user_profile(
         email=local_user.email,
         display_name=local_user.display_name,
         roles=user.roles,
-        organization_id=UUID(user.organization_id) if user.organization_id else None,
+        organization_id=parse_org_id_claim(user.organization_id),
         has_active_seat=has_active,
         seats=seat_infos,
         enabled_features=features,

@@ -13,6 +13,7 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.org_ids import parse_org_id_claim
 from app.db.repositories.seat_repo import SeatRepository
 from app.db.session import get_db_session
 from app.middleware.auth import CurrentUser, TokenUser
@@ -62,13 +63,11 @@ async def get_org_id(
     """
     # Platform admins bypass org scoping
     if "platform-admin" in token_user.roles:
-        if token_user.organization_id:
-            return UUID(token_user.organization_id)
-        return None
+        return parse_org_id_claim(token_user.organization_id)
 
     # Try JWT claim first
     if token_user.organization_id:
-        return UUID(token_user.organization_id)
+        return parse_org_id_claim(token_user.organization_id)
 
     # Fallback: look up user's seats
     user = await sync_user_from_token(session, token_user)

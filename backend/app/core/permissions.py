@@ -11,6 +11,7 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 
+from app.core.org_ids import parse_org_id_claim
 from app.middleware.auth import TokenUser
 
 
@@ -48,9 +49,7 @@ def get_user_org_id(user: TokenUser) -> UUID | None:
     Returns:
         The organization UUID, or ``None`` if not present.
     """
-    if user.organization_id:
-        return UUID(user.organization_id)
-    return None
+    return parse_org_id_claim(user.organization_id)
 
 
 def can_access_org(user: TokenUser, org_id: UUID) -> bool:

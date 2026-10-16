@@ -119,9 +119,7 @@ async def test_list_organizations_maps_aggregates() -> None:
 @pytest.mark.asyncio
 async def test_create_organization_conflict_on_slug() -> None:
     session = AsyncMock()
-    with patch.object(
-        admin.org_repo, "get_by_slug", new=AsyncMock(return_value=_org())
-    ):
+    with patch.object(admin.org_repo, "get_by_slug", new=AsyncMock(return_value=_org())):
         with pytest.raises(HTTPException) as excinfo:
             await admin.create_organization(
                 data=OrganizationCreate(name="Sky", slug="sky-academy"),
@@ -241,9 +239,7 @@ async def test_list_seats_maps_user_details() -> None:
     session = AsyncMock()
     session.execute = AsyncMock(return_value=_ScalarsResult([seat]))
 
-    result = await admin.list_seats(
-        org_id=org_id, user=_token(["platform-admin"]), session=session
-    )
+    result = await admin.list_seats(org_id=org_id, user=_token(["platform-admin"]), session=session)
 
     assert result[0].user_email == "s@test.com"
 
@@ -304,9 +300,7 @@ async def test_create_seat_enforces_seat_limit() -> None:
     with (
         patch.object(admin.org_repo, "get_by_id", new=AsyncMock(return_value=org)),
         patch.object(admin.user_repo, "get_by_email", new=AsyncMock(return_value=target)),
-        patch.object(
-            admin.seat_repo, "get_user_org_seat", new=AsyncMock(return_value=None)
-        ),
+        patch.object(admin.seat_repo, "get_user_org_seat", new=AsyncMock(return_value=None)),
     ):
         with pytest.raises(HTTPException) as excinfo:
             await admin.create_seat(
@@ -339,9 +333,7 @@ async def test_create_seat_persists_and_returns_member() -> None:
     with (
         patch.object(admin.org_repo, "get_by_id", new=AsyncMock(return_value=org)),
         patch.object(admin.user_repo, "get_by_email", new=AsyncMock(return_value=target)),
-        patch.object(
-            admin.seat_repo, "get_user_org_seat", new=AsyncMock(return_value=None)
-        ),
+        patch.object(admin.seat_repo, "get_user_org_seat", new=AsyncMock(return_value=None)),
     ):
         result = await admin.create_seat(
             org_id=org.id,
@@ -457,9 +449,7 @@ async def test_get_user_forbids_org_admin_outside_org() -> None:
     session = AsyncMock()
     session.execute = AsyncMock(return_value=_ScalarResult(target))
 
-    with patch.object(
-        admin.seat_repo, "get_user_org_seat", new=AsyncMock(return_value=None)
-    ):
+    with patch.object(admin.seat_repo, "get_user_org_seat", new=AsyncMock(return_value=None)):
         with pytest.raises(HTTPException) as excinfo:
             await admin.get_user(
                 user_id=target.id,
@@ -503,9 +493,7 @@ async def test_update_user_applies_fields() -> None:
     target = _user_row()
     session = AsyncMock()
 
-    with patch.object(
-        admin.user_repo, "get_by_id", new=AsyncMock(return_value=target)
-    ):
+    with patch.object(admin.user_repo, "get_by_id", new=AsyncMock(return_value=target)):
         result = await admin.update_user(
             user_id=target.id,
             data=AdminUserUpdate(display_name="Renamed"),
@@ -524,9 +512,7 @@ async def test_platform_stats_aggregates_counts() -> None:
     session = AsyncMock()
     session.scalar = AsyncMock(side_effect=[5, 100, 42, 9, 3])
 
-    result = await admin.get_platform_stats(
-        user=_token(["platform-admin"]), session=session
-    )
+    result = await admin.get_platform_stats(user=_token(["platform-admin"]), session=session)
 
     assert result.total_orgs == 5
     assert result.total_users == 100
@@ -540,11 +526,42 @@ async def test_get_features_missing_returns_404() -> None:
         with pytest.raises(HTTPException) as excinfo:
             await admin.get_organization_features(
                 org_id=uuid.uuid4(),
-                _user=_token(["platform-admin"]),
+                user=_token(["platform-admin"]),
                 session=session,
             )
 
     assert excinfo.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_features_forbids_cross_org_admin() -> None:
+    """An org-admin cannot read another tenant's feature flags (issue #78)."""
+    session = AsyncMock()
+    with pytest.raises(HTTPException) as excinfo:
+        await admin.get_organization_features(
+            org_id=uuid.uuid4(),
+            user=_token(["org-admin"], uuid.uuid4()),
+            session=session,
+        )
+
+    assert excinfo.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_get_features_allows_own_org_admin() -> None:
+    """An org-admin can read their own organization's feature flags."""
+    org = _org()
+    session = AsyncMock()
+
+    with patch.object(admin.org_repo, "get_by_id", new=AsyncMock(return_value=org)):
+        result = await admin.get_organization_features(
+            org_id=org.id,
+            user=_token(["org-admin"], org.id),
+            session=session,
+        )
+
+    assert result.org_id == org.id
+    assert result.enabled_features == ["hangar", "squawk", "tower"]
 
 
 @pytest.mark.asyncio

@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
+from app.core.org_ids import org_id_for_slug
 from app.middleware.auth import TokenUser
 from app.middleware.org_context import get_org_id, require_org_id
-
 
 # ── Helpers ────────────────────────────────────────────────────────────
 
@@ -29,9 +29,7 @@ def _make_token_user(
     )
 
 
-def _make_seat(
-    *, org_id: uuid.UUID | None = None, is_active: bool = True
-) -> MagicMock:
+def _make_seat(*, org_id: uuid.UUID | None = None, is_active: bool = True) -> MagicMock:
     seat = MagicMock()
     seat.organization_id = org_id or uuid.uuid4()
     seat.is_active = is_active
@@ -83,6 +81,24 @@ class TestGetOrgId:
         assert result == uuid.UUID(org_uuid)
 
     @pytest.mark.asyncio
+    async def test_regular_user_with_slug_org_claim_resolves_to_uuid(self) -> None:
+        """A legacy slug claim must resolve to the deterministic org UUID (#18)."""
+        token_user = _make_token_user(roles=["instructor"], organization_id="skybridge")
+
+        result = await get_org_id(token_user, AsyncMock())
+
+        assert result == org_id_for_slug("skybridge")
+        assert isinstance(result, uuid.UUID)
+
+    @pytest.mark.asyncio
+    async def test_platform_admin_with_slug_org_claim_resolves_to_uuid(self) -> None:
+        token_user = _make_token_user(roles=["platform-admin"], organization_id="skybridge")
+
+        result = await get_org_id(token_user, AsyncMock())
+
+        assert result == org_id_for_slug("skybridge")
+
+    @pytest.mark.asyncio
     @patch("app.middleware.org_context.seat_repo")
     @patch("app.middleware.org_context.sync_user_from_token")
     async def test_regular_user_falls_back_to_seat(
@@ -96,9 +112,7 @@ class TestGetOrgId:
         mock_sync.return_value = fake_user
 
         expected_org = uuid.uuid4()
-        mock_seat_repo.get_user_seats = AsyncMock(
-            return_value=[_make_seat(org_id=expected_org)]
-        )
+        mock_seat_repo.get_user_seats = AsyncMock(return_value=[_make_seat(org_id=expected_org)])
         session = AsyncMock()
 
         result = await get_org_id(token_user, session)
