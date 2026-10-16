@@ -2,5 +2,11 @@
   "name": "@horus/core",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "test": "vitest run -c ../../vitest.config.ts"
+  },
+  "devDependencies": {
+    "nuxt": "4.4.2"
+  }
 }
