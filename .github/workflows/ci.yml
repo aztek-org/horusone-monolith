@@ -2,11 +2,9 @@ name: CI
 
 on:
   push:
-    # `integration` is the shared working branch; keep it covered by CI so
-    # PRs based on it are gated the same way as tokyo/main.
-    branches: [tokyo, main, integration]
+    branches: [tokyo, main]
   pull_request:
-    branches: [tokyo, main, integration]
+    branches: [tokyo, main]
   workflow_dispatch:
 
 concurrency:
