@@ -18,9 +18,10 @@ We needed an architecture that:
 2. Supports a **multi-phase training lifecycle** — ingestion, validation, live ATC
    session, post-flight evaluation, and scoring.
 3. Allows **human-in-the-loop (HITL)** so instructors can override AI-generated ATC
-   responses before they reach the student. *(This is the requirement. What is
-   built and what is actually reachable today are recorded in the HITL section
-   below: the mechanism exists and is tested, and it is switched off.)*
+   responses before they reach the student. *(This is the requirement. The HITL
+   section below records what is built: the mechanism is implemented and tested
+   end to end and is enabled by the `LLM_INTERRUPT_BEFORE_RESPONSE` setting —
+   off by default.)*
 4. Keeps state in a single, typed object so every agent can read context set by earlier
    agents (e.g., the fuel agent can reference route distances from the route agent).
 
@@ -159,34 +160,31 @@ graph TD
 | `generate_atc_response` | Build context-aware prompt from the Scene and invoke the injected `LLMModule` for a standard ATC response |
 | `evaluate_exchange` | Increment exchange counter, update session phase detail (taxi → takeoff → cruise → …) |
 
-#### Human-in-the-Loop (HITL) — built, not exposed
+#### Human-in-the-Loop (HITL) — built, enabled by a flag
 
 When compiled with `interrupt_before_response=True`,
 `build_live_session_graph()` pauses before the ATC response node *and* before the
 emergency handler, so a MAYDAY cannot slip past the review. An instructor can
 then inspect the state and either supply their own response or release the
-graph's own; `await_instructor()` is what completes a held exchange, and because
-the state is checkpointed a pending review survives a backend restart.
+graph's own; `await_instructor()` completes a held exchange, and because the
+state is checkpointed a pending review survives a backend restart.
 
-**None of that is reachable in a deployment today.** The capability is real and
-tested; the switch is not, and there is no endpoint to throw.
+All three pieces that expose it have landed (#21, #22, #23):
 
-- The flag is a constructor argument of `TrainingSessionModule`
-  (`app/services/training_sessions/session_module.py:61`) whose default is
-  `False`. This ADR previously said "callers do not set it themselves", which
-  described a flag that *nobody* sets: the composition root `app/main.py:176-184`
-  does not pass it, no `Settings` field sources it, and no `.env` template
-  declares it. `ATCAgent` passes `False` explicitly.
-- No route calls `await_instructor`, so a held exchange could not be released
-  even if the flag were set.
+- `Settings.llm.interrupt_before_response` (`LLM_INTERRUPT_BEFORE_RESPONSE`) is
+  read at composition-root time and passed to `TrainingSessionModule`. Its
+  default is `False`, and `ATCAgent` passes `False` explicitly, so a deployment
+  only pauses when the flag is enabled.
+- `POST /sessions/{session_id}/instructor-response` calls `await_instructor`
+  behind the active-seat check, the instructor-capable seat role
+  (`instructor`/`admin`), and tenant scoping.
+- The pilot UI tracks the `awaiting_instructor` event and shows a held state, and
+  the instructor UI can release or override the exchange.
 
-So in every deployment `instructor_overridden` is always `False` and the
-`awaiting_instructor` event is never emitted. Turning it on needs a config
-field, an authorized response route behind the existing seat/role/tenant checks,
-and a frontend pending state — see
+So HITL is a real capability when enabled; with the shipped default the path is
+unreachable and `instructor_overridden` stays `False`. See
 [#3](https://github.com/martinsgmx/horusone-mvp/issues/3) and
-[ADR-006](./ADR-006-scene-session-and-persistent-langgraph.md#not-yet-exposed-instructor-override-hitl).
-Treat it as built-and-deliberately-off until all three land.
+[ADR-006](./ADR-006-scene-session-and-persistent-langgraph.md#instructor-override-hitl).
 
 ### Sub-Graph 3: Scoring Graph
 
@@ -277,9 +275,9 @@ sequenceDiagram
   state dict. Unit tests don't need the LLM or any external service.
 - **Human-in-the-loop** — the live session graph natively supports instructor
   override via LangGraph's `interrupt_before` mechanism, on the ATC-response and
-  emergency nodes. Built and tested; **switched off in every deployment**, with
-  no config field and no route to release a held exchange. See the HITL section
-  above and
+  emergency nodes. Built and tested, exposed through a config flag, an authorized
+  response route, and a frontend pending state; **off by default**
+  (`LLM_INTERRUPT_BEFORE_RESPONSE=false`). See the HITL section above and
   [#3](https://github.com/martinsgmx/horusone-mvp/issues/3).
 - **Deterministic validation** — 8 of 9 agents use no LLM, making pre-flight checks
   fast (~50ms) and reproducible.

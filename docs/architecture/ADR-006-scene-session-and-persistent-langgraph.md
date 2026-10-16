@@ -134,14 +134,17 @@ traceability, and the ability to run several backend processes.
   [ADR-008](./ADR-008-tenant-scoped-knowledge-and-pgvector-retrieval.md) for why
   *citations* are a separate, deliberately deferred piece of work.
 - The instructor-override machinery exists, is checkpointed, and is covered by
-  tests — the hard part is done even though it is switched off.
+  tests; exposing it behind the config flag, response route and frontend pending
+  state landed in [#21](https://github.com/martinsgmx/horusone-mvp/issues/21),
+  [#22](https://github.com/martinsgmx/horusone-mvp/issues/22) and
+  [#23](https://github.com/martinsgmx/horusone-mvp/issues/23).
 
-### Not yet exposed: instructor override (HITL)
+### Instructor override (HITL)
 
-Instructor override is **built, well tested, and deliberately switched off.** It
-is not a capability of any running deployment, and this ADR previously listed it
-as a shipped Positive. See
-[#3](https://github.com/martinsgmx/horusone-mvp/issues/3) for the follow-up.
+Instructor override is **built, well tested, and available when enabled**
+(`LLM_INTERRUPT_BEFORE_RESPONSE=true`). It is off by default, so a deployment
+that has not enabled the flag never pauses; this ADR previously listed it as a
+shipped Positive unconditionally, and later as switched off.
 
 What is real: `build_live_session_graph(..., interrupt_before_response=True)`
 compiles the live graph with `interrupt_before=["generate_atc_response",

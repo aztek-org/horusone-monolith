@@ -101,17 +101,18 @@ Horus composes three `StateGraph` sub-graphs behind a single Session module
 as a thin adapter for the `AudioPipeline` interface. See
 [ADR-006](architecture/ADR-006-scene-session-and-persistent-langgraph.md).
 
-**Human-in-the-loop (HITL) is built and deliberately switched off.** The live
+**Human-in-the-loop (HITL) is implemented and available when enabled.** The live
 graph can be compiled to pause before the ATC response and before the emergency
-handler, and `TrainingSessionModule.await_instructor()` can release a held
-exchange with the instructor's own words or with the graph's — with the pending
-state checkpointed, so a review survives a restart. But no config field sets
-`interrupt_before_response`, no route calls `await_instructor`, and the frontend
-renders no pending state, so **no deployment has instructor override available**.
-Turning it on needs all three; tracked in
-[#3](https://github.com/martinsgmx/horusone-mvp/issues/3). Don't debug HITL as if
-it were live: if you are reading this expecting to override a response, the flag
-is `False` and the path is unreachable.
+handler, and `TrainingSessionModule.await_instructor()` releases a held exchange
+with the instructor's own words or with the graph's — the pending state is
+checkpointed, so a review survives a restart. Enable it with
+`LLM_INTERRUPT_BEFORE_RESPONSE=true`: the flag is read at composition-root time,
+`POST /api/v1/sessions/{id}/instructor-response` releases a held exchange, and
+the frontend shows a pending state to the pilot and a review surface to the
+instructor. It is **off by default** (`LLM_INTERRUPT_BEFORE_RESPONSE=false`), so
+with the shipped config no deployment pauses and `instructor_overridden` stays
+`False`. See
+[#3](https://github.com/martinsgmx/horusone-mvp/issues/3).
 
 📖 Full details: [ADR-004: LangGraph Multi-Agent Architecture](architecture/ADR-004-langgraph-multi-agent.md)
 
