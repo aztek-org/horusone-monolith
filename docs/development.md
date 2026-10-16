@@ -639,10 +639,59 @@ pnpm format                         # Prettier
 - **Env**: create `backend/.env.prod` from `.env.prod.example`; `deploy.sh` loads
   it with `--env-file .env.prod` (it holds the Compose interpolation secrets)
 - **Deploy**: `./scripts/deploy.sh` (rolling update) or `./scripts/deploy.sh --full` (full restart)
-- **Backup**: `./scripts/backup.sh` (7-day retention)
+- **Backup**: `./scripts/backup.sh` (age-encrypted, optional offsite upload)
 - **Restore**: `./scripts/restore.sh <backup-file>`
 - **First-boot smoke check**: `./scripts/smoke-first-boot.sh` (builds the Postgres
   image, boots it on a throwaway volume, and asserts `keycloak_db` is created)
+
+#### Encrypted offsite backups
+
+`backup.sh` dumps `horus_db` and `keycloak_db`, gzips them, and encrypts the
+result with [age](https://github.com/FiloSottile/age) **before writing to
+disk**. It refuses to run without a recipient unless you pass `--no-encrypt`
+(explicitly for local/CI use).
+
+1. Create the key pair on your workstation — the **private** key must never
+   live on the VPS:
+
+   ```bash
+   age-keygen -o ~/.config/age/horus-backup.key
+   # public key: age1...  -> put this in backend/.env.prod
+   ```
+
+2. Set the public recipient in `backend/.env.prod`:
+
+   ```bash
+   BACKUP_AGE_RECIPIENT=age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
+   ```
+
+3. (Optional, recommended) copy backups offsite with rclone. Configure a remote
+   once (`rclone config`, any S3-compatible target: Wasabi, B2, R2, MinIO, S3),
+   then:
+
+   ```bash
+   BACKUP_RCLONE_REMOTE=horus-backups:horus-db
+   BACKUP_LOCAL_RETENTION_DAYS=7     # fast local restores
+   BACKUP_REMOTE_RETENTION_DAYS=30   # longer offsite history
+   ```
+
+Run it from cron on the VPS (daily at 03:00), keeping logs:
+
+```cron
+0 3 * * * cd /srv/horus/backend && set -a && . ./.env.prod && set +a \
+  && ./scripts/backup.sh >> /var/log/horus-backup.log 2>&1
+```
+
+Restore an encrypted backup by pointing `BACKUP_AGE_IDENTITY` at the private
+key:
+
+```bash
+BACKUP_AGE_IDENTITY=~/.config/age/horus-backup.key \
+  ./scripts/restore.sh backups/horus_db_20240101_030000.sql.gz.age
+```
+
+Each dump gets a sibling `.sha256`; verify with `sha256sum -c <file>.sha256`
+from inside `backend/backups/`.
 
 ### Frontend (Cloudflare Pages)
 

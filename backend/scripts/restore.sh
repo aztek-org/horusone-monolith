@@ -2,19 +2,28 @@
 # =============================================================================
 # restore.sh — PostgreSQL restore for Horus MVP
 #
-# Restores a database from a backup file (.sql or .sql.gz).
-# Auto-detects the target database from the filename.
+# Restores a database from a backup file (.sql, .sql.gz, or an age-encrypted
+# .sql.gz.age produced by backup.sh). Auto-detects the target database from the
+# filename.
 #
 # Usage:
 #   ./scripts/restore.sh backups/horus_db_20240101_120000.sql.gz
 #   ./scripts/restore.sh backups/keycloak_db_20240101_120000.sql.gz
 #   ./scripts/restore.sh --db horus_db backups/some-custom-name.sql.gz
+#   BACKUP_AGE_IDENTITY=~/.config/age/horus-backup.key \
+#     ./scripts/restore.sh backups/horus_db_20240101_120000.sql.gz.age
+#
+# Environment:
+#   BACKUP_AGE_IDENTITY   Path to the age private key (required for .age files)
+#   BACKUP_AGE_BIN        Override the age binary (default: age)
 # =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPOSE_CMD="docker compose"
+AGE_BIN="${BACKUP_AGE_BIN:-age}"
+AGE_IDENTITY="${BACKUP_AGE_IDENTITY:-}"
 
 # --- Colors ----------------------------------------------------------------
 RED='\033[0;31m'
@@ -38,6 +47,8 @@ Examples:
 Options:
   --db <database>  Force restore target (horus_db | keycloak_db)
   -h, --help       Show this help message
+
+Encrypted (.age) backups require BACKUP_AGE_IDENTITY to point at the private key.
 EOF
 }
 
@@ -103,14 +114,35 @@ if [[ "$TARGET_DB" == "keycloak_db" ]]; then
   RESTORE_USER="keycloak"
 fi
 
-# --- Detect compression ----------------------------------------------------
+# --- Detect encryption & compression ---------------------------------------
+IS_ENCRYPTED=false
+if [[ "$BACKUP_FILE" == *.age ]]; then
+  IS_ENCRYPTED=true
+fi
+
 IS_GZIPPED=false
-if [[ "$BACKUP_FILE" == *.gz ]]; then
+if [[ "$BACKUP_FILE" == *.gz || "$BACKUP_FILE" == *.gz.age ]]; then
   IS_GZIPPED=true
 fi
 
 # --- Pre-flight checks -----------------------------------------------------
 cd "$PROJECT_DIR"
+
+if $IS_ENCRYPTED; then
+  if [[ -z "$AGE_IDENTITY" ]]; then
+    error "Encrypted backup given but BACKUP_AGE_IDENTITY is not set."
+    error "Point it at the age private key, e.g. BACKUP_AGE_IDENTITY=~/.config/age/horus-backup.key"
+    exit 1
+  fi
+  if [[ ! -f "$AGE_IDENTITY" ]]; then
+    error "age identity file not found: $AGE_IDENTITY"
+    exit 1
+  fi
+  if ! command -v "$AGE_BIN" >/dev/null 2>&1; then
+    error "$AGE_BIN not found on PATH (needed to decrypt $BASENAME)."
+    exit 1
+  fi
+fi
 
 if ! $COMPOSE_CMD ps postgres --status running 2>/dev/null | grep -q "running"; then
   error "PostgreSQL container is not running. Start the stack first."
@@ -129,6 +161,7 @@ echo "  Size     : $(numfmt --to=iec "$FILE_SIZE" 2>/dev/null || echo "${FILE_SI
 echo "  Target   : ${TARGET_DB}"
 echo "  User     : ${RESTORE_USER}"
 echo "  Compress : $(if $IS_GZIPPED; then echo 'gzip'; else echo 'plain SQL'; fi)"
+echo "  Encrypt  : $(if $IS_ENCRYPTED; then echo 'age'; else echo 'none'; fi)"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
 warn "⚠  This will DROP and RECREATE the '${TARGET_DB}' database."
@@ -162,11 +195,20 @@ EOSQL
 
 info "Restoring from backup ..."
 
+stream_backup() {
+  if $IS_ENCRYPTED; then
+    "$AGE_BIN" -d -i "$AGE_IDENTITY" "$BACKUP_FILE"
+  else
+    cat "$BACKUP_FILE"
+  fi
+}
+
 if $IS_GZIPPED; then
-  gunzip -c "$BACKUP_FILE" \
+  stream_backup | gunzip -c \
     | $COMPOSE_CMD exec -T postgres psql -U "$RESTORE_USER" -d "$TARGET_DB" --quiet
 else
-  $COMPOSE_CMD exec -T postgres psql -U "$RESTORE_USER" -d "$TARGET_DB" --quiet < "$BACKUP_FILE"
+  stream_backup \
+    | $COMPOSE_CMD exec -T postgres psql -U "$RESTORE_USER" -d "$TARGET_DB" --quiet
 fi
 
 # --- Verify -----------------------------------------------------------------

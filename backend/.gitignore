@@ -35,6 +35,7 @@ env/
 
 # Database backups (contain real data)
 backups/*.sql*
+backups/*.sha256
 !backups/.gitkeep
 
 # IDE
