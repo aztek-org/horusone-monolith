@@ -1,0 +1,6 @@
+# Normalize line endings on checkout. Shell scripts MUST use LF: a CRLF
+# checkout (Git for Windows default) produces a broken shebang and syntax
+# errors when the script is executed inside a Linux container — e.g. the
+# Postgres first-boot init script (docker/init-multiple-dbs.sh).
+* text=auto eol=lf
+*.sh text eol=lf

@@ -170,8 +170,9 @@ horus-mvp/
 │   ├── tests/                      # pytest test suite (unit/ + integration/)
 │   ├── alembic/                    # Database migrations
 │   ├── scripts/                    # seed.py, deploy.sh, backup.sh, restore.sh,
+│   │                               # smoke-first-boot.sh,
 │   │                               # prune_session_events.py (ADR-009 retention cron)
-│   ├── docker/                     # Dockerfile + keycloak-import/
+│   ├── docker/                     # Dockerfile, Dockerfile.postgres, keycloak-import/
 │   ├── docker-compose.yml          # Base service definitions
 │   ├── docker-compose.dev.yml      # Dev overrides (exposed ports, hot reload)
 │   ├── docker-compose.prod.yml     # Prod overrides (TLS, resource limits, GPU)
@@ -635,6 +636,8 @@ pnpm format                         # Prettier
 - **Deploy**: `./scripts/deploy.sh` (rolling update) or `./scripts/deploy.sh --full` (full restart)
 - **Backup**: `./scripts/backup.sh` (7-day retention)
 - **Restore**: `./scripts/restore.sh <backup-file>`
+- **First-boot smoke check**: `./scripts/smoke-first-boot.sh` (builds the Postgres
+  image, boots it on a throwaway volume, and asserts `keycloak_db` is created)
 
 ### Frontend (Cloudflare Pages)
 
@@ -720,6 +723,7 @@ uv run python -m scripts.seed --reset
 | View DB logs | `docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f postgres` |
 | Deploy (prod) | `cd backend && ./scripts/deploy.sh --full` |
 | Backup DB | `cd backend && ./scripts/backup.sh` |
+| Postgres first-boot smoke check | `cd backend && ./scripts/smoke-first-boot.sh` |
 | Pull LLM model | `ollama pull llama3.2:3b` |
 | Health check | `curl http://localhost:8000/health/ready` |
 

@@ -37,7 +37,11 @@ services:
   # Creates horus_db (app) + keycloak_db (auth) on first start
   # ---------------------------------------------------------------------------
   postgres:
-    image: pgvector/pgvector:pg16
+    # Built, not pulled: the init script is baked in (and chmod +x'd) so first-
+    # boot initialization never depends on host file/permission semantics.
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.postgres
     container_name: horus-postgres
     restart: unless-stopped
     environment:
@@ -47,7 +51,6 @@ services:
       KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U horus -d horus_db"]
       interval: 10s
