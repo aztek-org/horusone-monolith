@@ -46,6 +46,10 @@ class LLMSettings:
     max_output_tokens: int = 150
     timeout_seconds: float = 120.0
     allow_external_fallback: bool = False
+    # Instructor override (HITL): when true the live graph pauses before
+    # generating the ATC response so an instructor can review or replace it.
+    # Deliberately off by default — see ADR-007 and the HITL epic.
+    interrupt_before_response: bool = False
 
 
 @dataclass(frozen=True)

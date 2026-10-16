@@ -745,6 +745,7 @@ All variables are configured in `backend/.env`. Defaults are suitable for local 
 | `LLM_BASE_URL` | _(blank; provider default applies)_ | Base URL for the primary LLM provider |
 | `LLM_MODEL` | _(blank; provider default applies)_ | Primary LLM model |
 | `LLM_EMBEDDING_MODEL` | _(blank; provider default applies)_ | Embedding model |
+| `LLM_INTERRUPT_BEFORE_RESPONSE` | `false` | Enable instructor override (HITL): pause the graph before generating the ATC response so an instructor can review or replace it |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint. **Legacy name for `LLM_BASE_URL`** |
 | `OLLAMA_LLM_MODEL` | `llama3.2:3b` | LLM model for ATC responses. **Legacy name for `LLM_MODEL`** |
 | `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model. **Legacy name for `LLM_EMBEDDING_MODEL`** |

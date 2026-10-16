@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import uuid
 from types import SimpleNamespace
@@ -28,9 +29,7 @@ from tests.conftest import collect_frames, fake_audio_services, fake_ws_user
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 _SYNC_DSN = (
-    make_url(DATABASE_URL).set(drivername="postgresql").render_as_string(
-        hide_password=False
-    )
+    make_url(DATABASE_URL).set(drivername="postgresql").render_as_string(hide_password=False)
     if DATABASE_URL
     else ""
 )
@@ -284,6 +283,25 @@ def test_composition_root_builds_session_module(client: TestClient) -> None:
     assert state.trace_recorder is not None
     assert state.retriever is not None
     assert state.settings.environment == "testing"
+
+
+def test_composition_root_passes_the_hitl_flag_from_settings(
+    test_settings: Settings,
+) -> None:
+    """``LLM_INTERRUPT_BEFORE_RESPONSE`` must reach the module from Settings.
+
+    Before this the flag was a constructor default nobody set, so the HITL
+    interrupt was unreachable in every deployment.  The composition root is the
+    only place that turns the operator's setting into behaviour.
+    """
+    app.dependency_overrides[get_settings] = lambda: test_settings.model_copy(
+        update={"llm": dataclasses.replace(test_settings.llm, interrupt_before_response=True)}
+    )
+    try:
+        with TestClient(app) as client:
+            assert client.app.state.session_module._interrupt_before_response is True
+    finally:
+        app.dependency_overrides.clear()
 
 
 @pytest.mark.skipif(not DATABASE_URL, reason="DATABASE_URL is required for the voice WebSocket")
