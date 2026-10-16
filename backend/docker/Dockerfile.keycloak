@@ -1,0 +1,10 @@
+#  ============================================================================
+# Dockerfile.keycloak — Keycloak 24 with the Horus realm baked in.
+#
+# The realm is COPYed into the image's import directory rather than bind-mounted
+# from the host, so `--import-realm` is deterministic regardless of host
+# filesystem/permission semantics (same reasoning as Dockerfile.postgres).
+# ============================================================================
+FROM quay.io/keycloak/keycloak:24.0
+
+COPY keycloak-import/horus-realm.json /opt/keycloak/data/import/horus-realm.json
