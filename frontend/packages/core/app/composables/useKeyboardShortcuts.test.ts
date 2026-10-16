@@ -79,15 +79,15 @@ describe('useKeyboardShortcuts', () => {
     const map = shortcuts.value
 
     expect(map.push_to_talk).toBeDefined()
-    expect(map.push_to_talk.key).toBe('KeyB')
-    expect(map.push_to_talk.category).toBe('voice')
+    expect(map.push_to_talk!.key).toBe('KeyB')
+    expect(map.push_to_talk!.category).toBe('voice')
 
     expect(map.nav_dashboard).toBeDefined()
-    expect(map.nav_dashboard.modifiers.ctrl).toBe(true)
-    expect(map.nav_dashboard.key).toBe('KeyD')
+    expect(map.nav_dashboard!.modifiers.ctrl).toBe(true)
+    expect(map.nav_dashboard!.key).toBe('KeyD')
 
     expect(map.escape).toBeDefined()
-    expect(map.escape.key).toBe('Escape')
+    expect(map.escape!.key).toBe('Escape')
   })
 
   it('initialises isRecording to false and recordingId to null', async () => {
@@ -150,14 +150,14 @@ describe('useKeyboardShortcuts', () => {
   it('registerAction wires up a callback; unregisterAction clears it', async () => {
     const { shortcuts, registerAction, unregisterAction } = await loadComposable()
 
-    expect(shortcuts.value.push_to_talk.action).toBeNull()
+    expect(shortcuts.value.push_to_talk!.action).toBeNull()
 
     const spy = vi.fn()
     registerAction('push_to_talk', spy)
-    expect(shortcuts.value.push_to_talk.action).toBe(spy)
+    expect(shortcuts.value.push_to_talk!.action).toBe(spy)
 
     unregisterAction('push_to_talk')
-    expect(shortcuts.value.push_to_talk.action).toBeNull()
+    expect(shortcuts.value.push_to_talk!.action).toBeNull()
   })
 
   it('registerAction warns for unknown shortcut id', async () => {
@@ -177,7 +177,7 @@ describe('useKeyboardShortcuts', () => {
 
     const ok = updateBinding('push_to_talk', 'KeyT')
     expect(ok).toBe(true)
-    expect(shortcuts.value.push_to_talk.key).toBe('KeyT')
+    expect(shortcuts.value.push_to_talk!.key).toBe('KeyT')
 
     expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
       'horus-keyboard-shortcuts',
@@ -192,7 +192,7 @@ describe('useKeyboardShortcuts', () => {
     const ok = updateBinding('push_to_talk', 'KeyM')
     expect(ok).toBe(false)
     // Original binding unchanged
-    expect(shortcuts.value.push_to_talk.key).toBe('KeyB')
+    expect(shortcuts.value.push_to_talk!.key).toBe('KeyB')
   })
 
   it('updateBinding returns false for unknown shortcut id', async () => {
@@ -205,10 +205,10 @@ describe('useKeyboardShortcuts', () => {
 
     const ok = updateBinding('push_to_talk', 'KeyT', { ctrl: true, shift: true })
     expect(ok).toBe(true)
-    expect(shortcuts.value.push_to_talk.key).toBe('KeyT')
-    expect(shortcuts.value.push_to_talk.modifiers.ctrl).toBe(true)
-    expect(shortcuts.value.push_to_talk.modifiers.shift).toBe(true)
-    expect(shortcuts.value.push_to_talk.modifiers.alt).toBe(false)
+    expect(shortcuts.value.push_to_talk!.key).toBe('KeyT')
+    expect(shortcuts.value.push_to_talk!.modifiers.ctrl).toBe(true)
+    expect(shortcuts.value.push_to_talk!.modifiers.shift).toBe(true)
+    expect(shortcuts.value.push_to_talk!.modifiers.alt).toBe(false)
   })
 
   // -- hasConflict ----------------------------------------------------------
@@ -249,12 +249,12 @@ describe('useKeyboardShortcuts', () => {
     const action = vi.fn()
     registerAction('push_to_talk', action)
     updateBinding('push_to_talk', 'KeyT')
-    expect(shortcuts.value.push_to_talk.key).toBe('KeyT')
+    expect(shortcuts.value.push_to_talk!.key).toBe('KeyT')
 
     resetToDefaults()
 
-    expect(shortcuts.value.push_to_talk.key).toBe('KeyB')
-    expect(shortcuts.value.push_to_talk.action).toBe(action)
+    expect(shortcuts.value.push_to_talk!.key).toBe('KeyB')
+    expect(shortcuts.value.push_to_talk!.action).toBe(action)
   })
 
   it('resetToDefaults persists the reset to localStorage', async () => {
@@ -306,7 +306,7 @@ describe('useKeyboardShortcuts', () => {
     mockLocalStorage._store['horus-keyboard-shortcuts'] = JSON.stringify(stored)
 
     const { shortcuts } = await loadComposable()
-    expect(shortcuts.value.push_to_talk.key).toBe('KeyT')
+    expect(shortcuts.value.push_to_talk!.key).toBe('KeyT')
   })
 
   it('handles corrupt localStorage data gracefully', async () => {
@@ -316,7 +316,7 @@ describe('useKeyboardShortcuts', () => {
     // Should not throw
     const { shortcuts } = await loadComposable()
     // Falls back to defaults
-    expect(shortcuts.value.push_to_talk.key).toBe('KeyB')
+    expect(shortcuts.value.push_to_talk!.key).toBe('KeyB')
     expect(warnSpy).toHaveBeenCalled()
   })
 

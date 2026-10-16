@@ -143,7 +143,7 @@ describe('useAuth', () => {
       expect.any(String),
     )
 
-    const verifier = storage.setItem.mock.calls[0][1] as string
+    const verifier = storage.setItem.mock.calls[0]![1] as string
     // base64url alphabet only — no +, /, or = characters
     expect(verifier).toMatch(/^[A-Za-z0-9_-]+$/)
     expect(verifier.length).toBeGreaterThan(0)

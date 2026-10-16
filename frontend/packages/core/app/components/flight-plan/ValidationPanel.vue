@@ -2,7 +2,7 @@
 import type { ValidationResult } from '~/composables/useFlightPlans'
 
 interface Props {
-  results: ValidationResult[]
+  results: readonly ValidationResult[]
   isLoading: boolean
 }
 

@@ -165,7 +165,7 @@ describe('useFlightPlans', () => {
     await plans.updateFlightPlan(4, { title: 'Changed' })
 
     expect(mockApi.put).toHaveBeenCalledWith('/api/v1/flight-plans/4', { title: 'Changed' })
-    expect(plans.flightPlans.value[0].title).toBe('Changed')
+    expect(plans.flightPlans.value[0]!.title).toBe('Changed')
     expect(plans.currentPlan.value).toEqual(updated)
   })
 
@@ -265,7 +265,7 @@ describe('useFlightPlans', () => {
 
     expect(mockApi.post).toHaveBeenCalledWith('/api/v1/flight-plans/2/activate')
     expect(result).toEqual(activated)
-    expect(plans.flightPlans.value[0].status).toBe('active')
+    expect(plans.flightPlans.value[0]!.status).toBe('active')
   })
 
   // -- deleteFlightPlan -----------------------------------------------------

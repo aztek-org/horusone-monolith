@@ -206,7 +206,7 @@ function organizationSeatUsage(org: OrganizationSummary): number {
 
 function canSaveMaxSeats(org: OrganizationSummary): boolean {
   const draft = maxSeatDrafts.value[org.id]
-  return Number.isFinite(draft) && draft > 0 && draft !== org.max_seats
+  return draft !== undefined && Number.isFinite(draft) && draft > 0 && draft !== org.max_seats
 }
 
 async function loadStats() {
@@ -312,7 +312,7 @@ async function createOrganization() {
 async function saveMaxSeats(org: OrganizationSummary) {
   if (!isPlatformAdmin.value || savingOrgId.value) return
   const draft = maxSeatDrafts.value[org.id]
-  if (!Number.isFinite(draft) || draft <= 0 || draft === org.max_seats) return
+  if (draft === undefined || !Number.isFinite(draft) || draft <= 0 || draft === org.max_seats) return
 
   savingOrgId.value = org.id
   clearActionBanners()
@@ -709,7 +709,7 @@ onMounted(() => {
                         </div>
                         <div class="grid gap-2 sm:grid-cols-3">
                           <select
-                            v-model="billingDrafts[org.id].billing_plan"
+                            v-model="billingDrafts[org.id]!.billing_plan"
                             class="rounded-md border border-white/15 bg-horus-bg-primary px-2 py-1 text-xs text-horus-text-primary focus:border-horus-accent-cyan focus:outline-none"
                           >
                             <option v-for="plan in billingPlanOptions" :key="plan" :value="plan">
@@ -717,7 +717,7 @@ onMounted(() => {
                             </option>
                           </select>
                           <select
-                            v-model="billingDrafts[org.id].billing_status"
+                            v-model="billingDrafts[org.id]!.billing_status"
                             class="rounded-md border border-white/15 bg-horus-bg-primary px-2 py-1 text-xs text-horus-text-primary focus:border-horus-accent-cyan focus:outline-none"
                           >
                             <option v-for="status in billingStatusOptions" :key="status" :value="status">
@@ -725,7 +725,7 @@ onMounted(() => {
                             </option>
                           </select>
                           <select
-                            v-model="billingDrafts[org.id].billing_cycle"
+                            v-model="billingDrafts[org.id]!.billing_cycle"
                             class="rounded-md border border-white/15 bg-horus-bg-primary px-2 py-1 text-xs text-horus-text-primary focus:border-horus-accent-cyan focus:outline-none"
                           >
                             <option v-for="cycle in billingCycleOptions" :key="cycle" :value="cycle">

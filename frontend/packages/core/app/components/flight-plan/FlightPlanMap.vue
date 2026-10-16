@@ -19,7 +19,7 @@ interface Props {
   arrivalIcao: string
   alternateIcao?: string
   waypoints?: WaypointMarker[]
-  legs?: FlightPlanLeg[]
+  legs?: readonly FlightPlanLeg[]
   interactive?: boolean
 }
 
@@ -185,7 +185,7 @@ function renderMap() {
     map.value.fitBounds(bounds, { padding: [60, 60], maxZoom: 10 })
   }
   else if (allCoords.length === 1) {
-    map.value.setView(allCoords[0], 8)
+    map.value.setView(allCoords[0]!, 8)
   }
 }
 
@@ -204,20 +204,21 @@ onMounted(async () => {
 
   L.value = await import('leaflet')
 
-  map.value = L.value.map(mapContainer.value, {
+  const mapInstance = L.value.map(mapContainer.value, {
     center: [39.8283, -98.5795], // US center default
     zoom: 4,
     zoomControl: false,
     attributionControl: false,
   })
+  map.value = mapInstance
 
   L.value.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     className: 'map-tiles-dark',
-  }).addTo(map.value)
+  }).addTo(mapInstance)
 
   // Mouse tracking
-  map.value.on('mousemove', (e: { latlng: { lat: number, lng: number } }) => {
+  mapInstance.on('mousemove', (e: { latlng: { lat: number, lng: number } }) => {
     cursorPosition.value = {
       lat: formatCoordinate(e.latlng.lat, 'lat'),
       lon: formatCoordinate(e.latlng.lng, 'lon'),
@@ -226,7 +227,7 @@ onMounted(async () => {
 
   // Click to add waypoints
   if (props.interactive) {
-    map.value.on('click', (e: { latlng: { lat: number, lng: number } }) => {
+    mapInstance.on('click', (e: { latlng: { lat: number, lng: number } }) => {
       emit('map-click', { lat: e.latlng.lat, lon: e.latlng.lng })
     })
   }

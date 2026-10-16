@@ -2,7 +2,7 @@
 import type { VoiceLog } from '~/composables/useSessionReplay'
 
 interface Props {
-  voiceLogs: VoiceLog[]
+  voiceLogs: readonly VoiceLog[]
   currentTimestamp: string
   currentIndex: number
 }
@@ -15,7 +15,14 @@ const emit = defineEmits<{
 
 const scrollContainer = ref<HTMLElement | null>(null)
 
-const speakerConfig: Record<string, { prefix: string, color: string, bgColor: string, icon: string }> = {
+interface SpeakerConfig {
+  prefix: string
+  color: string
+  bgColor: string
+  icon: string
+}
+
+const speakerConfig: Record<string, SpeakerConfig> = {
   pilot: {
     prefix: 'PILOT',
     color: 'text-horus-status-success',
@@ -36,8 +43,8 @@ const speakerConfig: Record<string, { prefix: string, color: string, bgColor: st
   },
 }
 
-function getSpeakerConfig(speaker: string) {
-  return speakerConfig[speaker] ?? speakerConfig.system
+function getSpeakerConfig(speaker: string): SpeakerConfig {
+  return speakerConfig[speaker] ?? speakerConfig.system!
 }
 
 function isActiveEntry(log: VoiceLog): boolean {

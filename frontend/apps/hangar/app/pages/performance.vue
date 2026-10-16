@@ -16,6 +16,12 @@ interface TrainingSession {
 
 type TrendMetric = 'score' | 'time'
 
+interface Metric {
+  label: string
+  value: number
+  trend: 'up' | 'down' | 'stable'
+}
+
 const api = useApi()
 
 const sessions = ref<TrainingSession[]>([])
@@ -88,7 +94,7 @@ const overallScore = computed(() => {
   return Math.min(100, Math.round(completedSessions.value.length * 15 + 40))
 })
 
-const metrics = computed(() => [
+const metrics = computed<Metric[]>(() => [
   {
     label: 'Sessions Completed',
     value: completedSessions.value.length,
@@ -155,7 +161,7 @@ const activityDays = computed(() => {
   }
   return Array.from(keys)
     .map((key) => {
-      const [year, month, day] = key.split('-').map(Number)
+      const [year = 0, month = 1, day = 1] = key.split('-').map(Number)
       return new Date(year, month - 1, day)
     })
     .sort((a, b) => a.getTime() - b.getTime())

@@ -7,6 +7,7 @@
     "test": "vitest run -c ../../vitest.config.ts"
   },
   "devDependencies": {
-    "nuxt": "4.4.2"
+    "nuxt": "4.4.2",
+    "vue": "3.5.31"
   }
 }

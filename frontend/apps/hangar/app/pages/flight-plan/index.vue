@@ -129,7 +129,7 @@ const arrCoords = computed(() => {
 })
 
 // Validation results as flat array
-const validationResults = computed<ValidationResult[]>(() => {
+const validationResults = computed<readonly ValidationResult[]>(() => {
   return validationResponse.value?.results ?? []
 })
 

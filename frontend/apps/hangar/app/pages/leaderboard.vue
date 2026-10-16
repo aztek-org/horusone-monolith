@@ -68,11 +68,19 @@ async function loadLeaderboard() {
 const podium = computed(() => entries.value.slice(0, 3))
 const restOfLeaderboard = computed(() => entries.value.slice(3))
 
-const podiumStyles: Record<number, { size: string; border: string; textColor: string; label: string; emoji: string }> = {
-  0: { size: 'w-20 h-20', border: 'border-yellow-400 ring-2 ring-yellow-400/30', textColor: 'text-yellow-400', label: '1st Place', emoji: '🥇' },
-  1: { size: 'w-16 h-16', border: 'border-gray-300 ring-2 ring-gray-300/30', textColor: 'text-gray-300', label: '2nd Place', emoji: '🥈' },
-  2: { size: 'w-16 h-16', border: 'border-amber-600 ring-2 ring-amber-600/30', textColor: 'text-amber-600', label: '3rd Place', emoji: '🥉' },
+interface PodiumStyle {
+  size: string
+  border: string
+  textColor: string
+  label: string
+  emoji: string
 }
+
+const podiumStyles: [PodiumStyle, PodiumStyle, PodiumStyle] = [
+  { size: 'w-20 h-20', border: 'border-yellow-400 ring-2 ring-yellow-400/30', textColor: 'text-yellow-400', label: '1st Place', emoji: '🥇' },
+  { size: 'w-16 h-16', border: 'border-gray-300 ring-2 ring-gray-300/30', textColor: 'text-gray-300', label: '2nd Place', emoji: '🥈' },
+  { size: 'w-16 h-16', border: 'border-amber-600 ring-2 ring-amber-600/30', textColor: 'text-amber-600', label: '3rd Place', emoji: '🥉' },
+]
 
 function formatBadgeDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', {

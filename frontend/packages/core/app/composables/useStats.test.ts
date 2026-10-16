@@ -125,8 +125,8 @@ describe('useStats', () => {
       date: '2026-01-01',
       feedback: 'Nice recovery',
     })
-    expect(result.items[1].score).toBe(0)
-    expect(result.items[1].feedback).toBeNull()
+    expect(result.items[1]!.score).toBe(0)
+    expect(result.items[1]!.feedback).toBeNull()
     expect(mockApi.get).toHaveBeenCalledWith(
       '/api/v1/stats/me/maneuvers?limit=12&offset=0',
     )
@@ -192,9 +192,9 @@ describe('useStats', () => {
     const stats = await setup()
 
     const result = await stats.getAssessmentResults()
-    expect(result.items[0].questionsTotal).toBe(0)
-    expect(result.items[0].questionsCorrect).toBe(0)
-    expect(result.items[0].timeTakenSeconds).toBe(0)
+    expect(result.items[0]!.questionsTotal).toBe(0)
+    expect(result.items[0]!.questionsCorrect).toBe(0)
+    expect(result.items[0]!.timeTakenSeconds).toBe(0)
   })
 
   // -- getTranscript --------------------------------------------------------

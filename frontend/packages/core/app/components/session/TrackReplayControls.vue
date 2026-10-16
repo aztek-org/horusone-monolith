@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import type { PlaybackSpeed } from '~/composables/useSessionReplay'
+
 interface Props {
   isPlaying: boolean
   currentIndex: number
   totalPoints: number
-  speed: number
+  speed: PlaybackSpeed
   currentTimestamp?: string
   progress?: number
 }
@@ -18,7 +20,7 @@ const emit = defineEmits<{
   'pause': []
   'stop': []
   'seek': [index: number]
-  'speed-change': [speed: number]
+  'speed-change': [speed: PlaybackSpeed]
 }>()
 
 const speeds = [1, 2, 4, 8] as const

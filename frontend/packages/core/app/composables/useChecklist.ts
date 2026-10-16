@@ -86,8 +86,9 @@ export const useChecklist = () => {
 
   function updateItem(id: string, updates: Partial<Omit<ChecklistItem, 'id'>>) {
     const index = items.value.findIndex(item => item.id === id)
-    if (index !== -1) {
-      Object.assign(items.value[index], updates)
+    const existing = items.value[index]
+    if (existing) {
+      Object.assign(existing, updates)
     }
   }
 

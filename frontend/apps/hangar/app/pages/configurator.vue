@@ -54,6 +54,10 @@ async function handleExecuteSimulation() {
   try {
     // Create a new training session for the first scenario
     const scenario = scenarios.value[0]
+    if (!scenario) {
+      errorMessage.value = 'No scenarios available to start a session.'
+      return
+    }
     const session = await api.post<{ id: number }>('/api/v1/sessions', {
       scenario_id: scenario.id,
       language: 'en',

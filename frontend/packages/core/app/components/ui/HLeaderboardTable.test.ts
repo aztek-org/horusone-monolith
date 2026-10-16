@@ -22,6 +22,8 @@ const entries = [
     scenarios_completed: 30,
     total_score: 12345,
     badges_count: 7,
+    email: 'maverick@horus.test',
+    category_scores: { communication: 80, decision_making: 90, procedures: 85 },
   },
   {
     user_id: 'u2',
@@ -32,6 +34,8 @@ const entries = [
     scenarios_completed: 3,
     total_score: 900,
     badges_count: 1,
+    email: 'goose@horus.test',
+    category_scores: { communication: 70, decision_making: 75, procedures: 72 },
   },
 ]
 

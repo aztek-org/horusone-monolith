@@ -66,8 +66,9 @@ export const useWaypoints = () => {
 
   function updateWaypoint(id: string, updates: Partial<Omit<Waypoint, 'id'>>) {
     const index = waypoints.value.findIndex(wp => wp.id === id)
-    if (index !== -1) {
-      Object.assign(waypoints.value[index], updates)
+    const existing = waypoints.value[index]
+    if (existing) {
+      Object.assign(existing, updates)
     }
   }
 

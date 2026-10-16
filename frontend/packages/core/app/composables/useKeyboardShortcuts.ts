@@ -205,6 +205,12 @@ const shortcuts = ref<ShortcutMap>(structuredClone(DEFAULT_BINDINGS))
 const isRecording = ref(false)
 const recordingId = ref<string | null>(null)
 
+/** Exit recording mode without changing any binding (module-level). */
+function stopRecording(): void {
+  isRecording.value = false
+  recordingId.value = null
+}
+
 let listenerAttached = false
 let listenerCount = 0
 
@@ -277,14 +283,15 @@ function handleKeyDown(event: KeyboardEvent): void {
 
     // Conflict check (exclude the binding being recorded)
     const conflictId = findConflict(event.code, newModifiers, targetId)
-    if (conflictId) {
+    const binding = shortcuts.value[targetId]
+    if (conflictId || !binding) {
       // Silently reject — caller can read hasConflict to show UI feedback
       stopRecording()
       return
     }
 
-    shortcuts.value[targetId].key = event.code
-    shortcuts.value[targetId].modifiers = newModifiers
+    binding.key = event.code
+    binding.modifiers = newModifiers
     stopRecording()
     saveToStorage()
     return
@@ -475,10 +482,8 @@ export function useKeyboardShortcuts() {
   /**
    * Exit recording mode without changing any binding.
    */
-  function stopRecording(): void {
-    isRecording.value = false
-    recordingId.value = null
-  }
+  // `stopRecording` is defined at module scope so the global keydown
+  // handler can also reset recording state.
 
   /**
    * Get the human-readable display string for a shortcut combo, e.g. "Ctrl+D".

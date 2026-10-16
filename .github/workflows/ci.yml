@@ -246,6 +246,32 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
+  frontend-typecheck:
+    name: Frontend Type Check
+    # Purpose: `nuxt typecheck` (vue-tsc) was never run in CI, so ~650 type
+    # errors had accumulated across packages/core and the app pages. Keep it
+    # gated so the debt cannot creep back. Turbo runs every workspace
+    # `typecheck` task through the shared config in packages/core. Refs #107.
+    runs-on: ubuntu-latest
+    needs: frontend-lint
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Type check
+        run: pnpm typecheck
+
   frontend-build:
     name: Frontend Build
     runs-on: ubuntu-latest
