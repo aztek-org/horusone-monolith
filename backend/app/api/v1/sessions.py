@@ -4,6 +4,7 @@
 - ``POST /`` — any authenticated user can start a session
 - ``GET  /{session_id}`` — access verified per user / org
 - ``POST /{session_id}/complete`` — end session and trigger scoring
+- ``POST /{session_id}/instructor-response`` — release a held exchange (HITL)
 """
 
 from __future__ import annotations
@@ -23,10 +24,13 @@ from app.db.repositories.waypoint_repository import WaypointRepository
 from app.db.session import get_db_session
 from app.middleware.auth import CurrentUser, TokenUser
 from app.middleware.org_context import RequireActiveSeat, get_authenticated_user, get_org_id
+from app.models.seat import Seat
 from app.models.training_session import TrainingSession
 from app.models.training_session_event import TrainingSessionEvent
 from app.models.user import User
 from app.schemas.training_session import (
+    InstructorResponseRequest,
+    InstructorResponseResponse,
     ProvenanceEvent,
     ReplayBadge,
     ReplayInsight,
@@ -447,9 +451,98 @@ async def complete_session(
     return response
 
 
+@router.post(
+    "/{session_id}/instructor-response",
+    response_model=InstructorResponseResponse,
+)
+async def submit_instructor_response(
+    session_id: int,
+    data: InstructorResponseRequest,
+    request: Request,
+    user: CurrentUser,
+    seat: RequireActiveSeat,
+    local_user: User = Depends(get_authenticated_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> InstructorResponseResponse:
+    """Release an exchange that is awaiting instructor review (HITL).
+
+    Requires an active seat held with an instructor-capable role
+    (``instructor`` or ``admin``) in the session's organization; platform admins
+    are exempt.  Supplying ``instructor_response`` replaces the graph's answer,
+    omitting it releases the graph's own answer.  Releasing when nothing is
+    pending is a successful no-op (``applied`` is ``False``).
+    """
+    result = await session.execute(select(TrainingSession).where(TrainingSession.id == session_id))
+    training_session = result.scalar_one_or_none()
+    if training_session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session {session_id} not found",
+        )
+
+    _require_instructor_review(user, seat, training_session)
+
+    exchange = await request.app.state.session_module.await_instructor(
+        training_session.org_id,
+        training_session.id,
+        data.instructor_response,
+    )
+    if exchange is None:
+        logger.info(
+            "Instructor review for session %s had nothing pending (user=%s)",
+            session_id,
+            local_user.id,
+        )
+        return InstructorResponseResponse(session_id=session_id, applied=False)
+
+    logger.info(
+        "Session %s released by instructor (user=%s, overridden=%s)",
+        session_id,
+        local_user.id,
+        data.instructor_response is not None,
+    )
+    return InstructorResponseResponse(
+        session_id=training_session.id,
+        applied=True,
+        atc_response=exchange.atc_response,
+        exchange_count=exchange.exchange_count,
+        pending_instructor=exchange.pending_instructor,
+        instructor_overridden=data.instructor_response is not None,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+_INSTRUCTOR_SEAT_ROLES = frozenset({"instructor", "admin"})
+
+
+def _require_instructor_review(
+    user: TokenUser,
+    seat: Seat,
+    training_session: TrainingSession,
+) -> None:
+    """Authorize a held-exchange release, or raise 403.
+
+    Mirrors the instructor roster rule (``Seat.role in {instructor, admin}``),
+    then confines an instructor to their own tenant.  Platform admins are exempt
+    from both, matching every other session route.
+    """
+    if is_platform_admin(user):
+        return
+
+    if seat.role not in _INSTRUCTOR_SEAT_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an instructor may release a held exchange",
+        )
+
+    if training_session.org_id is None or not can_access_org(user, training_session.org_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this session",
+        )
 
 
 def _build_completion_response(

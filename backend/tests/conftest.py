@@ -122,6 +122,7 @@ class FakeSessionModule:
         self.started: list[object] = []
         self.ended: list[object] = []
         self.sent: list[object] = []
+        self.awaited: list[SimpleNamespace] = []
         self.debrief = debrief or Debrief(scoring={}, badges_earned=[], report="")
         self.start_error = start_error
         self.send_error = send_error
@@ -150,6 +151,31 @@ class FakeSessionModule:
             is_emergency=False,
             exchange_count=len(self.sent),
             pending_instructor=self.pending_instructor,
+            citations=[],
+        )
+
+    async def await_instructor(
+        self,
+        org_id: object,
+        session_id: int,
+        instructor_response: str | None = None,
+    ) -> SimpleNamespace | None:
+        self.awaited.append(
+            SimpleNamespace(
+                org_id=org_id,
+                session_id=session_id,
+                instructor_response=instructor_response,
+            )
+        )
+        if not self.pending_instructor:
+            return None
+        return SimpleNamespace(
+            atc_response=(
+                instructor_response if instructor_response is not None else self.atc_response
+            ),
+            is_emergency=False,
+            exchange_count=len(self.sent),
+            pending_instructor=False,
             citations=[],
         )
 

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class TrainingSessionBase(BaseModel):
@@ -66,6 +66,41 @@ class TrainingSessionCompletionResponse(BaseModel):
     badges_earned: list[str] = Field(default_factory=list)
     report: str = ""
     replay_path: str
+
+
+class InstructorResponseRequest(BaseModel):
+    """Instructor's release of a held exchange.
+
+    ``instructor_response`` absent or ``None`` releases the graph's own response;
+    any non-blank text replaces it and is recorded as an override.
+    """
+
+    instructor_response: str | None = Field(default=None, max_length=4000)
+
+    @field_validator("instructor_response")
+    @classmethod
+    def _reject_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("instructor_response must not be blank")
+        return stripped
+
+
+class InstructorResponseResponse(BaseModel):
+    """Outcome of releasing a held exchange.
+
+    ``applied`` is ``False`` when nothing was pending — the release is idempotent
+    rather than an error.
+    """
+
+    session_id: int
+    applied: bool
+    atc_response: str = ""
+    exchange_count: int = 0
+    pending_instructor: bool = False
+    instructor_overridden: bool = False
 
 
 class ReplayTrackPoint(BaseModel):

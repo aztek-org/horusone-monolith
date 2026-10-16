@@ -153,30 +153,32 @@ held exchange, recording `instructor_override` with `instructor_overridden=True`
 when text was supplied and `False` when the graph's own response was released;
 and the pending state is checkpointed, so it survives a backend restart.
 
-What is not real: **no route calls `await_instructor`** — `grep -rn
-await_instructor backend/app/api/` returns nothing — and **nothing sets the
-flag**. `interrupt_before_response` is a constructor argument of
-`TrainingSessionModule` (`app/services/training_sessions/session_module.py:61`)
-defaulting to `False`; the composition root `app/main.py:176-184` does not pass
-it, no `Settings` field sources it, and no `.env` template declares it.
-`ATCAgent` passes `False` explicitly. So in every deployment
-`instructor_overridden` is always `False` and the `awaiting_instructor` event is
-never emitted.
+Two of the three pieces have landed: the configuration field and the authorized
+route. What is not real is the frontend — a held exchange still returns an empty
+`atc_response` and the pilot hears silence, because no surface renders the
+pending state or calls the route ([#23](https://github.com/martinsgmx/horusone-mvp/issues/23)).
+The route stays inert while `interrupt_before_response` is `False`, the shipped
+default; and `ATCAgent` passes `False` explicitly, so voice-driven deployments
+never pause.
 
 **Turning it on is three pieces of work, not a flag flip:**
 
-1. a configuration field — a `Settings` key read at composition-root time and
-   passed as `interrupt_before_response`, guarded by the template/code-default
-   agreement test that ADR-009's "Shipped defaults are part of the contract"
-   requires for any new default;
-2. an authorized response route that calls `await_instructor`, behind the
-   existing active-seat check, the `instructor` seat role, and the tenant scoping
-   every other session route uses — today the method exists with no endpoint, so
-   a held exchange can never be released;
+1. ~~a configuration field~~ — landed in
+   [#21](https://github.com/martinsgmx/horusone-mvp/issues/21):
+   `llm.interrupt_before_response` (`LLM_INTERRUPT_BEFORE_RESPONSE`) read at
+   composition-root time and passed to `TrainingSessionModule`, guarded by the
+   template/code-default agreement test that ADR-009's "Shipped defaults are
+   part of the contract" requires for any new default;
+2. ~~an authorized response route that calls `await_instructor`~~ — landed in
+   [#22](https://github.com/martinsgmx/horusone-mvp/issues/22):
+   `POST /sessions/{session_id}/instructor-response`
+   (`app/api/v1/sessions.py`), behind the active-seat check, the
+   instructor-capable seat role (`instructor`/`admin`), and the tenant scoping
+   every other session route uses;
 3. a frontend pending state, because a held exchange returns an empty
    `atc_response` and the pilot currently hears silence.
 
-Until all three land, do not describe HITL as available. Both failure directions
+Until the third lands, do not describe HITL as available. Both failure directions
 are safety-relevant: a student pilot must never receive an AI response an
 instructor believed they had reviewed, and a session that stops responding with
 nothing to show for it is why the feature stays off.
