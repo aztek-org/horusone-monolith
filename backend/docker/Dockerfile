@@ -7,12 +7,18 @@ WORKDIR /build
 # Install uv
 RUN pip install uv
 
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# Copy the packaging inputs. hatchling needs README.md and the `app` package
+# (see [tool.hatch.build.targets.wheel]) to build the project wheel.
+COPY pyproject.toml uv.lock README.md ./
+COPY app/ ./app/
 
-# Create venv and install production dependencies only
-RUN uv venv /build/.venv && \
-    uv pip install --no-dev -e . --python /build/.venv/bin/python
+# Install the project and its runtime dependencies into a venv at /build/.venv.
+# Non-editable (`--no-editable`) so the installed package is self-contained in
+# the venv that gets copied into the runtime stage — an editable install would
+# point back at /build, which does not exist at runtime. `uv sync` omits the
+# optional `dev`/`otel` extras by default.
+ENV UV_PROJECT_ENVIRONMENT=/build/.venv
+RUN uv sync --no-editable
 
 # Stage 2: Runtime
 FROM python:3.11-slim AS runtime
