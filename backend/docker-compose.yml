@@ -5,7 +5,11 @@ services:
   # Routes: api.localhost → backend, auth.localhost → keycloak
   # ---------------------------------------------------------------------------
   traefik:
-    image: traefik:v3.1
+    # Built, not pulled: the edge middleware config (security headers, rate
+    # limit) is baked in so it never depends on a host bind mount.
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.traefik
     container_name: horus-traefik
     restart: unless-stopped
     command:
@@ -14,6 +18,7 @@ services:
       - "--ping=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.directory=/etc/traefik/dynamic"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
@@ -134,6 +139,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.keycloak.rule=Host(`auth.localhost`)"
       - "traefik.http.routers.keycloak.entrypoints=web"
+      - "traefik.http.routers.keycloak.middlewares=security-headers@file,rate-limit@file"
       - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
 
   # ---------------------------------------------------------------------------
@@ -149,6 +155,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.backend.rule=Host(`api.localhost`)"
       - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.routers.backend.middlewares=security-headers@file,rate-limit@file"
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
     env_file:
       - path: ./.env.docker

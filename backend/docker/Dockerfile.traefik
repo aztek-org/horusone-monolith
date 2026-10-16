@@ -1,0 +1,11 @@
+#  ============================================================================
+# Dockerfile.traefik — Traefik v3 with the edge middleware config baked in.
+#
+# The dynamic configuration is COPYed rather than bind-mounted from the host so
+# that the security-header and rate-limit middlewares are deterministically
+# present inside the container. A host bind mount can be missing or materialised
+# as an empty directory on some hosts, which would silently drop the middlewares.
+# ============================================================================
+FROM traefik:v3.1
+
+COPY traefik/dynamic.yml /etc/traefik/dynamic/dynamic.yml
