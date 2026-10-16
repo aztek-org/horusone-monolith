@@ -201,6 +201,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build all images
+        # docker-compose.yml requires these via ${VAR:?} (Keycloak realm demo
+        # users). Values are irrelevant to the build; set them so interpolation
+        # resolves.
+        env:
+          DEMO_ADMIN_PASSWORD: ci-not-a-secret
+          DEMO_USER_PASSWORD: ci-not-a-secret
         run: docker compose -f docker-compose.yml build
 
   frontend-lint:

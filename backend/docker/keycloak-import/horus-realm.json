@@ -58,7 +58,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "@dmin2026",
+          "value": "${DEMO_ADMIN_PASSWORD}",
           "temporary": false
         }
       ],
@@ -79,7 +79,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "stud3nt2026",
+          "value": "${DEMO_USER_PASSWORD}",
           "temporary": false
         }
       ],
@@ -102,7 +102,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "stud3nt2026",
+          "value": "${DEMO_USER_PASSWORD}",
           "temporary": false
         }
       ],
@@ -125,7 +125,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "stud3nt2026",
+          "value": "${DEMO_USER_PASSWORD}",
           "temporary": false
         }
       ],
@@ -148,7 +148,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "stud3nt2026",
+          "value": "${DEMO_USER_PASSWORD}",
           "temporary": false
         }
       ],

@@ -7,13 +7,18 @@
 
 ### Keycloak realm users
 
+Passwords are **not committed**. The realm stores `${DEMO_ADMIN_PASSWORD}` /
+`${DEMO_USER_PASSWORD}` placeholders that Keycloak resolves from the
+environment at import time; set those in `backend/.env` (local) or
+`backend/.env.prod` (production). See `backend/.env.example`.
+
 | Username / Email | Password | Realm roles | `organization_id` attribute |
 |---|---|---|---|
-| `admin@horusone.app` | `@dmin2026` | `platform-admin`, `org-admin` | _(empty)_ |
-| `sarah.mitchell@skybridge.aero` | `stud3nt2026` | `org-admin` | `skybridge` |
-| `james.chen@skybridge.aero` | `stud3nt2026` | `instructor` | `skybridge` |
-| `maria.santos@skybridge.aero` | `stud3nt2026` | `student` | `skybridge` |
-| `alex.turner@skybridge.aero` | `stud3nt2026` | `student` | `skybridge` |
+| `admin@horusone.app` | `${DEMO_ADMIN_PASSWORD}` | `platform-admin`, `org-admin` | _(empty)_ |
+| `sarah.mitchell@skybridge.aero` | `${DEMO_USER_PASSWORD}` | `org-admin` | `skybridge` |
+| `james.chen@skybridge.aero` | `${DEMO_USER_PASSWORD}` | `instructor` | `skybridge` |
+| `maria.santos@skybridge.aero` | `${DEMO_USER_PASSWORD}` | `student` | `skybridge` |
+| `alex.turner@skybridge.aero` | `${DEMO_USER_PASSWORD}` | `student` | `skybridge` |
 
 ## 1) Platform endpoints (current local setup)
 
@@ -86,6 +91,8 @@ From `backend/.env.prod.example` and `backend/docker-compose.prod.yml`
 - `POSTGRES_PASSWORD`
 - `KEYCLOAK_ADMIN_PASSWORD`
 - `KEYCLOAK_DB_PASSWORD`
+- `DEMO_ADMIN_PASSWORD`
+- `DEMO_USER_PASSWORD`
 - `REDIS_PASSWORD`
 - `ACME_EMAIL`
 - `API_HOSTNAME`
