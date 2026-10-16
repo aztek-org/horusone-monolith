@@ -7,7 +7,6 @@
     "dev": "nuxt dev --port 3001",
     "build": "nuxt build",
     "lint": "eslint ../../packages/core/app",
-    "test": "vitest run -c ../../vitest.config.ts",
     "typecheck": "nuxt typecheck",
     "prepare": "nuxt prepare",
     "clean": "rm -rf .nuxt .output .turbo dist node_modules/.cache"
