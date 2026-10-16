@@ -1,0 +1,42 @@
+# =============================================================================
+# dynamic-lan.yml — Traefik file-provider config for the LAN/self-hosted stack
+#
+# Loaded by docker-compose.lan.yml, which mounts this file read-only into the
+# baked dynamic directory (/etc/traefik/dynamic). Traefik terminates TLS with
+# the mkcert-generated certificate (see scripts/gen-lan-certs.sh) so the app is
+# served from a trusted secure context: crypto.subtle (PKCE sign-in) and
+# getUserMedia (voice) only exist over HTTPS or localhost (#73).
+#
+# The routers themselves are declared by the compose labels (backend, keycloak)
+# and the `app` router below. None set a certresolver, so they all fall back to
+# the default certificate in this store.
+# =============================================================================
+
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/lan.crt
+        keyFile: /certs/lan.key
+
+http:
+  routers:
+    # The Nuxt frontend, served over HTTPS from Traefik so the browser treats it
+    # as a secure context. Point this at your frontend: the default assumes a
+    # dev server (or a Nuxt node server) listening on the Docker host at :3000.
+    # Remove this router if the frontend is hosted elsewhere.
+    #
+    # The file provider cannot read env vars, so keep this host in sync with
+    # LAN_HOSTNAME (the compose labels use ${LAN_HOSTNAME:-horus.lan}).
+    app:
+      rule: Host(`app.horus.lan`)
+      entryPoints:
+        - websecure
+      service: app
+      tls: {}
+
+  services:
+    app:
+      loadBalancer:
+        servers:
+          - url: http://host.docker.internal:3000

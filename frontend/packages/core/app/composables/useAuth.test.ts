@@ -201,6 +201,33 @@ describe('useAuth', () => {
     expect(url.searchParams.get('state')).toBeTruthy()
   })
 
+  it('login() refuses on an insecure origin instead of throwing', async () => {
+    const storage = createMockSessionStorage()
+    const loc = createMockLocation()
+    vi.stubGlobal('sessionStorage', storage)
+    vi.stubGlobal('location', loc)
+
+    // crypto.subtle is unavailable in an insecure context; simulate the browser
+    // reporting it via the standard isSecureContext flag.
+    const win = window as unknown as Record<string, unknown>
+    const hadOwn = Object.prototype.hasOwnProperty.call(win, 'isSecureContext')
+    const previous = win.isSecureContext
+    win.isSecureContext = false
+    try {
+      const { useAuth } = await import('./useAuth')
+      const auth = useAuth()
+      auth.login()
+
+      expect(auth.error.value).toMatch(/HTTPS/i)
+      expect(storage.setItem).not.toHaveBeenCalled()
+      expect(loc.href).toBe('http://localhost:3000/auth/callback')
+    }
+    finally {
+      if (hadOwn) win.isSecureContext = previous
+      else Reflect.deleteProperty(win, 'isSecureContext')
+    }
+  })
+
   // -- handleCallback() -----------------------------------------------------
 
   it('handleCallback() exchanges the authorization code for tokens via POST', async () => {
