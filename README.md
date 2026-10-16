@@ -48,27 +48,37 @@ Real-time ATC voice communication practice powered by LLM inference, speech reco
 
 ## 🚀 Quick Start
 
+Prerequisites: Docker (Compose v2), Python 3.10/3.11, Node.js 22+, FFmpeg + libsndfile.
+`setup.sh` installs `uv` and `pnpm` if they are missing.
+
 ```bash
-# 1. Setup
-./setup.sh
-
-# 2. Start infrastructure
-cd backend
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis ollama
-
-# 3. Migrate + seed
-uv sync
-uv run alembic upgrade head
-uv run python -m scripts.seed
-
-# 4. Start backend
-./run_backend.sh
-
-# 5. Start frontend apps (new terminal)
-cd frontend
-pnpm install
-pnpm dev
+make setup     # deps, backend/.env, Docker infra, migrations, seed, Ollama models
+make up        # infra + backend (:8000) + frontends (:3000-3002) in the background
+make info      # what is running, where, DB counts, Ollama models
+make down      # stop everything (data volumes are kept)
 ```
+
+Run `make` with no arguments for every command, grouped by area. The ones you will use most:
+
+| Command | What it does |
+|---------|--------------|
+| `make up-infra` | Start only Docker infra (postgres, redis, ollama, keycloak) |
+| `make backend` / `make frontend` | Run one side in the foreground (after `make up-infra`) |
+| `make logs-backend` / `make logs-frontend` | Follow the logs of processes started by `make up` |
+| `make health` | Liveness + readiness of the backend |
+| `make migrate` · `make migrate-create MSG="..."` | Apply / autogenerate Alembic migrations |
+| `make seed` · `make db-reset` | Seed demo data (idempotent) · wipe Postgres and start over |
+| `make test-unit` | Backend tests that need no infrastructure |
+| `make test` | Backend (incl. Postgres tests, against a separate `horus_test` DB) + frontend tests |
+| `make lint` · `make typecheck` · `make format` | Ruff/ESLint · mypy · Ruff/Prettier |
+
+Notes:
+
+- `make up` needs ports 8000, 3000, 3001 and 3002 free and refuses to start otherwise
+  (the frontend dev proxy is hard-wired to `localhost:8000`).
+- Already running Ollama on the host? Use `make up OLLAMA_HOST=1` (and `make setup OLLAMA_HOST=1`)
+  so the Ollama container does not fight it for port 11434.
+- Doing it by hand instead: see [`docs/development.md`](docs/development.md).
 
 Open one of the frontend apps:
 

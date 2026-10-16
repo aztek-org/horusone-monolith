@@ -244,7 +244,7 @@ if [ ! -d ".venv" ]; then
 fi
 
 echo "Installing backend dependencies..."
-uv sync
+uv sync --extra dev
 echo -e "${GREEN}✓${NC} Backend dependencies installed"
 
 if [ ! -f ".env" ]; then
