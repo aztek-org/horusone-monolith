@@ -343,6 +343,7 @@ The API server starts at http://localhost:8000.
 | GET | `/api/v1/sessions/{id}/events` | Get ordered session lifecycle audit events |
 | GET | `/api/v1/sessions/{id}/replay` | Get replay payload (track, insights, voice logs, scoring) |
 | POST | `/api/v1/sessions/{id}/complete` | Complete active session (idempotent) and return replay path |
+| POST | `/api/v1/sessions/{id}/instructor-response` | Release a held exchange (HITL); instructor-capable seat required, idempotent when nothing is pending |
 
 #### Training Modules (`/api/v1/modules`)
 
