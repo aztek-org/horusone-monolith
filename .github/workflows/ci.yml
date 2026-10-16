@@ -188,6 +188,21 @@ jobs:
       - name: Run first-boot smoke check
         run: ./scripts/smoke-first-boot.sh
 
+  docker-build:
+    name: Docker Build
+    # Purpose: nothing else in CI ever builds the container images, so a broken
+    # Dockerfile or build context only surfaces at deploy time (that is how the
+    # backend image went unbuilt — issue #97). Build every image (backend,
+    # postgres, keycloak) to keep the containerization honest. Refs #20/#68.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build all images
+        run: docker compose -f docker-compose.yml build
+
   frontend-lint:
     name: Frontend Lint
     runs-on: ubuntu-latest
