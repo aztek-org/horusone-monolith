@@ -386,9 +386,10 @@ test-cov: ## Run backend tests with a coverage report (needs make up-infra)
 lint: lint-backend lint-frontend ## Lint everything
 
 .PHONY: lint-backend
-lint-backend: ## Lint backend (ruff check)
+lint-backend: ## Lint backend (ruff check + format check)
 	@echo "$(BOLD)═══ Backend Lint ═══$(RESET)"
 	@$(UV_RUN) ruff check app/
+	@$(UV_RUN) ruff format --check app/
 
 .PHONY: lint-frontend
 lint-frontend: ## Lint frontend (ESLint)
