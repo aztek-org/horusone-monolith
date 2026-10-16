@@ -8,7 +8,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   collapsible: false,
-  defaultExpanded: true
+  defaultExpanded: true,
 })
 
 const isExpanded = ref(props.defaultExpanded)
@@ -26,12 +26,16 @@ function toggle() {
       v-if="title"
       :class="[
         'flex items-center gap-2 w-full text-left',
-        collapsible && 'cursor-pointer hover:text-horus-text-primary'
+        collapsible && 'cursor-pointer hover:text-horus-text-primary',
       ]"
       :disabled="!collapsible"
       @click="toggle"
     >
-      <Icon v-if="icon" :name="icon" class="w-4 h-4 text-horus-accent-cyan" />
+      <Icon
+        v-if="icon"
+        :name="icon"
+        class="w-4 h-4 text-horus-accent-cyan"
+      />
       <span class="text-xs font-semibold uppercase tracking-wider text-horus-text-secondary flex-1">
         {{ title }}
       </span>
@@ -40,11 +44,11 @@ function toggle() {
         name="heroicons:chevron-down-20-solid"
         :class="[
           'w-4 h-4 text-horus-text-muted transition-transform duration-200',
-          !isExpanded && '-rotate-90'
+          !isExpanded && '-rotate-90',
         ]"
       />
     </button>
-    
+
     <div
       v-show="!collapsible || isExpanded"
       :class="['space-y-2', collapsible && 'animate-fade-in']"

@@ -16,6 +16,7 @@ from langgraph.graph.message import add_messages
 
 # ── Enumerations ──────────────────────────────────────────────────────
 
+
 class SessionPhase(str, Enum):
     """High-level training pipeline phases."""
 
@@ -79,21 +80,22 @@ def advance_exchange(state: Mapping[str, Any]) -> dict[str, Any]:
 
 # ── Sub-state TypedDicts ──────────────────────────────────────────────
 
+
 class FlightPlanState(TypedDict, total=False):
     """Flight plan data flowing through validation / execution."""
 
     departure_icao: str
     arrival_icao: str
     alternate_icao: str | None
-    route: list[dict]           # waypoints with lat, lng, name, constraints
+    route: list[dict]  # waypoints with lat, lng, name, constraints
     aircraft_type: str
-    fuel_on_board: float        # gallons
-    fuel_reserve: float         # gallons
-    total_weight: float         # lbs
-    max_weight: float           # lbs
-    flight_rules: str           # "VFR" or "IFR"
-    cruise_altitude: int        # feet
-    cruise_speed: int           # knots TAS
+    fuel_on_board: float  # gallons
+    fuel_reserve: float  # gallons
+    total_weight: float  # lbs
+    max_weight: float  # lbs
+    flight_rules: str  # "VFR" or "IFR"
+    cruise_altitude: int  # feet
+    cruise_speed: int  # knots TAS
     estimated_time_enroute: float  # minutes
 
 
@@ -105,19 +107,19 @@ class WeatherState(TypedDict, total=False):
     alternate_metar: str | None
     departure_taf: str | None
     arrival_taf: str | None
-    flight_category: str        # VFR / MVFR / IFR / LIFR
+    flight_category: str  # VFR / MVFR / IFR / LIFR
     hazards: list[str]
     recommendations: list[str]
-    briefing_text: str          # LLM-generated natural-language briefing
+    briefing_text: str  # LLM-generated natural-language briefing
 
 
 class FuelState(TypedDict, total=False):
     """Fuel calculation results from the fuel agent."""
 
-    total_burn: float           # gallons
-    reserve_required: float     # gallons (legal minimum)
-    reserve_available: float    # gallons (fuel_on_board − total_burn)
-    legs: list[dict]            # per-leg breakdown
+    total_burn: float  # gallons
+    reserve_required: float  # gallons (legal minimum)
+    reserve_available: float  # gallons (fuel_on_board − total_burn)
+    legs: list[dict]  # per-leg breakdown
     sufficient: bool
     message: str
 
@@ -126,14 +128,14 @@ class RouteInfo(TypedDict, total=False):
     """Route analysis from the route agent."""
 
     total_distance_nm: float
-    legs: list[dict]            # per-leg distance, heading, ETE
+    legs: list[dict]  # per-leg distance, heading, ETE
     suggestions: list[str]
 
 
 class AirspaceInfo(TypedDict, total=False):
     """Airspace analysis from the airspace agent."""
 
-    intersections: list[dict]   # airspace class, restrictions
+    intersections: list[dict]  # airspace class, restrictions
     required_clearances: list[str]
     required_equipment: list[str]
 
@@ -141,7 +143,7 @@ class AirspaceInfo(TypedDict, total=False):
 class AircraftPerformance(TypedDict, total=False):
     """Performance analysis from the performance agent."""
 
-    v_speeds: dict              # Vs, Vx, Vy, Vno, Vne, etc.
+    v_speeds: dict  # Vs, Vx, Vy, Vno, Vne, etc.
     density_altitude: int | None
     climb_rate_fpm: int
     descent_rate_fpm: int
@@ -155,7 +157,7 @@ class ValidationResult(TypedDict):
 
     agent: str
     passed: bool
-    severity: str               # info / warning / critical
+    severity: str  # info / warning / critical
     message: str
     details: dict | None
 
@@ -164,16 +166,17 @@ class ScoringResult(TypedDict, total=False):
     """Post-session scoring produced by the student tier + gamification agents."""
 
     communication_score: float  # 0-100
-    decision_score: float       # 0-100
-    procedure_score: float      # 0-100
-    overall_score: float        # 0-100
-    grade: str                  # A / B / C / D / F
+    decision_score: float  # 0-100
+    procedure_score: float  # 0-100
+    overall_score: float  # 0-100
+    grade: str  # A / B / C / D / F
     strengths: list[str]
     improvements: list[str]
     summary: str
 
 
 # ── Master State ──────────────────────────────────────────────────────
+
 
 class HorusState(TypedDict, total=False):
     """Master state shared by the Horus validation, live, and scoring graphs.
@@ -187,8 +190,8 @@ class HorusState(TypedDict, total=False):
     messages: Annotated[list, add_messages]
     session_id: str | None
     user_id: str | None
-    org_id: str | None          # owning tenant; None means no tenant is in scope
-    phase: str                  # SessionPhase value
+    org_id: str | None  # owning tenant; None means no tenant is in scope
+    phase: str  # SessionPhase value
 
     # ── Flight plan & validation
     flight_plan: FlightPlanState | None
@@ -205,7 +208,7 @@ class HorusState(TypedDict, total=False):
     atc_response: str | None
     exchange_count: int
     current_waypoint_index: int
-    session_phase_detail: str   # briefing / taxi / takeoff / cruise / approach / landing
+    session_phase_detail: str  # briefing / taxi / takeoff / cruise / approach / landing
     performance_notes: list[str]
     is_emergency: bool
 
@@ -214,11 +217,11 @@ class HorusState(TypedDict, total=False):
     badges_earned: list[str]
 
     # ── Context and provenance
-    language: str               # "en" or "es"
-    context: dict               # flight context (callsign, altitude, etc.)
+    language: str  # "en" or "es"
+    context: dict  # flight context (callsign, altitude, etc.)
     scene_version: str
     prompt_version: str
-    knowledge_refs: list[str]   # documents this session's Scene may cite
+    knowledge_refs: list[str]  # documents this session's Scene may cite
     retrieved_chunk_ids: list[str]
     llm_provider: str
     llm_model: str

@@ -46,9 +46,7 @@ EMERGENCY_RESPONSES: dict[str, str] = {
         "{callsign}, roger MAYDAY. All aircraft on frequency, remain clear. "
         "{callsign}, state souls on board, fuel remaining, and nature of emergency."
     ),
-    "pan_pan": (
-        "{callsign}, roger PAN PAN. State nature of urgency and assistance required."
-    ),
+    "pan_pan": ("{callsign}, roger PAN PAN. State nature of urgency and assistance required."),
     "engine_failure": (
         "{callsign}, roger engine failure. Nearest suitable airport is {nearest_airport}. "
         "Turn heading {heading} for vectors. Say altitude and souls on board."
@@ -61,17 +59,13 @@ EMERGENCY_RESPONSES: dict[str, str] = {
         "{callsign}, roger fire reported. Cleared direct {nearest_airport}, "
         "descend and maintain {altitude}. Emergency equipment alerted."
     ),
-    "squawk_7700": (
-        "{callsign}, squawk confirmed 7700. State nature of emergency."
-    ),
+    "squawk_7700": ("{callsign}, squawk confirmed 7700. State nature of emergency."),
     "squawk_7600": (
         "{callsign}, if you read, squawk 7600 acknowledged. "
         "Proceed to {nearest_airport} via last assigned route. "
         "Comply with lost communication procedures."
     ),
-    "squawk_7500": (
-        "{callsign}, squawk 7500 acknowledged."
-    ),
+    "squawk_7500": ("{callsign}, squawk 7500 acknowledged."),
     "medical": (
         "{callsign}, roger medical emergency. Closest airport with medical "
         "services is {nearest_airport}. Cleared direct, descend at pilot's discretion. "
@@ -167,7 +161,7 @@ def handle_emergency(state: HorusState) -> dict[str, Any]:
     )
 
     notes.append(f"EMERGENCY: {emergency_type} detected (urgency: {urgency})")
-    notes.append(f"Student correctly declared emergency — positive training point")
+    notes.append("Student correctly declared emergency — positive training point")
 
     logger.info(
         "Emergency agent: type=%s, urgency=%s, callsign=%s",

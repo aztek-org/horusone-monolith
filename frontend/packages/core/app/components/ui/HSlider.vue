@@ -15,7 +15,7 @@ const props = withDefaults(defineProps<Props>(), {
   max: 100,
   step: 1,
   showValue: true,
-  variant: 'default'
+  variant: 'default',
 })
 
 const emit = defineEmits<{
@@ -59,15 +59,24 @@ function handleInput(event: Event) {
 
 <template>
   <div class="space-y-2">
-    <div v-if="label || showValue" class="flex items-center justify-between">
-      <span v-if="label" class="text-xs font-medium text-horus-text-secondary uppercase tracking-wider">
+    <div
+      v-if="label || showValue"
+      class="flex items-center justify-between"
+    >
+      <span
+        v-if="label"
+        class="text-xs font-medium text-horus-text-secondary uppercase tracking-wider"
+      >
         {{ label }}
       </span>
-      <span v-if="showValue" :class="['text-sm font-mono', valueColorClass]">
+      <span
+        v-if="showValue"
+        :class="['text-sm font-mono', valueColorClass]"
+      >
         {{ displayValue }}
       </span>
     </div>
-    
+
     <div class="relative">
       <!-- Track background -->
       <div class="w-full h-1.5 bg-horus-bg-secondary rounded-full overflow-hidden">
@@ -77,7 +86,7 @@ function handleInput(event: Event) {
           :style="{ width: `${percentage}%` }"
         />
       </div>
-      
+
       <!-- Native range input (invisible but functional) -->
       <input
         type="range"
@@ -87,7 +96,7 @@ function handleInput(event: Event) {
         :step="step"
         class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         @input="handleInput"
-      />
+      >
     </div>
   </div>
 </template>

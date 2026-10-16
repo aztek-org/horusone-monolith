@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mount, config as testConfig } from '@vue/test-utils'
-import { defineComponent, nextTick } from 'vue'
+import { mount } from '@vue/test-utils'
+import { defineComponent } from 'vue'
 
 // ---------------------------------------------------------------------------
 // localStorage mock
@@ -14,10 +14,10 @@ function createMockLocalStorage() {
       store[key] = val
     }),
     removeItem: vi.fn((key: string) => {
-      delete store[key]
+      Reflect.deleteProperty(store, key)
     }),
     clear: vi.fn(() => {
-      for (const k of Object.keys(store)) delete store[k]
+      for (const k of Object.keys(store)) Reflect.deleteProperty(store, k)
     }),
     _store: store,
   }
@@ -243,8 +243,8 @@ describe('useKeyboardShortcuts', () => {
   // -- resetToDefaults ------------------------------------------------------
 
   it('resetToDefaults restores factory bindings but keeps registered actions', async () => {
-    const { shortcuts, updateBinding, resetToDefaults, registerAction } =
-      await loadComposable()
+    const { shortcuts, updateBinding, resetToDefaults, registerAction }
+      = await loadComposable()
 
     const action = vi.fn()
     registerAction('push_to_talk', action)
@@ -273,8 +273,8 @@ describe('useKeyboardShortcuts', () => {
   // -- Recording mode -------------------------------------------------------
 
   it('startRecording / stopRecording toggle recording state', async () => {
-    const { isRecording, recordingId, startRecording, stopRecording } =
-      await loadComposable()
+    const { isRecording, recordingId, startRecording, stopRecording }
+      = await loadComposable()
 
     startRecording('push_to_talk')
     expect(isRecording.value).toBe(true)

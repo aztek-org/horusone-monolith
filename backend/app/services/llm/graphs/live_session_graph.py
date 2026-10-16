@@ -79,9 +79,7 @@ def _prompt_context(scene: SceneConfig, context: dict[str, Any]) -> dict[str, An
         "weather": "",
     }
     untrusted_context = {
-        key: value
-        for key, value in context.items()
-        if key not in _CONTROLLED_PROMPT_KEYS
+        key: value for key, value in context.items() if key not in _CONTROLLED_PROMPT_KEYS
     }
     return {**scene_context, **untrusted_context}
 

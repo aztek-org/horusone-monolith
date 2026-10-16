@@ -34,9 +34,7 @@ class ContentRepository:
         Returns:
             List of ContentCategory rows ordered by sort_order.
         """
-        query = select(ContentCategory).options(
-            selectinload(ContentCategory.children)
-        )
+        query = select(ContentCategory).options(selectinload(ContentCategory.children))
         if not include_inactive:
             query = query.where(ContentCategory.is_active.is_(True))
         query = query.order_by(ContentCategory.sort_order, ContentCategory.name)
@@ -44,9 +42,7 @@ class ContentRepository:
         result = await db.execute(query)
         return list(result.scalars().unique().all())
 
-    async def get_category_by_slug(
-        self, db: AsyncSession, slug: str
-    ) -> ContentCategory | None:
+    async def get_category_by_slug(self, db: AsyncSession, slug: str) -> ContentCategory | None:
         """Get a single category by slug with its articles eagerly loaded.
 
         Args:
@@ -68,9 +64,7 @@ class ContentRepository:
 
     # ── Articles ───────────────────────────────────────────────────
 
-    async def get_article_by_slug(
-        self, db: AsyncSession, slug: str
-    ) -> ContentArticle | None:
+    async def get_article_by_slug(self, db: AsyncSession, slug: str) -> ContentArticle | None:
         """Get a single article by slug and increment its view count.
 
         Args:
@@ -80,9 +74,7 @@ class ContentRepository:
         Returns:
             The ContentArticle, or None.
         """
-        result = await db.execute(
-            select(ContentArticle).where(ContentArticle.slug == slug)
-        )
+        result = await db.execute(select(ContentArticle).where(ContentArticle.slug == slug))
         article = result.scalar_one_or_none()
         if article is not None:
             await db.execute(
@@ -138,9 +130,7 @@ class ContentRepository:
         Returns:
             The updated ContentArticle, or None if not found.
         """
-        result = await db.execute(
-            select(ContentArticle).where(ContentArticle.id == article_id)
-        )
+        result = await db.execute(select(ContentArticle).where(ContentArticle.id == article_id))
         article = result.scalar_one_or_none()
         if article is None:
             return None
@@ -209,9 +199,7 @@ class ContentRepository:
             return []
 
         # Sanitise: replace spaces with & for AND-style matching
-        sanitised = " & ".join(
-            word for word in query.strip().split() if word
-        )
+        sanitised = " & ".join(word for word in query.strip().split() if word)
 
         try:
             ts_query = func.to_tsquery("english", sanitised)
@@ -225,9 +213,7 @@ class ContentRepository:
                     ts_vector.op("@@")(ts_query),
                     ContentArticle.is_published.is_(True),
                 )
-                .order_by(
-                    func.ts_rank(ts_vector, ts_query).desc()
-                )
+                .order_by(func.ts_rank(ts_vector, ts_query).desc())
                 .limit(limit)
                 .offset(offset)
             )
@@ -244,10 +230,7 @@ class ContentRepository:
                 select(ContentArticle)
                 .where(
                     ContentArticle.is_published.is_(True),
-                    (
-                        ContentArticle.title.ilike(pattern)
-                        | ContentArticle.content.ilike(pattern)
-                    ),
+                    (ContentArticle.title.ilike(pattern) | ContentArticle.content.ilike(pattern)),
                 )
                 .order_by(ContentArticle.created_at.desc())
                 .limit(limit)

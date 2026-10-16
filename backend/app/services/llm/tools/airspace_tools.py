@@ -134,14 +134,15 @@ CLASS_E_DEFAULT: dict[str, Any] = {
 
 # ── Lookup functions ──────────────────────────────────────────────────
 
+
 def _distance_nm(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     """Quick Haversine (duplicated to keep this module self-contained)."""
     import math
 
     φ1, φ2 = math.radians(lat1), math.radians(lat2)
-    Δφ = math.radians(lat2 - lat1)
-    Δλ = math.radians(lng2 - lng1)
-    a = math.sin(Δφ / 2) ** 2 + math.cos(φ1) * math.cos(φ2) * math.sin(Δλ / 2) ** 2
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lng2 - lng1)
+    a = math.sin(d_phi / 2) ** 2 + math.cos(φ1) * math.cos(φ2) * math.sin(d_lambda / 2) ** 2
     return 3440.065 * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
@@ -160,10 +161,7 @@ def check_airspace(lat: float, lng: float, altitude: int) -> dict[str, Any]:
         dist = _distance_nm(lat, lng, center_lat, center_lng)
 
         for ring in data["rings"]:
-            if (
-                dist <= ring["radius_nm"]
-                and ring["floor_ft"] <= altitude <= ring["ceiling_ft"]
-            ):
+            if dist <= ring["radius_nm"] and ring["floor_ft"] <= altitude <= ring["ceiling_ft"]:
                 return {
                     "class": data["class"],
                     "airport": icao,

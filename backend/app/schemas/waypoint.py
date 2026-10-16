@@ -8,7 +8,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 # ── Waypoint ──────────────────────────────────────────────────────
 
 
@@ -55,12 +54,8 @@ class ScenarioWaypointCreate(BaseModel):
 
     waypoint_id: uuid.UUID
     sequence_order: int = Field(..., ge=0)
-    altitude_constraint: str | None = Field(
-        default=None, max_length=20
-    )
-    speed_constraint: str | None = Field(
-        default=None, max_length=20
-    )
+    altitude_constraint: str | None = Field(default=None, max_length=20)
+    speed_constraint: str | None = Field(default=None, max_length=20)
     notes: str | None = Field(default=None, max_length=500)
 
 

@@ -36,13 +36,9 @@ class Waypoint(Base):
 
     __tablename__ = "waypoints"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    identifier: Mapped[str | None] = mapped_column(
-        String(10), nullable=True, index=True
-    )
+    identifier: Mapped[str | None] = mapped_column(String(10), nullable=True, index=True)
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     lat: Mapped[float] = mapped_column(Float, nullable=False)
     lng: Mapped[float] = mapped_column(Float, nullable=False)
@@ -57,15 +53,10 @@ class Waypoint(Base):
     )
 
     # ── Relationships ──────────────────────────────────────────────
-    scenario_waypoints: Mapped[list[ScenarioWaypoint]] = relationship(
-        back_populates="waypoint"
-    )
+    scenario_waypoints: Mapped[list[ScenarioWaypoint]] = relationship(back_populates="waypoint")
 
     def __repr__(self) -> str:
-        return (
-            f"<Waypoint id={self.id} name={self.name!r} "
-            f"type={self.type!r}>"
-        )
+        return f"<Waypoint id={self.id} name={self.name!r} type={self.type!r}>"
 
 
 class ScenarioWaypoint(Base):
@@ -79,14 +70,13 @@ class ScenarioWaypoint(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "scenario_id", "sequence_order",
+            "scenario_id",
+            "sequence_order",
             name="uq_scenario_waypoint_order",
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     scenario_id: Mapped[int] = mapped_column(
         ForeignKey("scenarios.id", ondelete="CASCADE"),
         nullable=False,
@@ -99,25 +89,16 @@ class ScenarioWaypoint(Base):
         index=True,
     )
     sequence_order: Mapped[int] = mapped_column(Integer, nullable=False)
-    altitude_constraint: Mapped[str | None] = mapped_column(
-        String(20), nullable=True
-    )
-    speed_constraint: Mapped[str | None] = mapped_column(
-        String(20), nullable=True
-    )
+    altitude_constraint: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    speed_constraint: Mapped[str | None] = mapped_column(String(20), nullable=True)
     notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # ── Relationships ──────────────────────────────────────────────
     scenario: Mapped[Scenario] = relationship(back_populates="waypoints")
-    waypoint: Mapped[Waypoint] = relationship(
-        back_populates="scenario_waypoints"
-    )
+    waypoint: Mapped[Waypoint] = relationship(back_populates="scenario_waypoints")
 
     def __repr__(self) -> str:
-        return (
-            f"<ScenarioWaypoint scenario={self.scenario_id} "
-            f"seq={self.sequence_order}>"
-        )
+        return f"<ScenarioWaypoint scenario={self.scenario_id} seq={self.sequence_order}>"
 
 
 class SessionTrack(Base):
@@ -129,9 +110,7 @@ class SessionTrack(Base):
 
     __tablename__ = "session_tracks"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id: Mapped[int] = mapped_column(
         ForeignKey("training_sessions.id", ondelete="CASCADE"),
         unique=True,
@@ -141,9 +120,7 @@ class SessionTrack(Base):
     track_points: Mapped[list] = mapped_column(  # type: ignore[type-arg]
         JSONB, nullable=False, server_default="[]"
     )
-    total_distance_nm: Mapped[float | None] = mapped_column(
-        Float, nullable=True
-    )
+    total_distance_nm: Mapped[float | None] = mapped_column(Float, nullable=True)
     recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -165,9 +142,7 @@ class FlightInsight(Base):
 
     __tablename__ = "flight_insights"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id: Mapped[int] = mapped_column(
         ForeignKey("training_sessions.id", ondelete="CASCADE"),
         nullable=False,
@@ -177,9 +152,7 @@ class FlightInsight(Base):
     severity: Mapped[str] = mapped_column(String(20), nullable=False)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    timestamp_in_session: Mapped[float] = mapped_column(
-        Float, nullable=False
-    )
+    timestamp_in_session: Mapped[float] = mapped_column(Float, nullable=False)
     extra_data: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
         "metadata", JSONB, nullable=False, server_default="{}"
     )
@@ -191,7 +164,4 @@ class FlightInsight(Base):
     session: Mapped[TrainingSession] = relationship()
 
     def __repr__(self) -> str:
-        return (
-            f"<FlightInsight id={self.id} type={self.type!r} "
-            f"severity={self.severity!r}>"
-        )
+        return f"<FlightInsight id={self.id} type={self.type!r} severity={self.severity!r}>"

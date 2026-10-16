@@ -59,9 +59,7 @@ class KnowledgeIngestor:
         ``docs/knowledge/INGEST.md`` for the operator-facing statement.
         """
         text, hints = extract_text(upload.source_filename, upload.content)
-        spans = chunk_document(
-            text, self._settings.chunk_size, self._settings.chunk_overlap
-        )
+        spans = chunk_document(text, self._settings.chunk_size, self._settings.chunk_overlap)
         existing = await self._count_org_chunks(db, upload.org_id)
         if existing + len(spans) > self._settings.default_chunk_quota:
             raise QuotaExceeded(f"org {upload.org_id} would exceed chunk quota")
@@ -83,8 +81,7 @@ class KnowledgeIngestor:
             embedding = await self._llm.embed([text[start:end] for start, end, _ in spans])
             if embedding.dimensions != self._settings.embedding_dimensions:
                 raise EmbeddingDimensionMismatch(
-                    f"expected {self._settings.embedding_dimensions}, "
-                    f"got {embedding.dimensions}"
+                    f"expected {self._settings.embedding_dimensions}, got {embedding.dimensions}"
                 )
 
             for index, ((start, end, token_count), vector) in enumerate(
@@ -127,9 +124,7 @@ class KnowledgeIngestor:
                         org_id=upload.org_id,
                         status="failed",
                         embedding_model=self._embedding_model,
-                        embedding_dimensions=(
-                            embedding.dimensions if embedding is not None else 0
-                        ),
+                        embedding_dimensions=(embedding.dimensions if embedding is not None else 0),
                         chunk_size=self._settings.chunk_size,
                         chunk_overlap=self._settings.chunk_overlap,
                         chunk_count=len(spans),

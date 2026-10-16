@@ -40,7 +40,7 @@ class WhisperSTTService:
             sample_rate = 16000
 
             # Detect audio format by magic bytes
-            is_webm = audio_data[:4] == b'\x1aE\xdf\xa3'
+            is_webm = audio_data[:4] == b"\x1aE\xdf\xa3"
 
             # Try to read as a standard audio file (WAV, etc.)
             try:
@@ -112,7 +112,8 @@ class WhisperSTTService:
 
             try:
                 effective_language = language or (
-                    None if self.settings.whisper_language == "auto"
+                    None
+                    if self.settings.whisper_language == "auto"
                     else self.settings.whisper_language
                 )
 
@@ -136,7 +137,9 @@ class WhisperSTTService:
             logger.error(f"Error transcribing audio: {e}", exc_info=True)
             return "", "en"
 
-    async def transcribe_stream(self, audio_chunks: list[bytes], language: str | None = None) -> tuple[str, str]:
+    async def transcribe_stream(
+        self, audio_chunks: list[bytes], language: str | None = None
+    ) -> tuple[str, str]:
         """Transcribe a stream of audio chunks.
 
         Args:
@@ -154,6 +157,7 @@ class WhisperSTTService:
             return self._ffmpeg_available
         try:
             import subprocess
+
             subprocess.run(["ffmpeg", "-version"], capture_output=True, timeout=3)
             self._ffmpeg_available = True
         except Exception:

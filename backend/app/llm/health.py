@@ -42,7 +42,5 @@ async def probe_endpoint(
         return "unreachable"
     if response.is_success:
         return "ok"
-    logger.warning(
-        "LLM health probe to %s returned %s", url, response.status_code
-    )
+    logger.warning("LLM health probe to %s returned %s", url, response.status_code)
     return "degraded"

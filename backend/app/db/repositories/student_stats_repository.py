@@ -23,9 +23,7 @@ class StudentStatsRepository:
 
     # ── Aggregate stats ────────────────────────────────────────────
 
-    async def get_user_stats(
-        self, db: AsyncSession, user_id: uuid.UUID
-    ) -> StudentStats:
+    async def get_user_stats(self, db: AsyncSession, user_id: uuid.UUID) -> StudentStats:
         """Get or create the aggregated stats row for a user.
 
         Args:
@@ -35,9 +33,7 @@ class StudentStatsRepository:
         Returns:
             The StudentStats row (created with zeroes if not found).
         """
-        result = await db.execute(
-            select(StudentStats).where(StudentStats.user_id == user_id)
-        )
+        result = await db.execute(select(StudentStats).where(StudentStats.user_id == user_id))
         stats = result.scalar_one_or_none()
         if stats is None:
             stats = StudentStats(user_id=user_id)
@@ -47,9 +43,7 @@ class StudentStatsRepository:
             logger.info("Created StudentStats for user %s", user_id)
         return stats
 
-    async def update_aggregates(
-        self, db: AsyncSession, user_id: uuid.UUID
-    ) -> StudentStats:
+    async def update_aggregates(self, db: AsyncSession, user_id: uuid.UUID) -> StudentStats:
         """Recalculate totals from flight-hour and maneuver logs.
 
         Args:
@@ -71,9 +65,7 @@ class StudentStatsRepository:
 
         # Total maneuvers
         maneuver_count_result = await db.execute(
-            select(func.count(ManeuverLog.id)).where(
-                ManeuverLog.user_id == user_id
-            )
+            select(func.count(ManeuverLog.id)).where(ManeuverLog.user_id == user_id)
         )
         stats.total_maneuvers = int(maneuver_count_result.scalar_one())
 
@@ -184,10 +176,7 @@ class StudentStatsRepository:
             query = query.where(ManeuverLog.maneuver_type == maneuver_type)
 
         result = await db.execute(
-            query
-            .order_by(ManeuverLog.created_at.desc())
-            .limit(limit)
-            .offset(offset)
+            query.order_by(ManeuverLog.created_at.desc()).limit(limit).offset(offset)
         )
         return list(result.scalars().all())
 
@@ -258,8 +247,6 @@ class StudentStatsRepository:
         # Ownership is enforced at the route level; repo returns data.
 
         result = await db.execute(
-            select(VoiceLog)
-            .where(VoiceLog.session_id == session_id)
-            .order_by(VoiceLog.created_at)
+            select(VoiceLog).where(VoiceLog.session_id == session_id).order_by(VoiceLog.created_at)
         )
         return list(result.scalars().all())

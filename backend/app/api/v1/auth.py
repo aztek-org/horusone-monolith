@@ -223,10 +223,7 @@ class UserProfile(BaseModel):
     enabled_features: list[str] = []
 
 
-async def _get_active_organization(
-    session: AsyncSession, local_user: User
-):
-    from app.models.organization import Organization
+async def _get_active_organization(session: AsyncSession, local_user: User):
 
     if local_user.seats:
         for s in local_user.seats:
@@ -248,9 +245,7 @@ async def get_current_user_profile(
     can access.
     """
     result = await session.execute(
-        select(Seat)
-        .options(selectinload(Seat.organization))
-        .where(Seat.user_id == local_user.id)
+        select(Seat).options(selectinload(Seat.organization)).where(Seat.user_id == local_user.id)
     )
     seats = list(result.scalars().all())
 

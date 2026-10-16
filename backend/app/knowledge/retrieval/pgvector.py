@@ -29,9 +29,7 @@ class PgVectorRetriever:
         settings: KnowledgeSettings,
     ) -> None:
         candidate_factory = db_factory()
-        if hasattr(candidate_factory, "__call__") and not hasattr(
-            candidate_factory, "__aenter__"
-        ):
+        if hasattr(candidate_factory, "__call__") and not hasattr(candidate_factory, "__aenter__"):
             self._db_factory = candidate_factory
         else:
             self._db_factory = db_factory
@@ -73,8 +71,7 @@ class PgVectorRetriever:
             embedding = await self._llm.embed([query.query])
             if embedding.dimensions != self._settings.embedding_dimensions:
                 raise EmbeddingDimensionMismatch(
-                    f"expected {self._settings.embedding_dimensions}, "
-                    f"got {embedding.dimensions}"
+                    f"expected {self._settings.embedding_dimensions}, got {embedding.dimensions}"
                 )
 
         filters = [
@@ -133,7 +130,9 @@ class PgVectorRetriever:
         ]
 
     @staticmethod
-    def _record_row(row, scores: dict[UUID, float], chunks: dict[UUID, RetrievedChunk], score: float) -> None:
+    def _record_row(
+        row, scores: dict[UUID, float], chunks: dict[UUID, RetrievedChunk], score: float
+    ) -> None:
         """Add one SQL row to the RRF accumulator."""
         chunk, document = row[0], row[1]
         chunk_id = chunk.id

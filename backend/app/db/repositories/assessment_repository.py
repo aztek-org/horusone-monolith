@@ -41,19 +41,14 @@ class AssessmentRepository:
 
         if org_id is not None:
             query = query.where(
-                (KnowledgeAssessment.org_id == org_id)
-                | KnowledgeAssessment.org_id.is_(None)
+                (KnowledgeAssessment.org_id == org_id) | KnowledgeAssessment.org_id.is_(None)
             )
         if module_id is not None:
             query = query.where(KnowledgeAssessment.module_id == module_id)
         if is_published is not None:
-            query = query.where(
-                KnowledgeAssessment.is_published == is_published
-            )
+            query = query.where(KnowledgeAssessment.is_published == is_published)
 
-        result = await db.execute(
-            query.order_by(KnowledgeAssessment.created_at.desc())
-        )
+        result = await db.execute(query.order_by(KnowledgeAssessment.created_at.desc()))
         return list(result.scalars().all())
 
     async def get_assessment(
@@ -69,9 +64,7 @@ class AssessmentRepository:
             The KnowledgeAssessment or None.
         """
         result = await db.execute(
-            select(KnowledgeAssessment).where(
-                KnowledgeAssessment.id == assessment_id
-            )
+            select(KnowledgeAssessment).where(KnowledgeAssessment.id == assessment_id)
         )
         return result.scalar_one_or_none()
 
@@ -165,7 +158,10 @@ class AssessmentRepository:
         await db.refresh(result_obj)
         logger.info(
             "Assessment %s submitted by %s — score=%.1f passed=%s",
-            assessment_id, user_id, score, passed,
+            assessment_id,
+            user_id,
+            score,
+            passed,
         )
         return result_obj
 

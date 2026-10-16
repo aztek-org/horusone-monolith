@@ -479,11 +479,11 @@ export function useAuth(): AuthState & AuthActions {
           refreshTokenValue.value = data.refreshToken
           idTokenValue.value = data.idToken
           user.value = data.user
-      seats.value = data.seats ?? []
+          seats.value = data.seats ?? []
           hasActiveSeat.value = data.hasActiveSeat ?? false
           activeSeat.value = data.activeSeat ?? null
           enabledFeatures.value = data.enabledFeatures ?? ['hangar', 'squawk', 'tower']
-      enabledFeatures.value = data.enabledFeatures ?? ['hangar', 'squawk', 'tower']
+          enabledFeatures.value = data.enabledFeatures ?? ['hangar', 'squawk', 'tower']
 
           // Schedule token refresh based on remaining lifetime
           if (accessToken.value) {
@@ -507,7 +507,10 @@ export function useAuth(): AuthState & AuthActions {
         }
       }
       catch {
-        try { sessionStorage.removeItem('horus-auth') } catch { /* noop */ }
+        try {
+          sessionStorage.removeItem('horus-auth')
+        }
+        catch { /* noop */ }
       }
     }
     isLoading.value = false

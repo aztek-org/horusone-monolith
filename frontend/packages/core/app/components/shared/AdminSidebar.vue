@@ -42,11 +42,18 @@ function isActive(item: NavItem): boolean {
       <div class="px-2">
         <div class="flex items-center gap-2">
           <div class="w-7 h-7 rounded-lg bg-horus-accent-cyan/20 flex items-center justify-center">
-            <Icon name="heroicons:shield-check" class="w-4 h-4 text-horus-accent-cyan" />
+            <Icon
+              name="heroicons:shield-check"
+              class="w-4 h-4 text-horus-accent-cyan"
+            />
           </div>
           <div>
-            <h2 class="text-sm font-semibold text-horus-text-primary">Admin Panel</h2>
-            <p class="text-xxs text-horus-text-muted uppercase tracking-wider">Platform Management</p>
+            <h2 class="text-sm font-semibold text-horus-text-primary">
+              Admin Panel
+            </h2>
+            <p class="text-xxs text-horus-text-muted uppercase tracking-wider">
+              Platform Management
+            </p>
           </div>
         </div>
       </div>
@@ -61,14 +68,14 @@ function isActive(item: NavItem): boolean {
             'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
             isActive(item)
               ? 'bg-horus-accent-cyan/10 text-horus-accent-cyan border border-horus-accent-cyan/20'
-              : 'text-horus-text-secondary hover:text-horus-text-primary hover:bg-horus-bg-tertiary border border-transparent'
+              : 'text-horus-text-secondary hover:text-horus-text-primary hover:bg-horus-bg-tertiary border border-transparent',
           ]"
         >
           <Icon
             :name="item.icon"
             :class="[
               'w-5 h-5 flex-shrink-0',
-              isActive(item) ? 'text-horus-accent-cyan' : 'text-horus-text-muted'
+              isActive(item) ? 'text-horus-accent-cyan' : 'text-horus-text-muted',
             ]"
           />
           {{ item.label }}
@@ -83,7 +90,10 @@ function isActive(item: NavItem): boolean {
         to="/dashboard"
         class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-horus-text-muted hover:text-horus-text-primary hover:bg-horus-bg-tertiary transition-colors"
       >
-        <Icon name="heroicons:arrow-left" class="w-5 h-5 flex-shrink-0" />
+        <Icon
+          name="heroicons:arrow-left"
+          class="w-5 h-5 flex-shrink-0"
+        />
         Back to App
       </NuxtLink>
     </div>

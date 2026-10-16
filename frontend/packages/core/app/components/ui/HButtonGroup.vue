@@ -11,8 +11,8 @@ interface Props {
   size?: 'sm' | 'md'
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  size: 'md'
+withDefaults(defineProps<Props>(), {
+  size: 'md',
 })
 
 const emit = defineEmits<{
@@ -21,7 +21,7 @@ const emit = defineEmits<{
 
 const sizeClasses = {
   sm: 'px-2 py-1 text-xs',
-  md: 'px-3 py-1.5 text-sm'
+  md: 'px-3 py-1.5 text-sm',
 }
 </script>
 
@@ -35,11 +35,15 @@ const sizeClasses = {
         sizeClasses[size],
         modelValue === option.value
           ? 'bg-horus-accent-cyan text-horus-bg-primary shadow-sm'
-          : 'text-horus-text-secondary hover:text-horus-text-primary hover:bg-horus-bg-tertiary'
+          : 'text-horus-text-secondary hover:text-horus-text-primary hover:bg-horus-bg-tertiary',
       ]"
       @click="emit('update:modelValue', option.value)"
     >
-      <Icon v-if="option.icon" :name="option.icon" class="w-4 h-4" />
+      <Icon
+        v-if="option.icon"
+        :name="option.icon"
+        class="w-4 h-4"
+      />
       {{ option.label }}
     </button>
   </div>

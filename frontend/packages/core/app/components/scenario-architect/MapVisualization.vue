@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import type { Map as LeafletMap, Layer } from 'leaflet'
+import type { Map as LeafletMap } from 'leaflet'
 
 const { waypoints } = useWaypoints()
-const { flightData, formattedPosition } = useFlightData()
 
 // Map refs
 const mapContainer = ref<HTMLElement | null>(null)
@@ -11,9 +10,9 @@ const L = ref<any>(null)
 
 // Cursor position tracking
 const cursorPosition = ref({
-  lat: "20°31'N",
-  lon: "103°18'W",
-  elevation: '5016 FT'
+  lat: '20°31\'N',
+  lon: '103°18\'W',
+  elevation: '5016 FT',
 })
 
 // Mock flight path coordinates (Guadalajara area - Miguel Hidalgo Airport)
@@ -29,7 +28,7 @@ const flightPathCoords: [number, number][] = [
 const waypointCoords = computed(() => {
   return waypoints.value.map((wp, index) => ({
     ...wp,
-    coords: flightPathCoords[index] || flightPathCoords[flightPathCoords.length - 1]
+    coords: flightPathCoords[index] || flightPathCoords[flightPathCoords.length - 1],
   }))
 })
 
@@ -54,21 +53,21 @@ onMounted(async () => {
     // Add OpenStreetMap tiles with dark theme
     L.value.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      className: 'map-tiles-dark'
+      className: 'map-tiles-dark',
     }).addTo(map.value)
 
     // Add flight path polyline
-    const flightPath = L.value.polyline(flightPathCoords, {
+    L.value.polyline(flightPathCoords, {
       color: '#00d4ff',
       weight: 3,
       opacity: 0.8,
       smoothFactor: 1,
-      className: 'flight-path-line'
+      className: 'flight-path-line',
     }).addTo(map.value)
 
     // Add waypoint markers
     waypointCoords.value.forEach((wp) => {
-      const markerColor = getMarkerColor(wp.status)
+      const _markerColor = getMarkerColor(wp.status)
       const markerIcon = L.value.divIcon({
         className: 'custom-waypoint-marker',
         html: `
@@ -78,7 +77,7 @@ onMounted(async () => {
           </div>
         `,
         iconSize: [16, 16],
-        iconAnchor: [8, 8]
+        iconAnchor: [8, 8],
       })
 
       L.value.marker(wp.coords, { icon: markerIcon }).addTo(map.value)
@@ -96,7 +95,7 @@ onMounted(async () => {
         </div>
       `,
       iconSize: [24, 24],
-      iconAnchor: [12, 12]
+      iconAnchor: [12, 12],
     })
 
     L.value.marker(aircraftPosition, { icon: aircraftIcon }).addTo(map.value)
@@ -108,7 +107,7 @@ onMounted(async () => {
         cursorPosition.value = {
           lat: formatCoordinate(lat, 'lat'),
           lon: formatCoordinate(lng, 'lon'),
-          elevation: '5016 FT' // Mock elevation (Guadalajara)
+          elevation: '5016 FT', // Mock elevation (Guadalajara)
         }
       })
     }
@@ -128,7 +127,7 @@ function getMarkerColor(status: string): string {
     event: '#ef4444',
     warning: '#f59e0b',
     pending: '#00d4ff',
-    active: '#10b981'
+    active: '#10b981',
   }
   return colors[status] || '#00d4ff'
 }
@@ -163,7 +162,11 @@ function toggleLayers() {
 </script>
 
 <template>
-  <HCard variant="glass" padding="none" class="relative overflow-hidden">
+  <HCard
+    variant="glass"
+    padding="none"
+    class="relative overflow-hidden"
+  >
     <!-- Grid Overlay -->
     <div class="grid-overlay" />
 
@@ -194,22 +197,31 @@ function toggleLayers() {
       <!-- Zoom Controls -->
       <div class="flex items-center gap-2">
         <button
+          class="w-10 h-10 rounded-lg bg-horus-bg-primary/90 backdrop-blur-sm border border-horus-border-subtle flex items-center justify-center text-horus-text-secondary hover:text-horus-text-primary hover:border-horus-accent-cyan/50 transition-colors"
           @click="zoomIn"
-          class="w-10 h-10 rounded-lg bg-horus-bg-primary/90 backdrop-blur-sm border border-horus-border-subtle flex items-center justify-center text-horus-text-secondary hover:text-horus-text-primary hover:border-horus-accent-cyan/50 transition-colors"
         >
-          <Icon name="heroicons:plus" class="w-5 h-5" />
+          <Icon
+            name="heroicons:plus"
+            class="w-5 h-5"
+          />
         </button>
         <button
+          class="w-10 h-10 rounded-lg bg-horus-bg-primary/90 backdrop-blur-sm border border-horus-border-subtle flex items-center justify-center text-horus-text-secondary hover:text-horus-text-primary hover:border-horus-accent-cyan/50 transition-colors"
           @click="zoomOut"
-          class="w-10 h-10 rounded-lg bg-horus-bg-primary/90 backdrop-blur-sm border border-horus-border-subtle flex items-center justify-center text-horus-text-secondary hover:text-horus-text-primary hover:border-horus-accent-cyan/50 transition-colors"
         >
-          <Icon name="heroicons:minus" class="w-5 h-5" />
+          <Icon
+            name="heroicons:minus"
+            class="w-5 h-5"
+          />
         </button>
         <button
-          @click="toggleLayers"
           class="w-10 h-10 rounded-lg bg-horus-accent-cyan/20 border border-horus-accent-cyan/30 flex items-center justify-center text-horus-accent-cyan hover:bg-horus-accent-cyan/30 transition-colors"
+          @click="toggleLayers"
         >
-          <Icon name="heroicons:square-3-stack-3d" class="w-5 h-5" />
+          <Icon
+            name="heroicons:square-3-stack-3d"
+            class="w-5 h-5"
+          />
         </button>
       </div>
     </div>

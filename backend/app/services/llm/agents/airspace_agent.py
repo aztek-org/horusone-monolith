@@ -37,12 +37,14 @@ def check_airspace_restrictions(state: HorusState) -> dict[str, Any]:
                 alt = int(alt)
             except ValueError:
                 alt = cruise_altitude
-        enriched.append({
-            "lat": wp.get("lat", 0.0),
-            "lng": wp.get("lng", 0.0),
-            "name": wp.get("name", "UNKNOWN"),
-            "altitude": alt,
-        })
+        enriched.append(
+            {
+                "lat": wp.get("lat", 0.0),
+                "lng": wp.get("lng", 0.0),
+                "name": wp.get("name", "UNKNOWN"),
+                "altitude": alt,
+            }
+        )
 
     intersections = get_route_airspace(enriched)
 
@@ -76,33 +78,39 @@ def check_airspace_restrictions(state: HorusState) -> dict[str, Any]:
 
     # Validation results
     if class_b_entries:
-        results.append({
-            "agent": "airspace",
-            "passed": True,
-            "severity": Severity.WARNING.value,
-            "message": (
-                f"Route enters Class B airspace near: "
-                f"{', '.join(class_b_entries)}. ATC clearance required."
-            ),
-            "details": {"class_b_waypoints": class_b_entries},
-        })
+        results.append(
+            {
+                "agent": "airspace",
+                "passed": True,
+                "severity": Severity.WARNING.value,
+                "message": (
+                    f"Route enters Class B airspace near: "
+                    f"{', '.join(class_b_entries)}. ATC clearance required."
+                ),
+                "details": {"class_b_waypoints": class_b_entries},
+            }
+        )
     else:
-        results.append({
-            "agent": "airspace",
-            "passed": True,
-            "severity": Severity.INFO.value,
-            "message": "Route does not intersect Class B airspace.",
-            "details": None,
-        })
+        results.append(
+            {
+                "agent": "airspace",
+                "passed": True,
+                "severity": Severity.INFO.value,
+                "message": "Route does not intersect Class B airspace.",
+                "details": None,
+            }
+        )
 
     if all_equipment:
-        results.append({
-            "agent": "airspace",
-            "passed": True,
-            "severity": Severity.INFO.value,
-            "message": f"Required equipment: {', '.join(sorted(all_equipment))}.",
-            "details": {"equipment": sorted(all_equipment)},
-        })
+        results.append(
+            {
+                "agent": "airspace",
+                "passed": True,
+                "severity": Severity.INFO.value,
+                "message": f"Required equipment: {', '.join(sorted(all_equipment))}.",
+                "details": {"equipment": sorted(all_equipment)},
+            }
+        )
 
     logger.info(
         "Airspace agent: %d intersections, %d Class B entries",

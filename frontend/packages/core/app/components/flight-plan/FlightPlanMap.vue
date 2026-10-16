@@ -32,7 +32,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'waypoint-click': [waypoint: WaypointMarker]
-  'map-click': [latlng: { lat: number; lon: number }]
+  'map-click': [latlng: { lat: number, lon: number }]
 }>()
 
 const mapContainer = ref<HTMLElement | null>(null)
@@ -217,7 +217,7 @@ onMounted(async () => {
   }).addTo(map.value)
 
   // Mouse tracking
-  map.value.on('mousemove', (e: { latlng: { lat: number; lng: number } }) => {
+  map.value.on('mousemove', (e: { latlng: { lat: number, lng: number } }) => {
     cursorPosition.value = {
       lat: formatCoordinate(e.latlng.lat, 'lat'),
       lon: formatCoordinate(e.latlng.lng, 'lon'),
@@ -226,7 +226,7 @@ onMounted(async () => {
 
   // Click to add waypoints
   if (props.interactive) {
-    map.value.on('click', (e: { latlng: { lat: number; lng: number } }) => {
+    map.value.on('click', (e: { latlng: { lat: number, lng: number } }) => {
       emit('map-click', { lat: e.latlng.lat, lon: e.latlng.lng })
     })
   }
@@ -250,7 +250,11 @@ function zoomOut() {
 </script>
 
 <template>
-  <HCard variant="glass" padding="none" class="relative overflow-hidden">
+  <HCard
+    variant="glass"
+    padding="none"
+    class="relative overflow-hidden"
+  >
     <!-- Map Container -->
     <div
       ref="mapContainer"
@@ -276,13 +280,19 @@ function zoomOut() {
           class="w-9 h-9 rounded-lg bg-horus-bg-primary/90 backdrop-blur-sm border border-horus-border-subtle flex items-center justify-center text-horus-text-secondary hover:text-horus-text-primary hover:border-horus-accent-cyan/50 transition-colors"
           @click="zoomIn"
         >
-          <Icon name="heroicons:plus" class="w-4 h-4" />
+          <Icon
+            name="heroicons:plus"
+            class="w-4 h-4"
+          />
         </button>
         <button
           class="w-9 h-9 rounded-lg bg-horus-bg-primary/90 backdrop-blur-sm border border-horus-border-subtle flex items-center justify-center text-horus-text-secondary hover:text-horus-text-primary hover:border-horus-accent-cyan/50 transition-colors"
           @click="zoomOut"
         >
-          <Icon name="heroicons:minus" class="w-4 h-4" />
+          <Icon
+            name="heroicons:minus"
+            class="w-4 h-4"
+          />
         </button>
       </div>
     </div>

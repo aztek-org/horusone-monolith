@@ -17,7 +17,7 @@ const defaultState: SimulationState = {
   routeId: '',
   startTime: null,
   latency: 24,
-  systemLoad: 1.2
+  systemLoad: 1.2,
 }
 
 export const useSimulationState = () => {
@@ -34,7 +34,7 @@ export const useSimulationState = () => {
       missionId,
       routeId,
       startTime: new Date(),
-      progress: 0
+      progress: 0,
     }
   }
 
@@ -81,6 +81,6 @@ export const useSimulationState = () => {
     stopSimulation,
     resetSimulation,
     updateProgress,
-    updateMetrics
+    updateMetrics,
   }
 }

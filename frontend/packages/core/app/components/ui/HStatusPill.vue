@@ -7,7 +7,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   online: true,
-  variant: 'default'
+  variant: 'default',
 })
 
 const dotClass = computed(() => {
@@ -34,7 +34,10 @@ const textClass = computed(() => {
 <template>
   <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-horus-bg-secondary/80 border border-horus-border-subtle">
     <span :class="['w-2 h-2 rounded-full', dotClass, online && 'animate-pulse']" />
-    <span v-if="label" :class="['text-xs font-medium', textClass]">
+    <span
+      v-if="label"
+      :class="['text-xs font-medium', textClass]"
+    >
       {{ label }}
     </span>
     <slot v-else />

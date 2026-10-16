@@ -30,13 +30,19 @@ const trendColor = computed(() => {
 </script>
 
 <template>
-  <HCard variant="default" padding="md">
+  <HCard
+    variant="default"
+    padding="md"
+  >
     <div class="flex items-start gap-3">
       <div
         v-if="icon"
         class="w-10 h-10 rounded-lg bg-horus-accent-cyan/10 flex items-center justify-center flex-shrink-0"
       >
-        <Icon :name="icon" class="w-5 h-5 text-horus-accent-cyan" />
+        <Icon
+          :name="icon"
+          class="w-5 h-5 text-horus-accent-cyan"
+        />
       </div>
 
       <div class="flex-1 min-w-0">
@@ -48,14 +54,26 @@ const trendColor = computed(() => {
           <span class="text-2xl font-bold text-horus-text-primary font-mono">
             {{ value }}
           </span>
-          <span v-if="unit" class="text-xs text-horus-text-secondary">
+          <span
+            v-if="unit"
+            class="text-xs text-horus-text-secondary"
+          >
             {{ unit }}
           </span>
         </div>
 
-        <div v-if="trend && trend !== 'stable'" class="flex items-center gap-1 mt-1.5">
-          <Icon :name="trendIcon" :class="['w-4 h-4', trendColor]" />
-          <span v-if="trendValue" :class="['text-xs font-mono', trendColor]">
+        <div
+          v-if="trend && trend !== 'stable'"
+          class="flex items-center gap-1 mt-1.5"
+        >
+          <Icon
+            :name="trendIcon"
+            :class="['w-4 h-4', trendColor]"
+          />
+          <span
+            v-if="trendValue"
+            :class="['text-xs font-mono', trendColor]"
+          >
             {{ trendValue }}
           </span>
         </div>

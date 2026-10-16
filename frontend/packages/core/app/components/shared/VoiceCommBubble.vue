@@ -2,10 +2,6 @@
   <div class="fixed bottom-10 right-4 z-50">
     <!-- Main mic button -->
     <button
-      @mousedown="handleMouseDown"
-      @mouseup="handleMouseUp"
-      @touchstart="handleTouchStart"
-      @touchend="handleTouchEnd"
       :disabled="!status.connected || status.processing"
       :class="[
         'relative w-16 h-16 rounded-full shadow-lg transition-all duration-300',
@@ -14,6 +10,10 @@
         buttonClasses,
       ]"
       :title="buttonTitle"
+      @mousedown="handleMouseDown"
+      @mouseup="handleMouseUp"
+      @touchstart="handleTouchStart"
+      @touchend="handleTouchEnd"
     >
       <!-- Mic Icon -->
       <Icon
@@ -82,7 +82,7 @@
         class="absolute bottom-full right-0 mb-2 w-64 p-3 bg-horus-bg-elevated border border-horus-border-accent rounded-lg shadow-xl"
       >
         <p class="text-sm text-horus-text-secondary">
-          <strong class="text-horus-text-primary">Push to talk:</strong><br />
+          <strong class="text-horus-text-primary">Push to talk:</strong><br>
           Press and hold to speak with ATC
         </p>
         <div class="mt-2 flex items-center gap-2 text-xs text-horus-text-muted">
@@ -139,7 +139,8 @@ function loadSettings() {
       if (parsed.shortcuts?.pushToTalk) {
         pushToTalkKey.value = parsed.shortcuts.pushToTalk
       }
-    } catch (e) {
+    }
+    catch (e) {
       console.error('Failed to load settings:', e)
     }
   }
@@ -154,7 +155,7 @@ watch(isAuthenticated, async (authed) => {
 // Auto-connect on mount if already authenticated
 onMounted(async () => {
   if (isAuthenticated.value) await connect()
-  
+
   // Load settings
   loadSettings()
 
@@ -166,7 +167,7 @@ onMounted(async () => {
   // Add keyboard event listeners
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('keyup', handleKeyUp)
-  
+
   // Listen for storage changes to update settings in real-time
   window.addEventListener('storage', handleStorageChange)
 })
@@ -254,7 +255,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
   if (e.ctrlKey && !pressedKey.includes('CONTROL')) pressedKey = `Ctrl+${pressedKey}`
   if (e.altKey && !pressedKey.includes('ALT')) pressedKey = `Alt+${pressedKey}`
   if (e.shiftKey && pressedKey.length > 1 && !pressedKey.includes('SHIFT')) pressedKey = `Shift+${pressedKey}`
-  
+
   // Check if the configured key is pressed
   if (pressedKey === pushToTalkKey.value.toUpperCase() && !isKeyPressed.value) {
     // Prevent key repeat
@@ -280,7 +281,7 @@ const handleKeyUp = (e: KeyboardEvent) => {
   if (e.ctrlKey && !releasedKey.includes('CONTROL')) releasedKey = `Ctrl+${releasedKey}`
   if (e.altKey && !releasedKey.includes('ALT')) releasedKey = `Alt+${releasedKey}`
   if (e.shiftKey && releasedKey.length > 1 && !releasedKey.includes('SHIFT')) releasedKey = `Shift+${releasedKey}`
-  
+
   // Check if the configured key is released
   if (releasedKey === pushToTalkKey.value.toUpperCase() && isKeyPressed.value) {
     isKeyPressed.value = false
